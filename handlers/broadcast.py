@@ -1,0 +1,60 @@
+import asyncio
+from telegram import Update
+from telegram.ext import ContextTypes
+from telegram.error import RetryAfter
+from database import db
+from middleware.auth import require_admin
+
+STATE = "BROADCAST_WAIT_MSG"
+
+
+async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await require_admin(update, context):
+        return
+    user_id = update.effective_user.id
+    db.set_session(user_id, STATE, {})
+    await update.message.reply_text("Tulis pesan:")
+
+
+async def handle_broadcast_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    sess = db.get_session(user_id)
+    if sess["state"] != STATE:
+        return
+
+    # Guard: prevent double broadcast if admin sends message twice concurrently
+    data = dict(sess.get("data", {}))
+    if data.get("is_processing"):
+        return
+    data["is_processing"] = True
+    db.set_session(user_id, STATE, data)
+
+    message = update.message.text.strip()
+    all_ids = db.get_all_user_ids()
+    success = 0
+    fail = 0
+
+    await update.message.reply_text(f"Mengirim ke {len(all_ids)} user...")
+
+    for uid in all_ids:
+        try:
+            await context.bot.send_message(chat_id=uid, text=message)
+            success += 1
+            await asyncio.sleep(0.05)
+        except RetryAfter as e:
+            # Telegram flood limit — tunggu lalu kirim ulang sekali
+            await asyncio.sleep(e.retry_after + 1)
+            try:
+                await context.bot.send_message(chat_id=uid, text=message)
+                success += 1
+            except Exception:
+                fail += 1
+        except Exception:
+            fail += 1
+
+    db.log_broadcast(user_id, message, success, fail)
+    db.clear_session(user_id)
+
+    await update.message.reply_text(
+        f"Selesai.\nBerhasil: {success}\nGagal: {fail}"
+    )

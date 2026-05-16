@@ -1,0 +1,78 @@
+"""
+media_broadcast.py — Admin-only: kirim iklan berupa foto atau video ke semua user.
+"""
+from telegram import Update
+from telegram.ext import ContextTypes
+from database import db
+from middleware.auth import require_admin
+from config import ADMIN_IDS
+import asyncio
+
+STATE = "WAIT_BROADCAST_MEDIA"
+
+async def cmd_media_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await require_admin(update, context):
+        return
+    db.set_session(update.effective_user.id, STATE, {})
+    await update.message.reply_text("Kirim Foto atau Video yang akan di-broadcast:")
+
+async def handle_broadcast_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    sess = db.get_session(user_id)
+    if not sess or sess.get("state") != STATE:
+        return
+
+    # Deteksi jenis media
+    media = None
+    media_type = None
+    
+    if update.message.photo:
+        media = update.message.photo[-1].file_id
+        media_type = "photo"
+    elif update.message.video:
+        media = update.message.video.file_id
+        media_type = "video"
+    elif update.message.animation:
+        media = update.message.animation.file_id
+        media_type = "animation"
+    else:
+        await update.message.reply_text("Gagal. Kirim foto, video, atau GIF.")
+        return
+
+    caption = update.message.caption or ""
+    db.clear_session(user_id)
+
+    # Ambil semua user
+    users = db.get_all_users_detail()
+    await update.message.reply_text(f"Memulai broadcast media ke {len(users)} user...")
+
+    from telegram.error import RetryAfter
+
+    async def send_one(uid):
+        if media_type == "photo":
+            await context.bot.send_photo(chat_id=uid, photo=media, caption=caption)
+        elif media_type == "video":
+            await context.bot.send_video(chat_id=uid, video=media, caption=caption)
+        elif media_type == "animation":
+            await context.bot.send_animation(chat_id=uid, animation=media, caption=caption)
+
+    success = 0
+    fail = 0
+    for u in users:
+        uid = u["id"]
+        try:
+            await send_one(uid)
+            success += 1
+            await asyncio.sleep(0.05)  # Anti rate-limit
+        except RetryAfter as e:
+            # Telegram flood limit — tunggu lalu kirim ulang sekali
+            await asyncio.sleep(e.retry_after + 1)
+            try:
+                await send_one(uid)
+                success += 1
+            except Exception:
+                fail += 1
+        except Exception:
+            fail += 1
+            
+    await update.message.reply_text(f"Broadcast Selesai.\nBerhasil: {success}\nGagal: {fail}")
