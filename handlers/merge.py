@@ -31,6 +31,17 @@ def get_user_lock(user_id: int) -> asyncio.Lock:
     return _user_locks[user_id]
 
 
+def cleanup_inactive_users(inactive_ids: list) -> int:
+    cleaned = 0
+    for uid in inactive_ids:
+        _user_locks.pop(uid, None)
+        timer = _user_timers.pop(uid, None)
+        if timer:
+            timer.cancel()
+        cleaned += 1
+    return cleaned
+
+
 async def _debounce_notify(user_id: int, context, chat_id: int):
     try:
         await asyncio.sleep(1)

@@ -17,6 +17,15 @@ def get_user_lock(user_id: int) -> asyncio.Lock:
         _user_locks[user_id] = asyncio.Lock()
     return _user_locks[user_id]
 
+
+def cleanup_inactive_users(inactive_ids: list) -> int:
+    cleaned = 0
+    for uid in inactive_ids:
+        _user_locks.pop(uid, None)
+        cleaned += 1
+    return cleaned
+
+
 STATES = {
     "WAIT_ADMIN_NUMBERS": "AN_STEP1",
     "WAIT_NAVY_NUMBERS":  "AN_STEP2",

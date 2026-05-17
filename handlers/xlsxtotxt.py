@@ -4,34 +4,47 @@ import csv
 import logging
 import asyncio
 from io import BytesIO
-from telegram import Update, Document
+from telegram import Update
 from telegram.ext import ContextTypes
 from database import db
 from middleware.session import get_user_dir
-from core.utils import sanitize_filename
 
 logger = logging.getLogger(__name__)
 
 STATE = "XLSX2TXT_COLLECTING"
 
-_master_locks: dict = {}
+_master_locks: dict[int, asyncio.Lock] = {}
+_status_msg: dict = {}
+_debounce_tasks: dict[int, asyncio.Task] = {}
+
+DEBOUNCE_SECONDS = 1.2
+
+PHONE_REGEX = re.compile(r'\+?(?:\d[\s\-\(\)\.]*){8,16}')
+
 
 def _get_master_lock(user_id: int) -> asyncio.Lock:
     if user_id not in _master_locks:
         _master_locks[user_id] = asyncio.Lock()
     return _master_locks[user_id]
 
-# Regex cerdas untuk menangkap format Internasional (+593, 1, 60, dll) maupun Lokal (08xx)
-# Didukung penangkapan spasi, strip, atau kurung (misal: +593 99-341-1006)
-PHONE_REGEX = re.compile(r'\+?(?:\d[\s\-\(\)\.]*){8,16}')
+
+def cleanup_inactive_locks(inactive_ids: list) -> int:
+    for uid in inactive_ids:
+        _master_locks.pop(uid, None)
+        _status_msg.pop(uid, None)
+        task = _debounce_tasks.pop(uid, None)
+        if task:
+            task.cancel()
+    return len(inactive_ids)
+
 
 def _extract_numbers_sync(filepath: str, ext: str) -> list:
-    """Ekstrak nomor HP dari Excel/CSV secara sinkron via openpyxl/csv (BERURUTAN)"""
     numbers = []
     seen = set()
     try:
         def process_cell(cell_value):
-            if not cell_value: return
+            if not cell_value:
+                return
             text = str(cell_value)
             for m in PHONE_REGEX.findall(text):
                 clean_num = re.sub(r'[^0-9]', '', m)
@@ -43,70 +56,107 @@ def _extract_numbers_sync(filepath: str, ext: str) -> list:
 
         if ext == ".csv":
             with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
-                reader = csv.reader(f)
-                for row in reader:
+                for row in csv.reader(f):
                     for cell in row:
                         process_cell(cell)
         else:
             import openpyxl
             wb = openpyxl.load_workbook(filepath, data_only=True, read_only=True)
             for sheet in wb.sheetnames:
-                ws = wb[sheet]
-                for row in ws.iter_rows(values_only=True):
+                for row in wb[sheet].iter_rows(values_only=True):
                     for cell in row:
                         process_cell(cell)
             wb.close()
-            
     except Exception as e:
         logger.error("Error ekstrak %s: %s", filepath, e)
     return numbers
+
+
+def _status_text(total_file: int, total_kontak: int) -> str:
+    return (
+        f"📊 <b>Sedang mengumpulkan...</b>\n\n"
+        f"├ File diterima : <b>{total_file}</b>\n"
+        f"└ Nomor unik    : <b>{total_kontak:,}</b>\n\n"
+        f"<i>Ketik /done jika sudah selesai.</i>"
+    )
+
+
+def _schedule_move(chat_id: int, bot, user_id: int):
+    old_task = _debounce_tasks.get(user_id)
+    if old_task and not old_task.done():
+        old_task.cancel()
+
+    async def _wait_then_move():
+        await asyncio.sleep(DEBOUNCE_SECONDS)
+        sess = db.get_session(user_id)
+        if not sess or sess.get("state") != STATE:
+            return
+        data = sess["data"]
+        text = _status_text(data["total_file"], data["total_kontak"])
+        old = _status_msg.get(user_id)
+        if old:
+            try:
+                await old.delete()
+            except Exception:
+                pass
+        try:
+            new_msg = await bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
+            _status_msg[user_id] = new_msg
+        except Exception:
+            pass
+
+    task = asyncio.get_event_loop().create_task(_wait_then_move())
+    _debounce_tasks[user_id] = task
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 async def cmd_xlsxtotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from middleware.auth import require_member
     if not await require_member(update, context):
         return
-        
+
     user_id = update.effective_user.id
     db.increment_usage(user_id)
 
-    # Hanya bersihkan subfolder xlsx, bukan seluruh user_dir
     import shutil
-    user_dir = get_user_dir(user_id)
-    xlsx_dir = os.path.join(user_dir, "xlsxtotxt")
+    xlsx_dir = os.path.join(get_user_dir(user_id), "xlsxtotxt")
     shutil.rmtree(xlsx_dir, ignore_errors=True)
     os.makedirs(xlsx_dir, exist_ok=True)
 
     master_txt = os.path.join(xlsx_dir, "extracted_numbers.txt")
     open(master_txt, 'w').close()
-    
+
     db.set_session(user_id, STATE, {"total_kontak": 0, "total_file": 0})
-    await update.message.reply_text(
-        "Kirim file Excel (.xlsx) atau CSV (.csv).\n"
-        "Klik /done jika selesai."
+
+    msg = await update.message.reply_text(
+        "📊 <b>Kirim file Excel atau CSV</b>\n\n"
+        "Bisa kirim banyak sekaligus (.xlsx / .csv).\n"
+        "Ketik /done jika sudah selesai.",
+        parse_mode="HTML",
     )
+    _status_msg[user_id] = msg
+
 
 async def handle_xlsxtotxt_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
     if not sess or sess.get("state") != STATE:
         return
-        
+
     doc = update.message.document
     if not doc or not doc.file_name:
-        await update.message.reply_text("Kirim file .xlsx atau .csv.")
         return
-        
+
     ext = os.path.splitext(doc.file_name)[1].lower()
-    if ext not in [".xlsx", ".csv"]:
-        await update.message.reply_text("Format tidak didukung. Gunakan .xlsx atau .csv (bukan .xls lama).")
+    if ext not in (".xlsx", ".csv"):
+        await update.message.reply_text("Format tidak didukung. Gunakan .xlsx atau .csv.")
         return
-        
-    user_dir = get_user_dir(user_id)
-    xlsx_dir = os.path.join(user_dir, "xlsxtotxt")
+
+    xlsx_dir = os.path.join(get_user_dir(user_id), "xlsxtotxt")
     os.makedirs(xlsx_dir, exist_ok=True)
-    # Gunakan file_id sebagai nama — unik, anti TOCTOU race
     file_path = os.path.join(xlsx_dir, f"{doc.file_id}{ext}")
-        
+
     try:
         tg_file = await context.bot.get_file(doc.file_id)
         await tg_file.download_to_drive(file_path)
@@ -118,7 +168,6 @@ async def handle_xlsxtotxt_file(update: Update, context: ContextTypes.DEFAULT_TY
     loop = asyncio.get_running_loop()
     found_numbers = await loop.run_in_executor(None, _extract_numbers_sync, file_path, ext)
 
-    # Hapus file sumber setelah diekstrak
     try:
         os.remove(file_path)
     except Exception:
@@ -126,79 +175,88 @@ async def handle_xlsxtotxt_file(update: Update, context: ContextTypes.DEFAULT_TY
 
     master_txt = os.path.join(xlsx_dir, "extracted_numbers.txt")
     new_total = 0
-    try:
-        async with _get_master_lock(user_id):
-            try:
-                with open(master_txt, 'r', encoding='utf-8') as f:
-                    existing = f.read().splitlines()
-            except FileNotFoundError:
-                existing = []
-            
-            # Gabungkan dengan tetap menjaga urutan & buang duplikat
-            seen = set(existing)
-            combined = list(existing)
-            for num in found_numbers:
-                if num not in seen:
-                    seen.add(num)
-                    combined.append(num)
-            
-            with open(master_txt, 'w', encoding='utf-8') as f:
-                f.write("\n".join(combined))
-                
-            new_total = len(combined)
-    except Exception as e:
-        logger.error("Error nulis hasil: %s", e)
 
-    # Baca ulang session terbaru di dalam lock agar tidak overwrite update paralel
     async with _get_master_lock(user_id):
+        try:
+            with open(master_txt, 'r', encoding='utf-8') as f:
+                existing = f.read().splitlines()
+        except FileNotFoundError:
+            existing = []
+
+        seen = set(existing)
+        combined = list(existing)
+        for num in found_numbers:
+            if num not in seen:
+                seen.add(num)
+                combined.append(num)
+
+        with open(master_txt, 'w', encoding='utf-8') as f:
+            f.write("\n".join(combined))
+
+        new_total = len(combined)
+
         fresh = db.get_session(user_id)
         if fresh and fresh.get("state") == STATE:
             data = fresh["data"]
             data["total_file"] += 1
             data["total_kontak"] = new_total
             db.set_session(user_id, STATE, data)
-        else:
-            data = {"total_file": 1, "total_kontak": new_total}
-    
-    await update.message.reply_text(
-        f"{len(found_numbers)} kontak unik di {doc.file_name}.\n"
-        f"Total: {new_total} ({data['total_file']} file)."
-    )
+
+    # Pindahkan pesan status ke bawah (debounce)
+    _schedule_move(update.effective_chat.id, context.bot, user_id)
+
 
 async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+
+    task = _debounce_tasks.pop(user_id, None)
+    if task and not task.done():
+        task.cancel()
+
     sess = db.get_session(user_id)
     if not sess or sess.get("state") != STATE:
         return
-        
+
     data = sess["data"]
     total = data.get("total_kontak", 0)
-    
+
+    old = _status_msg.pop(user_id, None)
+    if old:
+        try:
+            await old.delete()
+        except Exception:
+            pass
+
     if total == 0:
-        await update.message.reply_text("Nomor tidak ditemukan.")
+        await update.message.reply_text("Tidak ada nomor yang ditemukan dari file yang dikirim.")
         db.clear_session(user_id)
         import shutil
-        user_dir = get_user_dir(user_id)
-        shutil.rmtree(os.path.join(user_dir, "xlsxtotxt"), ignore_errors=True)
+        shutil.rmtree(os.path.join(get_user_dir(user_id), "xlsxtotxt"), ignore_errors=True)
         return
-        
-    user_dir = get_user_dir(user_id)
-    xlsx_dir = os.path.join(user_dir, "xlsxtotxt")
+
+    xlsx_dir = os.path.join(get_user_dir(user_id), "xlsxtotxt")
     master_txt = os.path.join(xlsx_dir, "extracted_numbers.txt")
-    
+
     try:
         with open(master_txt, 'rb') as f:
             buffer = BytesIO(f.read())
-            buffer.name = "Hasil_Ekstrak_Excel.txt"
-            
+            buffer.name = "Hasil_Ekstrak.txt"
+
+        total_file = data.get("total_file", 0)
         await update.message.reply_document(
             document=buffer,
-            caption=f"Selesai. {total} kontak unik."
+            caption=(
+                f"✅ <b>Ekstraksi selesai!</b>\n"
+                f"{'─' * 20}\n"
+                f"📁 File diproses  : <b>{total_file}</b>\n"
+                f"📞 Nomor unik     : <b>{total:,}</b>\n"
+                f"{'─' * 20}"
+            ),
+            parse_mode="HTML",
         )
     except Exception as e:
         logger.error("Error kirim hasil xlsx: %s", e)
         await update.message.reply_text("Gagal mengirim hasil. Coba ulangi.")
-        
     finally:
         db.clear_session(user_id)
         import shutil

@@ -1,39 +1,38 @@
 """
-rename.py — Disk-based approach with batch support.
+rename.py — Ubah nama kontak di dalam file VCF.
+Nama file tetap sama. Kontak diubah jadi: <NamaBaru> 1, <NamaBaru> 2, dst.
+Counter berlanjut antar file sehingga urutan tidak acak.
 """
 import os
-import shutil
+import io
 import asyncio
+import logging
 from telegram import Update
 from telegram.ext import ContextTypes
 from database import db
 from middleware.auth import require_member
 from middleware.session import get_user_dir
-from core.utils import sanitize_filename
+from core.vcf_parser import parse_vcf_file, contacts_to_vcf
+
+logger = logging.getLogger(__name__)
 
 STATE_NAME = "RENAME_WAIT_NAME"
 STATE_FILE = "RENAME_WAIT_FILE"
 
-_user_timers: dict = {}
+_user_locks: dict[int, asyncio.Lock] = {}
+_user_timers: dict = {}  # kept for cancel_helper.py compatibility
 
 
-def _cancel_timer(user_id):
-    timer = _user_timers.pop(user_id, None)
-    if timer:
-        timer.cancel()
+def _get_lock(user_id: int) -> asyncio.Lock:
+    if user_id not in _user_locks:
+        _user_locks[user_id] = asyncio.Lock()
+    return _user_locks[user_id]
 
 
-async def _auto_clear_session(user_id: int):
-    """Otomatis bersihkan sesi rename setelah 5 detik diam."""
-    await asyncio.sleep(5)
-    if _user_timers.get(user_id) is asyncio.current_task():
-        db.clear_session(user_id)
-        _user_timers.pop(user_id, None)
-
-
-def _reset_timer(user_id):
-    _cancel_timer(user_id)
-    _user_timers[user_id] = asyncio.create_task(_auto_clear_session(user_id))
+def cleanup_inactive_users(inactive_ids: list) -> int:
+    for uid in inactive_ids:
+        _user_locks.pop(uid, None)
+    return len(inactive_ids)
 
 
 async def cmd_rename(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -41,62 +40,91 @@ async def cmd_rename(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     user_id = update.effective_user.id
     db.increment_usage(user_id)
-    _cancel_timer(user_id)
     db.set_session(user_id, STATE_NAME, {})
-    await update.message.reply_text("Nama file:")
+    await update.message.reply_text(
+        "Ketik nama kontak baru.\n"
+        "Contoh: FEE"
+    )
 
 
 async def handle_rename_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
-    if sess["state"] != STATE_NAME:
+    if not sess or sess["state"] != STATE_NAME:
         return
-    file_name = sanitize_filename(update.message.text.strip())
-    db.set_session(user_id, STATE_FILE, {"file_name": file_name})
-    await update.message.reply_text(f"Nama diset: {file_name}\nSilakan kirim file VCF (Bisa banyak sekaligus).")
+
+    base_name = update.message.text.strip()
+    if not base_name:
+        await update.message.reply_text("Nama tidak boleh kosong.")
+        return
+
+    db.set_session(user_id, STATE_FILE, {"base_name": base_name, "counter": 0})
+    await update.message.reply_text(
+        f"Nama kontak diset: {base_name}\n"
+        f"Kirim file VCF (bisa banyak FILE sekaligus)."
+    )
 
 
 async def handle_rename_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
-    if sess["state"] != STATE_FILE:
+    if not sess or sess["state"] != STATE_FILE:
         return
-    data = sess["data"]
 
-    # Reset timer setiap kali ada file masuk
-    _reset_timer(user_id)
+    doc = update.message.document
+    if not doc or not doc.file_name or not doc.file_name.lower().endswith(".vcf"):
+        await update.message.reply_text("Kirim file dengan ekstensi .vcf.")
+        return
 
-    # Download ke disk
-    out_path = None
-    try:
-        doc = update.message.document
-        if not doc or not doc.file_name or not doc.file_name.lower().endswith(".vcf"):
-            await update.message.reply_text("Kirim file dengan ekstensi .vcf.")
+    user_dir = get_user_dir(user_id)
+    tmp_path = os.path.join(user_dir, f"rename_{doc.file_id}.vcf")
+
+    # Seluruh proses dalam lock: counter berlanjut dan berurutan antar file
+    async with _get_lock(user_id):
+        fresh = db.get_session(user_id)
+        if not fresh or fresh["state"] != STATE_FILE:
             return
-        file_obj = await context.bot.get_file(doc.file_id)
-        user_dir = get_user_dir(user_id)
-        
-        # Gunakan file_id unik agar tidak crash jika download berbarengan
-        out_path = os.path.join(user_dir, f"rename_{doc.file_id}.vcf")
-        
-        await file_obj.download_to_drive(out_path)
+        data = fresh["data"]
+        base_name = data["base_name"]
+        start_counter = data["counter"]
 
-        if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
-            import io
-            with open(out_path, "rb") as f:
-                buf = io.BytesIO(f.read())
+        try:
+            file_obj = await context.bot.get_file(doc.file_id)
+            await file_obj.download_to_drive(tmp_path)
+
+            # Parse kontak, ubah semua nama secara berurutan
+            loop = asyncio.get_running_loop()
+            contacts = await loop.run_in_executor(None, parse_vcf_file, tmp_path)
+
+            renamed = []
+            for i, c in enumerate(contacts, start=start_counter + 1):
+                renamed.append({"name": f"{base_name} {i}", "tel": c["tel"]})
+
+            # Update counter di session
+            data["counter"] = start_counter + len(contacts)
+            db.set_session(user_id, STATE_FILE, data)
+
+            # Tulis hasil ke buffer, nama file tetap sama
+            vcf_content = contacts_to_vcf(renamed)
+            buf = io.BytesIO(vcf_content.encode("utf-8"))
+            buf.name = doc.file_name
+
             await update.message.reply_document(
                 document=buf,
-                filename=f"{data['file_name']}.vcf"
+                filename=doc.file_name,
+                caption=(
+                    f"{doc.file_name}\n"
+                    f"{len(contacts)} kontak diubah: "
+                    f"{base_name} {start_counter + 1} - {base_name} {data['counter']}"
+                ),
             )
-            
-    except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"Rename error: {e}")
-    finally:
-        # Pastikan file temp selalu dihapus meski reply_document crash
-        try:
-            if os.path.exists(out_path):
-                os.remove(out_path)
-        except Exception:
-            pass
+
+        except Exception as e:
+            logger.error("Rename error user %s: %s", user_id, e)
+            await update.message.reply_text(f"Gagal memproses {doc.file_name}. Coba kirim ulang.")
+        finally:
+            try:
+                if os.path.exists(tmp_path):
+                    os.remove(tmp_path)
+            except Exception:
+                pass
