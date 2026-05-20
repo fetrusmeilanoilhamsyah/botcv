@@ -353,12 +353,22 @@ async def health_check(request):
     """Simple health check endpoint untuk monitoring"""
     try:
         stats = db.get_db_stats()
+        try:
+            from handlers.merge import _user_timers as merge_timers
+            from handlers.vcftotxt import _user_timers as vcf2txt_timers
+            from handlers.txttovcf import _user_timers as ttv_timers
+            from handlers.pecahvcf import _user_timers as pecah_timers
+            from handlers.rename import _user_timers as rename_timers
+            active_timers = sum(len(d) for d in [merge_timers, vcf2txt_timers, ttv_timers, pecah_timers, rename_timers] if hasattr(d, '__len__'))
+        except Exception:
+            active_timers = 0
+
         return web.json_response({
             "status": "healthy",
             "uptime_seconds": int(time.time() - _start_time),
             "database": stats,
             "active_semaphores": len(user_semaphores),
-            "active_timers": sum(len(d) for d in [_user_timers] if hasattr(globals().get('_user_timers', {}), '__len__'))
+            "active_timers": active_timers
         })
     except Exception as e:
         return web.json_response({
@@ -370,7 +380,7 @@ def run_health_server():
     """Run health check server on port 8080"""
     app_http = web.Application()
     app_http.router.add_get('/health', health_check)
-    web.run_app(app_http, host='0.0.0.0', port=8080, print=None)
+    web.run_app(app_http, host='0.0.0.0', port=8080, print=None, handle_signals=False)
 
 
 def main():
