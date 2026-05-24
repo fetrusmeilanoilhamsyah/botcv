@@ -34,7 +34,7 @@ from database import db
 from database.db_async import adb
 
 # ── Handlers ──────────────────────────────────────────────────────────────────
-from handlers.start import cmd_start
+from handlers.start import cmd_start, handle_back_to_start
 from handlers.reset import cmd_reset, handle_reset_callback
 from handlers.referral import cmd_referral
 from handlers.daftar import cmd_daftar
@@ -526,6 +526,7 @@ def main():
 
     # ── Callback handlers ──
     app.add_handler(CallbackQueryHandler(cb_show_vip_menu,       pattern="^show_vip_menu$"))
+    app.add_handler(CallbackQueryHandler(handle_back_to_start,   pattern="^back_to_start$"))
     app.add_handler(CallbackQueryHandler(handle_show_duplikat_help_callback, pattern="^show_duplikat_help$"))
     app.add_handler(CallbackQueryHandler(handle_reset_callback,  pattern="^admin_db_reset"))
 

@@ -141,7 +141,7 @@ async def handle_duplikat_file(update: Update, context: ContextTypes.DEFAULT_TYP
 
             # Sediakan tombol menu
             keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("KEMBALI KE MENU", callback_data="show_vip_menu", style="primary")],
+                [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")],
                 [InlineKeyboardButton("BERSIHKAN FILE LAIN", callback_data="show_duplikat_help", style="success")]
             ])
 

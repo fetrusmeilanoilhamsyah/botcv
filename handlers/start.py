@@ -123,3 +123,76 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logging.getLogger(__name__).error("[start] bg error: %s", exc)
 
     asyncio.create_task(_bg())
+
+
+async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Callback query handler untuk kembali ke menu utama /start"""
+    query = update.callback_query
+    await query.answer()
+
+    # Hapus pesan lama agar tidak menumpuk di chat
+    try:
+        await query.message.delete()
+    except Exception:
+        pass
+
+    user = query.from_user
+    chat_id = query.message.chat_id
+    first_name = user.first_name or "Kawan"
+
+    # ── Bangun menu ────────────────────────────────────────────────────────────
+    fitur = (
+        "<b>FITUR UTAMA</b>\n"
+        "├ /txttovcf — Konversi TXT ke VCF\n"
+        "├ /vcftotxt — Konversi VCF ke TXT\n"
+        "├ /xlsxtotxt — Ekstrak Excel/CSV\n"
+        "├ /admin — Buat file Admin VCF\n"
+        "├ /merge — Gabungkan file VCF/TXT\n"
+        "├ /pecahvcf — Pecah file VCF\n"
+        "├ /rename — Ganti nama VCF\n"
+        "├ /duplikat — Bersihkan duplikat\n"
+        "└ /count — Hitung kontak\n\n"
+        "<b>LAINNYA</b>\n"
+        "├ /vip — Paket VIP\n"
+        "├ /referal — VIP Gratis\n"
+        "├ /akun — Info akun\n"
+        "├ /reset — Bersihkan sesi\n"
+        "└ /done — Selesaikan proses"
+    )
+    if is_admin(user.id):
+        fitur += (
+            "\n\n<b>ADMIN</b>\n"
+            "├ /stat — Statistik\n"
+            "├ /daftar — Daftar user\n"
+            "├ /broadcast — Broadcast\n"
+            "├ /addvip /delvip — Kelola VIP\n"
+            "└ /resetdatabase — Bersihkan cache"
+        )
+
+    keyboard_buttons = [
+        [KeyboardButton("/txttovcf"), KeyboardButton("/vcftotxt"), KeyboardButton("/xlsxtotxt"), KeyboardButton("/admin")],
+        [KeyboardButton("/merge"),    KeyboardButton("/pecahvcf"), KeyboardButton("/rename"),    KeyboardButton("/duplikat")],
+        [KeyboardButton("/count"),    KeyboardButton("/vip"),      KeyboardButton("/referal"),  KeyboardButton("/akun")],
+        [KeyboardButton("/reset"),    KeyboardButton("/done"),     KeyboardButton("/start")],
+    ]
+
+    # Kirim menu utama kembali
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=(
+            f"<b>Halo {first_name}!</b> Selamat datang di bot konversi kontak.\n\n"
+            f"{fitur}\n"
+            f"━━━━━━━━━━━━━━━━━\n"
+            f"<b>Owner:</b> {ADMIN_CONTACT}"
+        ),
+        parse_mode="HTML",
+        reply_markup=ReplyKeyboardMarkup(keyboard_buttons, resize_keyboard=True),
+        disable_web_page_preview=True,
+    )
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text="<b>Butuh panduan?</b> Klik tombol di bawah:",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK, style="success")]]),
+    )
+
