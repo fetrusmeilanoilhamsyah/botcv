@@ -31,7 +31,8 @@ async def cmd_akun(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif member:
         if expired_at:
             try:
-                exp = datetime.fromisoformat(expired_at)
+                # Tambahkan .replace(tzinfo=None) agar aman dari TypeError perbandingan naive/aware datetime
+                exp = datetime.fromisoformat(expired_at).replace(tzinfo=None)
                 sisa = (exp - datetime.now()).days
                 tgl  = exp.strftime("%d/%m/%Y")
                 role_str = f"VIP — berakhir {tgl} ({sisa} hari lagi)"
