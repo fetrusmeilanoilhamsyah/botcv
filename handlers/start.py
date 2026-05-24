@@ -59,7 +59,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "<b>Butuh panduan?</b> Klik tombol di bawah:",
         parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("Tutorial Lengkap", url=TUTORIAL_LINK)]]),
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK, style="success")]]),
     )
 
     # ── Semua DB + cleanup di background ──────────────────────────────────────
