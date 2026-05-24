@@ -1,7 +1,7 @@
 import os
 import logging
 import asyncio
-from telegram import Update
+from telegram import Update, ReplyKeyboardRemove
 from telegram.ext import ContextTypes
 from database import db
 from database.db_async import adb
@@ -119,7 +119,7 @@ async def cmd_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id,
         update.effective_chat.id,
         "📂 <b>Kirim file TXT atau VCF</b>\n\nBisa kirim banyak sekaligus.\nKetik /done jika sudah selesai.",
-        reply_markup=get_start_keyboard()
+        reply_markup=ReplyKeyboardRemove()
     )
     _status_msg[user_id] = msg
 
@@ -262,7 +262,6 @@ async def handle_show_count_help_callback(update: Update, context: ContextTypes.
                 "Ketik /done jika sudah selesai."
             ),
             parse_mode="HTML",
-            reply_markup=get_start_keyboard()
+            reply_markup=ReplyKeyboardRemove()
         )
     _status_msg[user_id] = msg
-

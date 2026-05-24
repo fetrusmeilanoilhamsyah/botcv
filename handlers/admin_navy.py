@@ -2,7 +2,7 @@
 admin_navy.py — In-memory approach, tidak ada disk sama sekali.
 """
 import io
-from telegram import Update
+from telegram import Update, ReplyKeyboardRemove
 from telegram.ext import ContextTypes
 from database import db
 from database.db_async import adb
@@ -48,7 +48,7 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id,
         update.effective_chat.id,
         "Nomor ADMIN (satu per baris):",
-        reply_markup=get_start_keyboard()
+        reply_markup=ReplyKeyboardRemove()
     )
 
 
@@ -69,7 +69,7 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
             data["admin_numbers"] = numbers
             db.set_session(user_id, STATES["WAIT_NAVY_NUMBERS"], data)
             from handlers.start import get_start_keyboard
-            await update.message.reply_text("Nomor NAVY (satu per baris):", reply_markup=get_start_keyboard())
+            await update.message.reply_text("Nomor NAVY (satu per baris):", reply_markup=ReplyKeyboardRemove())
 
         elif state == STATES["WAIT_NAVY_NUMBERS"]:
             numbers = [n.strip() for n in text.splitlines() if n.strip()]
@@ -79,19 +79,19 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
             data["navy_numbers"] = numbers
             db.set_session(user_id, STATES["WAIT_ADMIN_NAME"], data)
             from handlers.start import get_start_keyboard
-            await update.message.reply_text("Label ADMIN:", reply_markup=get_start_keyboard())
+            await update.message.reply_text("Label ADMIN:", reply_markup=ReplyKeyboardRemove())
 
         elif state == STATES["WAIT_ADMIN_NAME"]:
             data["admin_name"] = text
             db.set_session(user_id, STATES["WAIT_NAVY_NAME"], data)
             from handlers.start import get_start_keyboard
-            await update.message.reply_text("Label NAVY:", reply_markup=get_start_keyboard())
+            await update.message.reply_text("Label NAVY:", reply_markup=ReplyKeyboardRemove())
 
         elif state == STATES["WAIT_NAVY_NAME"]:
             data["navy_name"] = text
             db.set_session(user_id, STATES["WAIT_FILE_NAME"], data)
             from handlers.start import get_start_keyboard
-            await update.message.reply_text("Nama file:", reply_markup=get_start_keyboard())
+            await update.message.reply_text("Nama file:", reply_markup=ReplyKeyboardRemove())
 
         elif state == STATES["WAIT_FILE_NAME"]:
             data["file_name"] = sanitize_filename(text)
@@ -159,5 +159,5 @@ async def handle_show_admin_help_callback(update: Update, context: ContextTypes.
         await context.bot.send_message(
             chat_id=query.message.chat_id,
             text="Nomor ADMIN (satu per baris):",
-            reply_markup=get_start_keyboard()
+            reply_markup=ReplyKeyboardRemove()
         )

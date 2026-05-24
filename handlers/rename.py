@@ -7,7 +7,7 @@ import os
 import io
 import asyncio
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import ReplyKeyboardRemove, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from database import db
 from database.db_async import adb
@@ -52,7 +52,7 @@ async def cmd_rename(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id,
         update.effective_chat.id,
         "Ketik nama kontak baru.\nContoh: FEE",
-        reply_markup=get_start_keyboard()
+        reply_markup=ReplyKeyboardRemove()
     )
 
 
@@ -72,7 +72,7 @@ async def handle_rename_name(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await update.message.reply_text(
         f"Nama kontak diset: {base_name}\n"
         f"Kirim file VCF (bisa banyak FILE sekaligus).",
-        reply_markup=get_start_keyboard()
+        reply_markup=ReplyKeyboardRemove()
     )
 
 
@@ -224,5 +224,5 @@ async def handle_show_rename_help_callback(update: Update, context: ContextTypes
                 "Ketik nama kontak baru.\n"
                 "Contoh: FEE"
             ),
-            reply_markup=get_start_keyboard()
+            reply_markup=ReplyKeyboardRemove()
         )

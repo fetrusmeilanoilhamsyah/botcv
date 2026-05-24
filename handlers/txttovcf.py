@@ -4,7 +4,7 @@ txttovcf.py — Disk-based, terima paralel, sort by message_id, tampilkan daftar
 import os
 import shutil
 import asyncio
-from telegram import Update
+from telegram import Update, ReplyKeyboardRemove
 from telegram.ext import ContextTypes
 from database import db
 from database.db_async import adb
@@ -102,7 +102,7 @@ async def cmd_txttovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id,
         update.effective_chat.id,
         "Silakan kirim file TXT.\nKetik /done jika sudah selesai mengirim semua file.",
-        reply_markup=get_start_keyboard()
+        reply_markup=ReplyKeyboardRemove()
     )
 
 
@@ -115,7 +115,7 @@ async def handle_ttv_contact_name(update: Update, context: ContextTypes.DEFAULT_
     data["contact_name"] = update.message.text.strip()
     db.set_session(user_id, S2, data)
     from handlers.start import get_start_keyboard
-    await update.message.reply_text("Kontak per file: (misal: 50)", reply_markup=get_start_keyboard())
+    await update.message.reply_text("Kontak per file: (misal: 50)", reply_markup=ReplyKeyboardRemove())
 
 
 async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -137,7 +137,7 @@ async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE
     data["per_file"] = per_file
     db.set_session(user_id, S3, data)
     from handlers.start import get_start_keyboard
-    await update.message.reply_text("Nama file: (misal: FEE)", reply_markup=get_start_keyboard())
+    await update.message.reply_text("Nama file: (misal: FEE)", reply_markup=ReplyKeyboardRemove())
 
 
 async def handle_ttv_file_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -149,7 +149,7 @@ async def handle_ttv_file_name(update: Update, context: ContextTypes.DEFAULT_TYP
     data["file_name"] = sanitize_filename(update.message.text.strip())
     db.set_session(user_id, S4, data)
     from handlers.start import get_start_keyboard
-    await update.message.reply_text("Nomor file: (misal: 1)", reply_markup=get_start_keyboard())
+    await update.message.reply_text("Nomor file: (misal: 1)", reply_markup=ReplyKeyboardRemove())
 
 
 async def handle_ttv_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -283,7 +283,7 @@ async def handle_ttv_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
         from handlers.start import get_start_keyboard
         await update.message.reply_text(
             f"Total: {data.get('total_contacts', 0)} kontak.\n\nNama kontak: (misal: FEE)",
-            reply_markup=get_start_keyboard()
+            reply_markup=ReplyKeyboardRemove()
         )
         return
 
@@ -498,5 +498,5 @@ async def handle_show_txttovcf_help_callback(update: Update, context: ContextTyp
                 "Silakan kirim file TXT.\n"
                 "Ketik /done jika sudah selesai mengirim semua file."
             ),
-            reply_markup=get_start_keyboard()
+            reply_markup=ReplyKeyboardRemove()
         )

@@ -4,7 +4,7 @@ import csv
 import logging
 import asyncio
 from io import BytesIO
-from telegram import Update
+from telegram import Update, ReplyKeyboardRemove
 from telegram.ext import ContextTypes
 from database import db
 from database.db_async import adb
@@ -139,7 +139,7 @@ async def cmd_xlsxtotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 Bisa kirim banyak sekaligus (.xlsx / .csv).
 Ketik /done jika sudah selesai.""",
-        reply_markup=get_start_keyboard()
+        reply_markup=ReplyKeyboardRemove()
     )
     _status_msg[user_id] = msg
 
@@ -329,5 +329,5 @@ async def handle_show_xlsxtotxt_help_callback(update: Update, context: ContextTy
                 "Ketik /done jika sudah selesai."
             ),
             parse_mode="HTML",
-            reply_markup=get_start_keyboard()
+            reply_markup=ReplyKeyboardRemove()
         )

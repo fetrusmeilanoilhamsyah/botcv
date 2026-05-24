@@ -7,7 +7,7 @@ merge.py — Mendukung VCF dan TXT.
 import os
 import shutil
 import asyncio
-from telegram import Update
+from telegram import Update, ReplyKeyboardRemove
 from telegram.ext import ContextTypes
 from database import db
 from database.db_async import adb
@@ -98,7 +98,7 @@ async def cmd_merge(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id,
         update.effective_chat.id,
         "Kirim file VCF atau TXT.\nKetik /done jika selesai.",
-        reply_markup=get_start_keyboard()
+        reply_markup=ReplyKeyboardRemove()
     )
 
 
@@ -238,7 +238,7 @@ async def handle_merge_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         f"{data['count']} file {mode.upper()} diterima.\n"
         "Nama file output:",
-        reply_markup=get_start_keyboard()
+        reply_markup=ReplyKeyboardRemove()
     )
 
 
@@ -466,5 +466,5 @@ async def handle_show_merge_help_callback(update: Update, context: ContextTypes.
                 "Kirim file VCF atau TXT.\n"
                 "Ketik /done jika selesai."
             ),
-            reply_markup=get_start_keyboard()
+            reply_markup=ReplyKeyboardRemove()
         )

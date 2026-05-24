@@ -6,7 +6,7 @@ import io
 import shutil
 import asyncio
 import logging
-from telegram import Update, InputMediaDocument
+from telegram import Update, InputMediaDocument, ReplyKeyboardRemove
 from telegram.error import RetryAfter
 from telegram.ext import ContextTypes
 from database import db
@@ -53,7 +53,7 @@ async def cmd_pecahvcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id,
         update.effective_chat.id,
         "✂️ <b>Pecah VCF</b>\n\nBerapa kontak per file?\n<i>Contoh: 50</i>",
-        reply_markup=get_start_keyboard()
+        reply_markup=ReplyKeyboardRemove()
     )
 
 
@@ -81,7 +81,7 @@ async def handle_pecah_per_file(update: Update, context: ContextTypes.DEFAULT_TY
         f"✅ Kontak per file: <b>{per_file}</b>\n\n"
         f"Sekarang kirim file VCF (SATU VCF PER SESI).",
         parse_mode="HTML",
-        reply_markup=get_start_keyboard()
+        reply_markup=ReplyKeyboardRemove()
     )
 
 
@@ -257,5 +257,5 @@ async def handle_show_pecahvcf_help_callback(update: Update, context: ContextTyp
                 "<i>Contoh: 50</i>"
             ),
             parse_mode="HTML",
-            reply_markup=get_start_keyboard()
+            reply_markup=ReplyKeyboardRemove()
         )

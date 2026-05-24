@@ -5,7 +5,7 @@ import os
 import io
 import asyncio
 import logging
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import ReplyKeyboardRemove, Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from database import db
 from database.db_async import adb
@@ -51,7 +51,7 @@ async def cmd_duplikat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id,
         update.effective_chat.id,
         "KIRIM FILE KONTAK (VCF ATAU TXT)\n\nSilakan kirim file VCF atau TXT berupa dokumen yang ingin Anda bersihkan dari nomor kontak duplikat.",
-        reply_markup=get_start_keyboard()
+        reply_markup=ReplyKeyboardRemove()
     )
 
 
@@ -277,5 +277,5 @@ async def handle_show_duplikat_help_callback(update: Update, context: ContextTyp
                 "Silakan kirim file VCF atau TXT berupa dokumen yang ingin Anda bersihkan dari nomor kontak duplikat."
             ),
             parse_mode="HTML",
-            reply_markup=get_start_keyboard()
+            reply_markup=ReplyKeyboardRemove()
         )

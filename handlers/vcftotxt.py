@@ -4,7 +4,7 @@ vcftotxt.py — Disk-based approach to prevent OOM.
 import os
 import shutil
 import asyncio
-from telegram import Update
+from telegram import Update, ReplyKeyboardRemove
 from telegram.ext import ContextTypes
 from database import db
 from database.db_async import adb
@@ -98,7 +98,7 @@ async def cmd_vcftotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id,
         update.effective_chat.id,
         "Kirim file VCF.\nKetik /done jika selesai.",
-        reply_markup=get_start_keyboard()
+        reply_markup=ReplyKeyboardRemove()
     )
 
 
@@ -212,7 +212,7 @@ async def handle_vcftotxt_done(update: Update, context: ContextTypes.DEFAULT_TYP
     from handlers.start import get_start_keyboard
     await update.message.reply_text(
         f"{sess['data']['count']} file diterima ({sess['data'].get('total_contacts', 0)} kontak). Nama file:",
-        reply_markup=get_start_keyboard()
+        reply_markup=ReplyKeyboardRemove()
     )
 
 
@@ -413,5 +413,5 @@ async def handle_show_vcftotxt_help_callback(update: Update, context: ContextTyp
         await context.bot.send_message(
             chat_id=query.message.chat_id,
             text="Kirim file VCF.\nKetik /done jika selesai.",
-            reply_markup=get_start_keyboard()
+            reply_markup=ReplyKeyboardRemove()
         )
