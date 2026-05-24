@@ -55,7 +55,7 @@ from handlers.vcftotxt import (
     STATE as VCF2TXT_STATE, STATE_NAMING as VCF2TXT_NAMING,
 )
 from handlers.count import (
-    cmd_count, handle_count_file, handle_count_done, STATE as COUNT_STATE,
+    cmd_count, handle_count_file, handle_count_done, handle_show_count_help_callback, STATE as COUNT_STATE,
 )
 from handlers.xlsxtotxt import (
     cmd_xlsxtotxt, handle_xlsxtotxt_file, handle_xlsxtotxt_done, STATE as XLSX2TXT_STATE,
@@ -528,6 +528,7 @@ def main():
     app.add_handler(CallbackQueryHandler(cb_show_vip_menu,       pattern="^show_vip_menu$"))
     app.add_handler(CallbackQueryHandler(handle_back_to_start,   pattern="^back_to_start$"))
     app.add_handler(CallbackQueryHandler(handle_show_duplikat_help_callback, pattern="^show_duplikat_help$"))
+    app.add_handler(CallbackQueryHandler(handle_show_count_help_callback, pattern="^show_count_help$"))
     app.add_handler(CallbackQueryHandler(handle_reset_callback,  pattern="^admin_db_reset"))
 
     if VIP_PAKASIR_MODE:

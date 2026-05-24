@@ -198,16 +198,55 @@ async def handle_count_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     avg = total_kontak // total_file if total_file else 0
 
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")],
+        [InlineKeyboardButton("HITUNG FILE LAIN", callback_data="show_count_help", style="success")]
+    ])
+
     await update.message.reply_text(
-        f"✅ <b>Laporan Hitungan</b>\n"
+        f"LAPORAN HITUNGAN\n"
         f"{'─' * 20}\n"
-        f"📁 Total file      : <b>{total_file}</b>\n"
-        f"👤 Total kontak    : <b>{total_kontak:,}</b>\n"
-        f"📊 Rata-rata/file  : <b>{avg:,}</b>\n"
+        f"Total File : {total_file}\n"
+        f"Total Kontak : {total_kontak:,}\n"
+        f"Rata-rata/File : {avg:,}\n"
         f"{'─' * 20}",
         parse_mode="HTML",
+        reply_markup=keyboard,
     )
 
     db.clear_session(user_id)
     import shutil
     shutil.rmtree(os.path.join(get_user_dir(user_id), "count"), ignore_errors=True)
+
+
+async def handle_show_count_help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Callback untuk tombol HITUNG FILE LAIN"""
+    query = update.callback_query
+    await query.answer()
+
+    # Hapus pesan laporan lama agar tidak menumpuk di chat
+    try:
+        await query.message.delete()
+    except Exception:
+        pass
+
+    user_id = query.from_user.id
+    import shutil
+    count_dir = os.path.join(get_user_dir(user_id), "count")
+    shutil.rmtree(count_dir, ignore_errors=True)
+    os.makedirs(count_dir, exist_ok=True)
+
+    db.set_session(user_id, STATE, {"total_kontak": 0, "total_file": 0})
+
+    msg = await context.bot.send_message(
+        chat_id=query.message.chat_id,
+        text=(
+            "📂 <b>Kirim file TXT atau VCF</b>\n\n"
+            "Bisa kirim banyak sekaligus.\n"
+            "Ketik /done jika sudah selesai."
+        ),
+        parse_mode="HTML"
+    )
+    _status_msg[user_id] = msg
+
