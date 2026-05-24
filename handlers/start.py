@@ -242,18 +242,16 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK, style="success")]]),
     )
 
-    # Kirim satu pesan kecil tersembunyi untuk memunculkan kembali keyboard bawah
+    # Kirim pesan dengan keyboard bawah agar muncul kembali.
+    # JANGAN dihapus — keyboard terikat ke pesan ini.
+    # Pesan ini akan dihapus bersama msg1 & msg2 saat user klik command berikutnya.
     restore_msg = await context.bot.send_message(
         chat_id=chat_id,
-        text=".",
+        text="Ketuk perintah di bawah untuk mulai:",
         reply_markup=get_start_keyboard(),
     )
-    # Langsung hapus pesan titik itu agar tidak terlihat mengganggu
-    try:
-        await restore_msg.delete()
-    except Exception:
-        pass
 
-    register_welcome_messages(user.id, [msg1.message_id, msg2.message_id])
+    register_welcome_messages(user.id, [msg1.message_id, msg2.message_id, restore_msg.message_id])
+
 
 
