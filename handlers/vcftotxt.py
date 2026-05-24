@@ -89,13 +89,14 @@ async def cmd_vcftotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     asyncio.create_task(adb.increment_usage(user_id))
     
-    from handlers.start import delete_welcome_messages, get_start_keyboard
-    await delete_welcome_messages(context.bot, user_id, update.effective_chat.id)
-
+    from handlers.start import transition_to_handler, get_start_keyboard
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     db.set_session(user_id, STATE, {"count": 0, "total_size": 0, "total_contacts": 0})
-    await update.message.reply_text(
+    await transition_to_handler(
+        context.bot,
+        user_id,
+        update.effective_chat.id,
         "Kirim file VCF.\nKetik /done jika selesai.",
         reply_markup=get_start_keyboard()
     )
@@ -391,18 +392,26 @@ async def handle_show_vcftotxt_help_callback(update: Update, context: ContextTyp
     """Callback untuk tombol PROSES FILE LAIN (VCF to TXT)"""
     query = update.callback_query
     await query.answer()
-    try:
-        await query.message.delete()
-    except Exception:
-        pass
     user_id = query.from_user.id
     asyncio.create_task(adb.increment_usage(user_id))
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     db.set_session(user_id, STATE, {"count": 0, "total_size": 0, "total_contacts": 0})
     from handlers.start import get_start_keyboard
-    await context.bot.send_message(
-        chat_id=query.message.chat_id,
-        text="Kirim file VCF.\nKetik /done jika selesai.",
-        reply_markup=get_start_keyboard()
-    )
+
+    # Edit the message in-place instead of deleting it to provide a smooth morphing transition
+    try:
+        await query.message.edit_text(
+            text="Kirim file VCF.\nKetik /done jika selesai."
+        )
+    except Exception:
+        # Fallback if editing fails
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text="Kirim file VCF.\nKetik /done jika selesai.",
+            reply_markup=get_start_keyboard()
+        )

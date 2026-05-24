@@ -41,12 +41,12 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     user_id = update.effective_user.id
     
-    from handlers.start import delete_welcome_messages
-    await delete_welcome_messages(context.bot, user_id, update.effective_chat.id)
-
     db.set_session(user_id, STATES["WAIT_ADMIN_NUMBERS"], {})
-    from handlers.start import get_start_keyboard
-    await update.message.reply_text(
+    from handlers.start import transition_to_handler, get_start_keyboard
+    await transition_to_handler(
+        context.bot,
+        user_id,
+        update.effective_chat.id,
         "Nomor ADMIN (satu per baris):",
         reply_markup=get_start_keyboard()
     )
@@ -140,16 +140,24 @@ async def handle_show_admin_help_callback(update: Update, context: ContextTypes.
     """Callback untuk tombol PROSES FILE LAIN (Admin VCF)"""
     query = update.callback_query
     await query.answer()
-    try:
-        await query.message.delete()
-    except Exception:
-        pass
     user_id = query.from_user.id
     asyncio.create_task(adb.increment_usage(user_id))
     db.set_session(user_id, STATES["WAIT_ADMIN_NUMBERS"], {})
     from handlers.start import get_start_keyboard
-    await context.bot.send_message(
-        chat_id=query.message.chat_id,
-        text="Nomor ADMIN (satu per baris):",
-        reply_markup=get_start_keyboard()
-    )
+
+    # Edit the message in-place instead of deleting it to provide a smooth morphing transition
+    try:
+        await query.message.edit_text(
+            text="Nomor ADMIN (satu per baris):"
+        )
+    except Exception:
+        # Fallback if editing fails
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text="Nomor ADMIN (satu per baris):",
+            reply_markup=get_start_keyboard()
+        )

@@ -45,17 +45,14 @@ async def cmd_pecahvcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     asyncio.create_task(adb.increment_usage(user_id))
     
-    from handlers.start import delete_welcome_messages
-    await delete_welcome_messages(context.bot, user_id, update.effective_chat.id)
-
+    from handlers.start import transition_to_handler, get_start_keyboard
     _cancel_timer(user_id)
     db.set_session(user_id, STATE_PER_FILE, {})
-    from handlers.start import get_start_keyboard
-    await update.message.reply_text(
-        "✂️ <b>Pecah VCF</b>\n\n"
-        "Berapa kontak per file?\n"
-        "<i>Contoh: 50</i>",
-        parse_mode="HTML",
+    await transition_to_handler(
+        context.bot,
+        user_id,
+        update.effective_chat.id,
+        "✂️ <b>Pecah VCF</b>\n\nBerapa kontak per file?\n<i>Contoh: 50</i>",
         reply_markup=get_start_keyboard()
     )
 
@@ -230,22 +227,35 @@ async def handle_show_pecahvcf_help_callback(update: Update, context: ContextTyp
     """Callback untuk tombol PROSES FILE LAIN (Pecah VCF)"""
     query = update.callback_query
     await query.answer()
-    try:
-        await query.message.delete()
-    except Exception:
-        pass
     user_id = query.from_user.id
     asyncio.create_task(adb.increment_usage(user_id))
     _cancel_timer(user_id)
     db.set_session(user_id, STATE_PER_FILE, {})
     from handlers.start import get_start_keyboard
-    await context.bot.send_message(
-        chat_id=query.message.chat_id,
-        text=(
-            "✂️ <b>Pecah VCF</b>\n\n"
-            "Berapa kontak per file?\n"
-            "<i>Contoh: 50</i>"
-        ),
-        parse_mode="HTML",
-        reply_markup=get_start_keyboard()
-    )
+
+    # Edit the message in-place instead of deleting it to provide a smooth morphing transition
+    try:
+        await query.message.edit_text(
+            text=(
+                "✂️ <b>Pecah VCF</b>\n\n"
+                "Berapa kontak per file?\n"
+                "<i>Contoh: 50</i>"
+            ),
+            parse_mode="HTML"
+        )
+    except Exception:
+        # Fallback if editing fails
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=(
+                "✂️ <b>Pecah VCF</b>\n\n"
+                "Berapa kontak per file?\n"
+                "<i>Contoh: 50</i>"
+            ),
+            parse_mode="HTML",
+            reply_markup=get_start_keyboard()
+        )

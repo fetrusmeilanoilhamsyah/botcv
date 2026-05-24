@@ -106,9 +106,6 @@ async def cmd_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     asyncio.create_task(adb.increment_usage(user_id))
 
-    from handlers.start import delete_welcome_messages
-    await delete_welcome_messages(context.bot, user_id, update.effective_chat.id)
-
     import shutil
     count_dir = os.path.join(get_user_dir(user_id), "count")
     shutil.rmtree(count_dir, ignore_errors=True)
@@ -116,12 +113,12 @@ async def cmd_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     db.set_session(user_id, STATE, {"total_kontak": 0, "total_file": 0})
 
-    from handlers.start import get_start_keyboard
-    msg = await update.message.reply_text(
-        "📂 <b>Kirim file TXT atau VCF</b>\n\n"
-        "Bisa kirim banyak sekaligus.\n"
-        "Ketik /done jika sudah selesai.",
-        parse_mode="HTML",
+    from handlers.start import transition_to_handler, get_start_keyboard
+    msg = await transition_to_handler(
+        context.bot,
+        user_id,
+        update.effective_chat.id,
+        "📂 <b>Kirim file TXT atau VCF</b>\n\nBisa kirim banyak sekaligus.\nKetik /done jika sudah selesai.",
         reply_markup=get_start_keyboard()
     )
     _status_msg[user_id] = msg
@@ -230,12 +227,6 @@ async def handle_show_count_help_callback(update: Update, context: ContextTypes.
     query = update.callback_query
     await query.answer()
 
-    # Hapus pesan laporan lama agar tidak menumpuk di chat
-    try:
-        await query.message.delete()
-    except Exception:
-        pass
-
     user_id = query.from_user.id
     import shutil
     count_dir = os.path.join(get_user_dir(user_id), "count")
@@ -245,15 +236,33 @@ async def handle_show_count_help_callback(update: Update, context: ContextTypes.
     db.set_session(user_id, STATE, {"total_kontak": 0, "total_file": 0})
 
     from handlers.start import get_start_keyboard
-    msg = await context.bot.send_message(
-        chat_id=query.message.chat_id,
-        text=(
-            "📂 <b>Kirim file TXT atau VCF</b>\n\n"
-            "Bisa kirim banyak sekaligus.\n"
-            "Ketik /done jika sudah selesai."
-        ),
-        parse_mode="HTML",
-        reply_markup=get_start_keyboard()
-    )
+
+    # Edit the message in-place instead of deleting it to provide a smooth morphing transition
+    try:
+        await query.message.edit_text(
+            text=(
+                "📂 <b>Kirim file TXT atau VCF</b>\n\n"
+                "Bisa kirim banyak sekaligus.\n"
+                "Ketik /done jika sudah selesai."
+            ),
+            parse_mode="HTML"
+        )
+        msg = query.message
+    except Exception:
+        # Fallback if editing fails
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
+        msg = await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=(
+                "📂 <b>Kirim file TXT atau VCF</b>\n\n"
+                "Bisa kirim banyak sekaligus.\n"
+                "Ketik /done jika sudah selesai."
+            ),
+            parse_mode="HTML",
+            reply_markup=get_start_keyboard()
+        )
     _status_msg[user_id] = msg
 

@@ -20,6 +20,44 @@ async def delete_welcome_messages(bot, user_id: int, chat_id: int):
         except Exception:
             pass
 
+async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, reply_markup=None):
+    msg_ids = _welcome_messages.pop(user_id, [])
+    edited = False
+    msg = None
+    
+    # Strip ReplyKeyboardMarkup for edit_message_text
+    from telegram import ReplyKeyboardMarkup
+    edit_markup = None if isinstance(reply_markup, ReplyKeyboardMarkup) else reply_markup
+
+    if msg_ids and len(msg_ids) >= 1:
+        msg1_id = msg_ids[0]
+        if len(msg_ids) >= 2:
+            try:
+                await bot.delete_message(chat_id=chat_id, message_id=msg_ids[1])
+            except Exception:
+                pass
+        try:
+            msg = await bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=msg1_id,
+                text=text,
+                parse_mode="HTML",
+                reply_markup=edit_markup
+            )
+            edited = True
+        except Exception:
+            pass
+            
+    if not edited:
+        msg = await bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            parse_mode="HTML",
+            reply_markup=reply_markup
+        )
+    return msg
+
+
 def get_start_keyboard() -> ReplyKeyboardMarkup:
     keyboard_buttons = [
         [KeyboardButton("/txttovcf"), KeyboardButton("/vcftotxt"), KeyboardButton("/xlsxtotxt"), KeyboardButton("/admin")],
@@ -146,12 +184,6 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
     query = update.callback_query
     await query.answer()
 
-    # Hapus pesan lama agar tidak menumpuk di chat
-    try:
-        await query.message.delete()
-    except Exception:
-        pass
-
     user = query.from_user
     chat_id = query.message.chat_id
     first_name = user.first_name or "Kawan"
@@ -185,19 +217,41 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
             "└ /resetdatabase — Bersihkan cache"
         )
 
-    # Kirim menu utama kembali
-    msg1 = await context.bot.send_message(
-        chat_id=chat_id,
-        text=(
-            f"<b>Halo {first_name}!</b> Selamat datang di bot konversi kontak.\n\n"
-            f"{fitur}\n"
-            f"━━━━━━━━━━━━━━━━━\n"
-            f"<b>Owner:</b> {ADMIN_CONTACT}"
-        ),
-        parse_mode="HTML",
-        reply_markup=get_start_keyboard(),
-        disable_web_page_preview=True,
-    )
+    # Edit the button message in-place to become the start menu text (without inline buttons)
+    edited = False
+    try:
+        msg1 = await query.message.edit_text(
+            text=(
+                f"<b>Halo {first_name}!</b> Selamat datang di bot konversi kontak.\n\n"
+                f"{fitur}\n"
+                f"━━━━━━━━━━━━━━━━━\n"
+                f"<b>Owner:</b> {ADMIN_CONTACT}"
+            ),
+            parse_mode="HTML",
+            disable_web_page_preview=True,
+        )
+        edited = True
+    except Exception:
+        pass
+
+    if not edited:
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
+        msg1 = await context.bot.send_message(
+            chat_id=chat_id,
+            text=(
+                f"<b>Halo {first_name}!</b> Selamat datang di bot konversi kontak.\n\n"
+                f"{fitur}\n"
+                f"━━━━━━━━━━━━━━━━━\n"
+                f"<b>Owner:</b> {ADMIN_CONTACT}"
+            ),
+            parse_mode="HTML",
+            reply_markup=get_start_keyboard(),
+            disable_web_page_preview=True,
+        )
+
     msg2 = await context.bot.send_message(
         chat_id=chat_id,
         text="<b>Butuh panduan?</b> Klik tombol di bawah:",

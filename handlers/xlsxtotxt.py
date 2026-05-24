@@ -120,9 +120,7 @@ async def cmd_xlsxtotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     asyncio.create_task(adb.increment_usage(user_id))
 
-    from handlers.start import delete_welcome_messages
-    await delete_welcome_messages(context.bot, user_id, update.effective_chat.id)
-
+    from handlers.start import transition_to_handler, get_start_keyboard
     import shutil
     xlsx_dir = os.path.join(get_user_dir(user_id), "xlsxtotxt")
     shutil.rmtree(xlsx_dir, ignore_errors=True)
@@ -133,12 +131,14 @@ async def cmd_xlsxtotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     db.set_session(user_id, STATE, {"total_kontak": 0, "total_file": 0})
 
-    from handlers.start import get_start_keyboard
-    msg = await update.message.reply_text(
-        "📊 <b>Kirim file Excel atau CSV</b>\n\n"
-        "Bisa kirim banyak sekaligus (.xlsx / .csv).\n"
-        "Ketik /done jika sudah selesai.",
-        parse_mode="HTML",
+    msg = await transition_to_handler(
+        context.bot,
+        user_id,
+        update.effective_chat.id,
+        """📊 <b>Kirim file Excel atau CSV</b>
+
+Bisa kirim banyak sekaligus (.xlsx / .csv).
+Ketik /done jika sudah selesai.""",
         reply_markup=get_start_keyboard()
     )
     _status_msg[user_id] = msg
@@ -249,7 +249,8 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
 
     xlsx_dir = os.path.join(get_user_dir(user_id), "xlsxtotxt")
     master_txt = os.path.join(xlsx_dir, "extracted_numbers.txt")
-    try:
+
+    try:
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
         keyboard = InlineKeyboardMarkup([
             [
@@ -290,10 +291,6 @@ async def handle_show_xlsxtotxt_help_callback(update: Update, context: ContextTy
     """Callback untuk tombol PROSES FILE LAIN (Excel/CSV to TXT)"""
     query = update.callback_query
     await query.answer()
-    try:
-        await query.message.delete()
-    except Exception:
-        pass
     user_id = query.from_user.id
     asyncio.create_task(adb.increment_usage(user_id))
 
@@ -307,13 +304,30 @@ async def handle_show_xlsxtotxt_help_callback(update: Update, context: ContextTy
 
     db.set_session(user_id, STATE, {"total_kontak": 0, "total_file": 0})
     from handlers.start import get_start_keyboard
-    await context.bot.send_message(
-        chat_id=query.message.chat_id,
-        text=(
-            "📊 <b>Kirim file Excel atau CSV</b>\n\n"
-            "Bisa kirim banyak sekaligus (.xlsx / .csv).\n"
-            "Ketik /done jika sudah selesai."
-        ),
-        parse_mode="HTML",
-        reply_markup=get_start_keyboard()
-    )
+
+    # Edit the message in-place instead of deleting it to provide a smooth morphing transition
+    try:
+        await query.message.edit_text(
+            text=(
+                "📊 <b>Kirim file Excel atau CSV</b>\n\n"
+                "Bisa kirim banyak sekaligus (.xlsx / .csv).\n"
+                "Ketik /done jika sudah selesai."
+            ),
+            parse_mode="HTML"
+        )
+    except Exception:
+        # Fallback if editing fails
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
+        await context.bot.send_message(
+            chat_id=query.message.chat_id,
+            text=(
+                "📊 <b>Kirim file Excel atau CSV</b>\n\n"
+                "Bisa kirim banyak sekaligus (.xlsx / .csv).\n"
+                "Ketik /done jika sudah selesai."
+            ),
+            parse_mode="HTML",
+            reply_markup=get_start_keyboard()
+        )
