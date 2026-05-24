@@ -289,24 +289,22 @@ async def cb_show_vip_menu(update: Update, context):
         mode = "SANDBOX" if PAKASIR_SANDBOX else "QRIS Otomatis"
         info = f"\nPembayaran: {mode}\nPilih paket, bayar QRIS, VIP aktif otomatis."
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        paket_emojis = {7: "💎", 14: "🌟", 21: "✨", 30: "🔥"}
         rows = []
         for p in PAKET:
-            btn_style = "success" if p["days"] == 30 else "primary"
             rows.append([
                 InlineKeyboardButton(
-                    f"{paket_emojis.get(p['days'], '🎁')} {p['label']} — {_fmt_price(p['price'])}",
+                    f"{p['label'].upper()} — {_fmt_price(p['price'])}",
                     callback_data=f"buy_vip_{p['days']}",
-                    style=btn_style
+                    style="primary"
                 )
             ])
-        rows.append([InlineKeyboardButton("📜 Riwayat Pembayaran", callback_data="vip_history", style="primary")])
+        rows.append([InlineKeyboardButton("RIWAYAT PEMBAYARAN", callback_data="vip_history", style="success")])
     else:
         from config import ADMIN_CONTACT as _AC
         info = f"\nPembayaran: Manual\nHubungi {_AC} untuk aktivasi."
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
         rows = [[InlineKeyboardButton(
-            "💬 Hubungi Admin",
+            "HUBUNGI ADMIN",
             url=f"https://t.me/{_AC.lstrip('@')}"
         )]]
 

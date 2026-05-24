@@ -80,8 +80,8 @@ async def cmd_akun(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     rows = []
     if not member:
-        rows.append([InlineKeyboardButton("💎 Langganan VIP", callback_data="show_vip_menu", style="success")])
-    rows.append([InlineKeyboardButton("🔗 Salin Link Referral", switch_inline_query=ref_link, style="primary")])
+        rows.append([InlineKeyboardButton("LANGGANAN VIP", callback_data="show_vip_menu", style="success")])
+    rows.append([InlineKeyboardButton("SALIN LINK REFERRAL", switch_inline_query=ref_link, style="primary")])
 
     await update.message.reply_text(
         "\n".join(lines),
