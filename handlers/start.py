@@ -21,6 +21,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "├ /merge — Gabungkan file VCF/TXT\n"
         "├ /pecahvcf — Pecah file VCF\n"
         "├ /rename — Ganti nama VCF\n"
+        "├ /duplikat — Bersihkan duplikat\n"
         "└ /count — Hitung kontak\n\n"
         "<b>LAINNYA</b>\n"
         "├ /vip — Paket VIP\n"
@@ -41,9 +42,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard_buttons = [
         [KeyboardButton("/txttovcf"), KeyboardButton("/vcftotxt"), KeyboardButton("/xlsxtotxt"), KeyboardButton("/admin")],
-        [KeyboardButton("/merge"),    KeyboardButton("/pecahvcf"), KeyboardButton("/rename"),    KeyboardButton("/count")],
-        [KeyboardButton("/vip"),      KeyboardButton("/referal"),  KeyboardButton("/akun"),       KeyboardButton("/reset")],
-        [KeyboardButton("/done"),     KeyboardButton("/start")],
+        [KeyboardButton("/merge"),    KeyboardButton("/pecahvcf"), KeyboardButton("/rename"),    KeyboardButton("/duplikat")],
+        [KeyboardButton("/count"),    KeyboardButton("/vip"),      KeyboardButton("/referal"),  KeyboardButton("/akun")],
+        [KeyboardButton("/reset"),    KeyboardButton("/done"),     KeyboardButton("/start")],
     ]
 
     # ── Reply LANGSUNG — tidak tunggu DB ──────────────────────────────────────

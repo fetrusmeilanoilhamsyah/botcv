@@ -68,6 +68,10 @@ from handlers.rename import (
     cmd_rename, handle_rename_name, handle_rename_file,
     STATE_NAME as RENAME_S1, STATE_FILE as RENAME_S2,
 )
+from handlers.duplikat import (
+    cmd_duplikat, handle_duplikat_file, handle_show_duplikat_help_callback,
+    STATE as DUPLICAT_STATE,
+)
 from handlers.txttovcf import (
     cmd_txttovcf,
     handle_ttv_contact_name, handle_ttv_per_file, handle_ttv_file_name,
@@ -216,6 +220,7 @@ async def file_router(update: Update, context):
         S5:             (handle_ttv_file,         "file TXT berupa DOKUMEN"),
         COUNT_STATE:    (handle_count_file,       "file VCF berupa DOKUMEN"),
         XLSX2TXT_STATE: (handle_xlsxtotxt_file,   "file XLSX/CSV berupa DOKUMEN"),
+        DUPLICAT_STATE: (handle_duplikat_file,    "file VCF atau TXT berupa DOKUMEN"),
     }
 
     if state in doc_states:
@@ -505,6 +510,7 @@ def main():
     app.add_handler(CommandHandler("pecahvcf",                          rate_limiter(cmd_pecahvcf)))
     app.add_handler(CommandHandler("rename",                            rate_limiter(cmd_rename)))
     app.add_handler(CommandHandler("count",                             rate_limiter(cmd_count)))
+    app.add_handler(CommandHandler("duplikat",                          rate_limiter(cmd_duplikat)))
     app.add_handler(CommandHandler(["broadcast", "brodcast", "Brodcast"], rate_limiter(cmd_broadcast)))
     app.add_handler(CommandHandler("mediabroadcast",                    rate_limiter(cmd_media_broadcast)))
     app.add_handler(CommandHandler("newmember",                         rate_limiter(cmd_newmember)))
@@ -520,6 +526,7 @@ def main():
 
     # ── Callback handlers ──
     app.add_handler(CallbackQueryHandler(cb_show_vip_menu,       pattern="^show_vip_menu$"))
+    app.add_handler(CallbackQueryHandler(handle_show_duplikat_help_callback, pattern="^show_duplikat_help$"))
     app.add_handler(CallbackQueryHandler(handle_reset_callback,  pattern="^admin_db_reset"))
 
     if VIP_PAKASIR_MODE:
