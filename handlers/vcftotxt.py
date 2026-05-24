@@ -89,14 +89,15 @@ async def cmd_vcftotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     asyncio.create_task(adb.increment_usage(user_id))
     
-    from handlers.start import delete_welcome_messages
+    from handlers.start import delete_welcome_messages, get_start_keyboard
     await delete_welcome_messages(context.bot, user_id, update.effective_chat.id)
 
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     db.set_session(user_id, STATE, {"count": 0, "total_size": 0, "total_contacts": 0})
     await update.message.reply_text(
-        "Kirim file VCF.\nKetik /done jika selesai."
+        "Kirim file VCF.\nKetik /done jika selesai.",
+        reply_markup=get_start_keyboard()
     )
 
 
@@ -207,8 +208,10 @@ async def handle_vcftotxt_done(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     db.set_session(user_id, STATE_NAMING, sess["data"])
+    from handlers.start import get_start_keyboard
     await update.message.reply_text(
-        f"{sess['data']['count']} file diterima ({sess['data'].get('total_contacts', 0)} kontak). Nama file:"
+        f"{sess['data']['count']} file diterima ({sess['data'].get('total_contacts', 0)} kontak). Nama file:",
+        reply_markup=get_start_keyboard()
     )
 
 
@@ -359,6 +362,11 @@ async def handle_vcftotxt_naming(update: Update, context: ContextTypes.DEFAULT_T
             if i + chunk_size < total_created:
                 await asyncio.sleep(0.5)
 
+        try:
+            await progress_msg.delete()
+        except Exception:
+            pass
+
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
         keyboard = InlineKeyboardMarkup([
             [
@@ -366,7 +374,7 @@ async def handle_vcftotxt_naming(update: Update, context: ContextTypes.DEFAULT_T
                 InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
             ]
         ])
-        await progress_msg.edit_text(
+        await update.message.reply_text(
             f"Proses selesai.\n"
             f"Total file VCF  : {total_files}\n"
             f"Total file TXT  : {total_created}\n"
@@ -392,7 +400,9 @@ async def handle_show_vcftotxt_help_callback(update: Update, context: ContextTyp
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     db.set_session(user_id, STATE, {"count": 0, "total_size": 0, "total_contacts": 0})
+    from handlers.start import get_start_keyboard
     await context.bot.send_message(
         chat_id=query.message.chat_id,
-        text="Kirim file VCF.\nKetik /done jika selesai."
+        text="Kirim file VCF.\nKetik /done jika selesai.",
+        reply_markup=get_start_keyboard()
     )

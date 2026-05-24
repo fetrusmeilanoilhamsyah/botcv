@@ -116,11 +116,13 @@ async def cmd_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     db.set_session(user_id, STATE, {"total_kontak": 0, "total_file": 0})
 
+    from handlers.start import get_start_keyboard
     msg = await update.message.reply_text(
         "📂 <b>Kirim file TXT atau VCF</b>\n\n"
         "Bisa kirim banyak sekaligus.\n"
         "Ketik /done jika sudah selesai.",
         parse_mode="HTML",
+        reply_markup=get_start_keyboard()
     )
     _status_msg[user_id] = msg
 
@@ -242,6 +244,7 @@ async def handle_show_count_help_callback(update: Update, context: ContextTypes.
 
     db.set_session(user_id, STATE, {"total_kontak": 0, "total_file": 0})
 
+    from handlers.start import get_start_keyboard
     msg = await context.bot.send_message(
         chat_id=query.message.chat_id,
         text=(
@@ -249,7 +252,8 @@ async def handle_show_count_help_callback(update: Update, context: ContextTypes.
             "Bisa kirim banyak sekaligus.\n"
             "Ketik /done jika sudah selesai."
         ),
-        parse_mode="HTML"
+        parse_mode="HTML",
+        reply_markup=get_start_keyboard()
     )
     _status_msg[user_id] = msg
 

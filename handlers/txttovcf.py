@@ -93,7 +93,7 @@ async def cmd_txttovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     asyncio.create_task(adb.increment_usage(user_id))
     
-    from handlers.start import delete_welcome_messages
+    from handlers.start import delete_welcome_messages, get_start_keyboard
     await delete_welcome_messages(context.bot, user_id, update.effective_chat.id)
 
     _cancel_timer(user_id)
@@ -101,7 +101,8 @@ async def cmd_txttovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.set_session(user_id, S0, {"count": 0, "total_size": 0, "total_contacts": 0})
     await update.message.reply_text(
         "Silakan kirim file TXT.\n"
-        "Ketik /done jika sudah selesai mengirim semua file."
+        "Ketik /done jika sudah selesai mengirim semua file.",
+        reply_markup=get_start_keyboard()
     )
 
 
@@ -113,7 +114,8 @@ async def handle_ttv_contact_name(update: Update, context: ContextTypes.DEFAULT_
     data = sess["data"]
     data["contact_name"] = update.message.text.strip()
     db.set_session(user_id, S2, data)
-    await update.message.reply_text("Kontak per file: (misal: 50)")
+    from handlers.start import get_start_keyboard
+    await update.message.reply_text("Kontak per file: (misal: 50)", reply_markup=get_start_keyboard())
 
 
 async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -134,7 +136,8 @@ async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE
     data = sess["data"]
     data["per_file"] = per_file
     db.set_session(user_id, S3, data)
-    await update.message.reply_text("Nama file: (misal: FEE)")
+    from handlers.start import get_start_keyboard
+    await update.message.reply_text("Nama file: (misal: FEE)", reply_markup=get_start_keyboard())
 
 
 async def handle_ttv_file_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -145,7 +148,8 @@ async def handle_ttv_file_name(update: Update, context: ContextTypes.DEFAULT_TYP
     data = sess["data"]
     data["file_name"] = sanitize_filename(update.message.text.strip())
     db.set_session(user_id, S4, data)
-    await update.message.reply_text("Nomor file: (misal: 1)")
+    from handlers.start import get_start_keyboard
+    await update.message.reply_text("Nomor file: (misal: 1)", reply_markup=get_start_keyboard())
 
 
 async def handle_ttv_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -276,7 +280,11 @@ async def handle_ttv_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         db.set_session(user_id, S1, data)
-        await update.message.reply_text(f"Total: {data.get('total_contacts', 0)} kontak.\n\nNama kontak: (misal: FEE)")
+        from handlers.start import get_start_keyboard
+        await update.message.reply_text(
+            f"Total: {data.get('total_contacts', 0)} kontak.\n\nNama kontak: (misal: FEE)",
+            reply_markup=get_start_keyboard()
+        )
         return
 
     if sess["state"] not in [S0, S5]:
@@ -432,6 +440,11 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 await asyncio.sleep(0.5)
 
         try:
+            try:
+                await send_status.delete()
+            except Exception:
+                pass
+
             from telegram import InlineKeyboardButton, InlineKeyboardMarkup
             keyboard = InlineKeyboardMarkup([
                 [
@@ -439,7 +452,7 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
                 ]
             ])
-            await send_status.edit_text(
+            await update.message.reply_text(
                 f"Proses selesai.\n"
                 f"Total file   : {total_files} VCF\n"
                 f"Total kontak : {len(all_numbers)} nomor\n"
@@ -467,10 +480,12 @@ async def handle_show_txttovcf_help_callback(update: Update, context: ContextTyp
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     db.set_session(user_id, S0, {"count": 0, "total_size": 0, "total_contacts": 0})
+    from handlers.start import get_start_keyboard
     await context.bot.send_message(
         chat_id=query.message.chat_id,
         text=(
             "Silakan kirim file TXT.\n"
             "Ketik /done jika sudah selesai mengirim semua file."
-        )
+        ),
+        reply_markup=get_start_keyboard()
     )

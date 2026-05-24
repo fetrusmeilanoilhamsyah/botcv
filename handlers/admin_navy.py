@@ -45,8 +45,10 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await delete_welcome_messages(context.bot, user_id, update.effective_chat.id)
 
     db.set_session(user_id, STATES["WAIT_ADMIN_NUMBERS"], {})
+    from handlers.start import get_start_keyboard
     await update.message.reply_text(
-        "Nomor ADMIN (satu per baris):"
+        "Nomor ADMIN (satu per baris):",
+        reply_markup=get_start_keyboard()
     )
 
 
@@ -66,7 +68,8 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             data["admin_numbers"] = numbers
             db.set_session(user_id, STATES["WAIT_NAVY_NUMBERS"], data)
-            await update.message.reply_text("Nomor NAVY (satu per baris):")
+            from handlers.start import get_start_keyboard
+            await update.message.reply_text("Nomor NAVY (satu per baris):", reply_markup=get_start_keyboard())
 
         elif state == STATES["WAIT_NAVY_NUMBERS"]:
             numbers = [n.strip() for n in text.splitlines() if n.strip()]
@@ -75,17 +78,20 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             data["navy_numbers"] = numbers
             db.set_session(user_id, STATES["WAIT_ADMIN_NAME"], data)
-            await update.message.reply_text("Label ADMIN:")
+            from handlers.start import get_start_keyboard
+            await update.message.reply_text("Label ADMIN:", reply_markup=get_start_keyboard())
 
         elif state == STATES["WAIT_ADMIN_NAME"]:
             data["admin_name"] = text
             db.set_session(user_id, STATES["WAIT_NAVY_NAME"], data)
-            await update.message.reply_text("Label NAVY:")
+            from handlers.start import get_start_keyboard
+            await update.message.reply_text("Label NAVY:", reply_markup=get_start_keyboard())
 
         elif state == STATES["WAIT_NAVY_NAME"]:
             data["navy_name"] = text
             db.set_session(user_id, STATES["WAIT_FILE_NAME"], data)
-            await update.message.reply_text("Nama file:")
+            from handlers.start import get_start_keyboard
+            await update.message.reply_text("Nama file:", reply_markup=get_start_keyboard())
 
         elif state == STATES["WAIT_FILE_NAME"]:
             data["file_name"] = sanitize_filename(text)
@@ -112,6 +118,11 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
             vcf_bytes = contacts_to_vcf(contacts).encode("utf-8")
             db.clear_session(user_id)
 
+            await update.message.reply_document(
+                document=io.BytesIO(vcf_bytes),
+                filename=f"{data['file_name']}.vcf"
+            )
+
             from telegram import InlineKeyboardButton, InlineKeyboardMarkup
             keyboard = InlineKeyboardMarkup([
                 [
@@ -119,10 +130,9 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
                 ]
             ])
-            await update.message.reply_document(
-                document=io.BytesIO(vcf_bytes),
-                filename=f"{data['file_name']}.vcf",
-                reply_markup=keyboard,
+            await update.message.reply_text(
+                "Proses pembuatan Admin VCF selesai.",
+                reply_markup=keyboard
             )
 
 
@@ -137,7 +147,9 @@ async def handle_show_admin_help_callback(update: Update, context: ContextTypes.
     user_id = query.from_user.id
     asyncio.create_task(adb.increment_usage(user_id))
     db.set_session(user_id, STATES["WAIT_ADMIN_NUMBERS"], {})
+    from handlers.start import get_start_keyboard
     await context.bot.send_message(
         chat_id=query.message.chat_id,
-        text="Nomor ADMIN (satu per baris):"
+        text="Nomor ADMIN (satu per baris):",
+        reply_markup=get_start_keyboard()
     )

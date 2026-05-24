@@ -50,11 +50,13 @@ async def cmd_pecahvcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     _cancel_timer(user_id)
     db.set_session(user_id, STATE_PER_FILE, {})
+    from handlers.start import get_start_keyboard
     await update.message.reply_text(
         "✂️ <b>Pecah VCF</b>\n\n"
         "Berapa kontak per file?\n"
         "<i>Contoh: 50</i>",
         parse_mode="HTML",
+        reply_markup=get_start_keyboard()
     )
 
 
@@ -77,10 +79,12 @@ async def handle_pecah_per_file(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     db.set_session(user_id, STATE_WAIT_VCF, {"per_file": per_file})
+    from handlers.start import get_start_keyboard
     await update.message.reply_text(
         f"✅ Kontak per file: <b>{per_file}</b>\n\n"
         f"Sekarang kirim file VCF (SATU VCF PER SESI).",
         parse_mode="HTML",
+        reply_markup=get_start_keyboard()
     )
 
 
@@ -234,6 +238,7 @@ async def handle_show_pecahvcf_help_callback(update: Update, context: ContextTyp
     asyncio.create_task(adb.increment_usage(user_id))
     _cancel_timer(user_id)
     db.set_session(user_id, STATE_PER_FILE, {})
+    from handlers.start import get_start_keyboard
     await context.bot.send_message(
         chat_id=query.message.chat_id,
         text=(
@@ -241,5 +246,6 @@ async def handle_show_pecahvcf_help_callback(update: Update, context: ContextTyp
             "Berapa kontak per file?\n"
             "<i>Contoh: 50</i>"
         ),
-        parse_mode="HTML"
+        parse_mode="HTML",
+        reply_markup=get_start_keyboard()
     )

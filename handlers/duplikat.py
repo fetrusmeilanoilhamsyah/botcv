@@ -45,10 +45,12 @@ async def cmd_duplikat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Set session state
     db.set_session(user_id, STATE, {})
     
+    from handlers.start import get_start_keyboard
     await update.message.reply_text(
         "KIRIM FILE KONTAK (VCF ATAU TXT)\n\n"
         "Silakan kirim file VCF atau TXT berupa dokumen yang ingin Anda bersihkan dari nomor kontak duplikat.",
-        parse_mode="HTML"
+        parse_mode="HTML",
+        reply_markup=get_start_keyboard()
     )
 
 
@@ -164,7 +166,12 @@ async def handle_duplikat_file(update: Update, context: ContextTypes.DEFAULT_TYP
                     f"Total Awal : {total_awal} kontak\n"
                     f"Dihapus    : {total_duplikat} kontak duplikat\n"
                     f"Total Unik : {total_unik} kontak tersisa"
-                ),
+                )
+            )
+
+            # Kirim tombol sebagai pesan terpisah
+            await update.message.reply_text(
+                f"Proses pembersihan duplikat selesai untuk {doc.file_name}.",
                 reply_markup=keyboard
             )
 
@@ -205,5 +212,6 @@ async def handle_show_duplikat_help_callback(update: Update, context: ContextTyp
             "KIRIM FILE KONTAK (VCF ATAU TXT)\n\n"
             "Silakan kirim file VCF atau TXT berupa dokumen yang ingin Anda bersihkan dari nomor kontak duplikat."
         ),
-        parse_mode="HTML"
+        parse_mode="HTML",
+        reply_markup=get_start_keyboard()
     )

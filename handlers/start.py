@@ -20,6 +20,15 @@ async def delete_welcome_messages(bot, user_id: int, chat_id: int):
         except Exception:
             pass
 
+def get_start_keyboard() -> ReplyKeyboardMarkup:
+    keyboard_buttons = [
+        [KeyboardButton("/txttovcf"), KeyboardButton("/vcftotxt"), KeyboardButton("/xlsxtotxt"), KeyboardButton("/admin")],
+        [KeyboardButton("/merge"),    KeyboardButton("/pecahvcf"), KeyboardButton("/rename"),    KeyboardButton("/duplikat")],
+        [KeyboardButton("/count"),    KeyboardButton("/vip"),      KeyboardButton("/referal"),  KeyboardButton("/akun")],
+        [KeyboardButton("/reset"),    KeyboardButton("/done"),     KeyboardButton("/start")],
+    ]
+    return ReplyKeyboardMarkup(keyboard_buttons, resize_keyboard=True)
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     first_name = user.first_name or "Kawan"
@@ -53,13 +62,6 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "└ /resetdatabase — Bersihkan cache"
         )
 
-    keyboard_buttons = [
-        [KeyboardButton("/txttovcf"), KeyboardButton("/vcftotxt"), KeyboardButton("/xlsxtotxt"), KeyboardButton("/admin")],
-        [KeyboardButton("/merge"),    KeyboardButton("/pecahvcf"), KeyboardButton("/rename"),    KeyboardButton("/duplikat")],
-        [KeyboardButton("/count"),    KeyboardButton("/vip"),      KeyboardButton("/referal"),  KeyboardButton("/akun")],
-        [KeyboardButton("/reset"),    KeyboardButton("/done"),     KeyboardButton("/start")],
-    ]
-
     # ── Reply LANGSUNG — tidak tunggu DB ──────────────────────────────────────
     msg1 = await update.message.reply_text(
         f"<b>Halo {first_name}!</b> Selamat datang di bot konversi kontak.\n\n"
@@ -67,7 +69,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"━━━━━━━━━━━━━━━━━\n"
         f"<b>Owner:</b> {ADMIN_CONTACT}",
         parse_mode="HTML",
-        reply_markup=ReplyKeyboardMarkup(keyboard_buttons, resize_keyboard=True),
+        reply_markup=get_start_keyboard(),
         disable_web_page_preview=True,
     )
     msg2 = await update.message.reply_text(
@@ -183,13 +185,6 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
             "└ /resetdatabase — Bersihkan cache"
         )
 
-    keyboard_buttons = [
-        [KeyboardButton("/txttovcf"), KeyboardButton("/vcftotxt"), KeyboardButton("/xlsxtotxt"), KeyboardButton("/admin")],
-        [KeyboardButton("/merge"),    KeyboardButton("/pecahvcf"), KeyboardButton("/rename"),    KeyboardButton("/duplikat")],
-        [KeyboardButton("/count"),    KeyboardButton("/vip"),      KeyboardButton("/referal"),  KeyboardButton("/akun")],
-        [KeyboardButton("/reset"),    KeyboardButton("/done"),     KeyboardButton("/start")],
-    ]
-
     # Kirim menu utama kembali
     msg1 = await context.bot.send_message(
         chat_id=chat_id,
@@ -200,7 +195,7 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
             f"<b>Owner:</b> {ADMIN_CONTACT}"
         ),
         parse_mode="HTML",
-        reply_markup=ReplyKeyboardMarkup(keyboard_buttons, resize_keyboard=True),
+        reply_markup=get_start_keyboard(),
         disable_web_page_preview=True,
     )
     msg2 = await context.bot.send_message(

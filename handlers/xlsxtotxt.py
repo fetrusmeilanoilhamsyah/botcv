@@ -133,11 +133,13 @@ async def cmd_xlsxtotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     db.set_session(user_id, STATE, {"total_kontak": 0, "total_file": 0})
 
+    from handlers.start import get_start_keyboard
     msg = await update.message.reply_text(
         "📊 <b>Kirim file Excel atau CSV</b>\n\n"
         "Bisa kirim banyak sekaligus (.xlsx / .csv).\n"
         "Ketik /done jika sudah selesai.",
         parse_mode="HTML",
+        reply_markup=get_start_keyboard()
     )
     _status_msg[user_id] = msg
 
@@ -247,8 +249,7 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
 
     xlsx_dir = os.path.join(get_user_dir(user_id), "xlsxtotxt")
     master_txt = os.path.join(xlsx_dir, "extracted_numbers.txt")
-
-    try:
+    try:
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
         keyboard = InlineKeyboardMarkup([
             [
@@ -271,7 +272,10 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
                 f"{'─' * 20}"
             ),
             parse_mode="HTML",
-            reply_markup=keyboard,
+        )
+        await update.message.reply_text(
+            "Proses selesai. Silakan unduh file hasil ekstraksi di atas.",
+            reply_markup=keyboard
         )
     except Exception as e:
         logger.error("Error kirim hasil xlsx: %s", e)
@@ -302,7 +306,7 @@ async def handle_show_xlsxtotxt_help_callback(update: Update, context: ContextTy
     open(master_txt, 'w').close()
 
     db.set_session(user_id, STATE, {"total_kontak": 0, "total_file": 0})
-
+    from handlers.start import get_start_keyboard
     await context.bot.send_message(
         chat_id=query.message.chat_id,
         text=(
@@ -310,5 +314,6 @@ async def handle_show_xlsxtotxt_help_callback(update: Update, context: ContextTy
             "Bisa kirim banyak sekaligus (.xlsx / .csv).\n"
             "Ketik /done jika sudah selesai."
         ),
-        parse_mode="HTML"
+        parse_mode="HTML",
+        reply_markup=get_start_keyboard()
     )

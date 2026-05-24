@@ -95,9 +95,11 @@ async def cmd_merge(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     db.set_session(user_id, STATE, {"count": 0, "total_size": 0, "mode": None})
+    from handlers.start import get_start_keyboard
     await update.message.reply_text(
         "Kirim file VCF atau TXT.\n"
-        "Ketik /done jika selesai."
+        "Ketik /done jika selesai.",
+        reply_markup=get_start_keyboard()
     )
 
 
@@ -233,9 +235,11 @@ async def handle_merge_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     mode = data.get("mode", "vcf")
     db.set_session(user_id, STATE_NAMING, data)
+    from handlers.start import get_start_keyboard
     await update.message.reply_text(
         f"{data['count']} file {mode.upper()} diterima.\n"
-        "Nama file output:"
+        "Nama file output:",
+        reply_markup=get_start_keyboard()
     )
 
 
@@ -335,11 +339,17 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
             _clear_buffers(user_id)
             db.clear_session(user_id)
 
-            await progress_msg.edit_text(
-                f"Proses selesai.\n"
-                f"Total file input : {total_files} VCF\n"
-                f"Total kontak     : {len(all_contacts)} kontak"
-            )
+            try:
+                await progress_msg.delete()
+            except Exception:
+                pass
+
+            with open(out_path, "rb") as f:
+                await update.message.reply_document(
+                    document=f, filename=f"{file_name}.vcf",
+                    read_timeout=120, write_timeout=120, connect_timeout=60
+                )
+
             from telegram import InlineKeyboardButton, InlineKeyboardMarkup
             keyboard = InlineKeyboardMarkup([
                 [
@@ -347,12 +357,12 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                     InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
                 ]
             ])
-            with open(out_path, "rb") as f:
-                await update.message.reply_document(
-                    document=f, filename=f"{file_name}.vcf",
-                    read_timeout=120, write_timeout=120, connect_timeout=60,
-                    reply_markup=keyboard
-                )
+            await update.message.reply_text(
+                f"Proses selesai.\n"
+                f"Total file input : {total_files} VCF\n"
+                f"Total kontak     : {len(all_contacts)} kontak",
+                reply_markup=keyboard
+            )
 
         else:
             # ── Mode TXT: gabung semua baris nomor, dedup ──────────────────
@@ -390,11 +400,17 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
             _clear_buffers(user_id)
             db.clear_session(user_id)
 
-            await progress_msg.edit_text(
-                f"Proses selesai.\n"
-                f"Total file input : {total_files} TXT\n"
-                f"Total nomor      : {len(numbers)} nomor (sudah deduplikasi)"
-            )
+            try:
+                await progress_msg.delete()
+            except Exception:
+                pass
+
+            with open(out_path, "rb") as f:
+                await update.message.reply_document(
+                    document=f, filename=f"{file_name}.txt",
+                    read_timeout=120, write_timeout=120, connect_timeout=60
+                )
+
             from telegram import InlineKeyboardButton, InlineKeyboardMarkup
             keyboard = InlineKeyboardMarkup([
                 [
@@ -402,12 +418,12 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                     InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
                 ]
             ])
-            with open(out_path, "rb") as f:
-                await update.message.reply_document(
-                    document=f, filename=f"{file_name}.txt",
-                    read_timeout=120, write_timeout=120, connect_timeout=60,
-                    reply_markup=keyboard
-                )
+            await update.message.reply_text(
+                f"Proses selesai.\n"
+                f"Total file input : {total_files} TXT\n"
+                f"Total nomor      : {len(numbers)} nomor (sudah deduplikasi)",
+                reply_markup=keyboard
+            )
 
     finally:
         _clear_buffers(user_id)
@@ -433,10 +449,12 @@ async def handle_show_merge_help_callback(update: Update, context: ContextTypes.
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     db.set_session(user_id, STATE, {"count": 0, "total_size": 0, "mode": None})
+    from handlers.start import get_start_keyboard
     await context.bot.send_message(
         chat_id=query.message.chat_id,
         text=(
             "Kirim file VCF atau TXT.\n"
             "Ketik /done jika selesai."
-        )
+        ),
+        reply_markup=get_start_keyboard()
     )
