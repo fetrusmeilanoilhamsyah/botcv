@@ -202,16 +202,18 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
             "└ /resetdatabase — Bersihkan cache"
         )
 
-    # Edit the button message in-place to become the start menu text (without inline buttons)
+    menu_text = (
+        f"<b>Halo {first_name}!</b> Selamat datang di bot konversi kontak.\n\n"
+        f"{fitur}\n"
+        f"━━━━━━━━━━━━━━━━━\n"
+        f"<b>Owner:</b> {ADMIN_CONTACT}"
+    )
+
+    # Edit the inline button message in-place to become the menu text
     edited = False
     try:
         msg1 = await query.message.edit_text(
-            text=(
-                f"<b>Halo {first_name}!</b> Selamat datang di bot konversi kontak.\n\n"
-                f"{fitur}\n"
-                f"━━━━━━━━━━━━━━━━━\n"
-                f"<b>Owner:</b> {ADMIN_CONTACT}"
-            ),
+            text=menu_text,
             parse_mode="HTML",
             disable_web_page_preview=True,
         )
@@ -226,22 +228,32 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
             pass
         msg1 = await context.bot.send_message(
             chat_id=chat_id,
-            text=(
-                f"<b>Halo {first_name}!</b> Selamat datang di bot konversi kontak.\n\n"
-                f"{fitur}\n"
-                f"━━━━━━━━━━━━━━━━━\n"
-                f"<b>Owner:</b> {ADMIN_CONTACT}"
-            ),
+            text=menu_text,
             parse_mode="HTML",
-            reply_markup=get_start_keyboard(),
             disable_web_page_preview=True,
         )
 
+    # Selalu kirim tutorial message dengan get_start_keyboard()
+    # agar keyboard bawah muncul kembali setelah proses selesai
     msg2 = await context.bot.send_message(
         chat_id=chat_id,
         text="<b>Butuh panduan?</b> Klik tombol di bawah:",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK, style="success")]]),
     )
+
+    # Kirim satu pesan kecil tersembunyi untuk memunculkan kembali keyboard bawah
+    restore_msg = await context.bot.send_message(
+        chat_id=chat_id,
+        text=".",
+        reply_markup=get_start_keyboard(),
+    )
+    # Langsung hapus pesan titik itu agar tidak terlihat mengganggu
+    try:
+        await restore_msg.delete()
+    except Exception:
+        pass
+
     register_welcome_messages(user.id, [msg1.message_id, msg2.message_id])
+
 
