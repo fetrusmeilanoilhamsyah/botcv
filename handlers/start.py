@@ -21,40 +21,21 @@ async def delete_welcome_messages(bot, user_id: int, chat_id: int):
             pass
 
 async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, reply_markup=None):
+    # Hapus welcome messages di atas agar layar bersih
     msg_ids = _welcome_messages.pop(user_id, [])
-    edited = False
-    msg = None
-    
-    # Strip ReplyKeyboardMarkup for edit_message_text
-    from telegram import ReplyKeyboardMarkup
-    edit_markup = None if isinstance(reply_markup, ReplyKeyboardMarkup) else reply_markup
-
-    if msg_ids and len(msg_ids) >= 1:
-        msg1_id = msg_ids[0]
-        if len(msg_ids) >= 2:
-            try:
-                await bot.delete_message(chat_id=chat_id, message_id=msg_ids[1])
-            except Exception:
-                pass
+    for msg_id in msg_ids:
         try:
-            msg = await bot.edit_message_text(
-                chat_id=chat_id,
-                message_id=msg1_id,
-                text=text,
-                parse_mode="HTML",
-                reply_markup=edit_markup
-            )
-            edited = True
+            await bot.delete_message(chat_id=chat_id, message_id=msg_id)
         except Exception:
             pass
-            
-    if not edited:
-        msg = await bot.send_message(
-            chat_id=chat_id,
-            text=text,
-            parse_mode="HTML",
-            reply_markup=reply_markup
-        )
+
+    # Balas/kirim pesan baru di bawah agar user langsung melihat responnya
+    msg = await bot.send_message(
+        chat_id=chat_id,
+        text=text,
+        parse_mode="HTML",
+        reply_markup=reply_markup
+    )
     return msg
 
 
