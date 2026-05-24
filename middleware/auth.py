@@ -31,7 +31,7 @@ async def require_member(update, context) -> bool:
         return True
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Lihat Paket VIP", callback_data="show_vip_menu")],
+        [InlineKeyboardButton("💎 Lihat Paket VIP", callback_data="show_vip_menu")],
     ])
     await update.message.reply_text(
         "Fitur ini khusus member VIP.\n"

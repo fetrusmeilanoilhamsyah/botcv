@@ -112,17 +112,18 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Keyboard
     if QRIS_ENABLED:
+        paket_emojis = {7: "💎", 14: "🌟", 21: "✨", 30: "🔥"}
         rows = [
             [InlineKeyboardButton(
-                f"{p['label']} — {_fmt_price(p['price'])}",
+                f"{paket_emojis.get(p['days'], '🎁')} {p['label']} — {_fmt_price(p['price'])}",
                 callback_data=f"buy_vip_{p['days']}"
             )]
             for p in PAKET
         ]
-        rows.append([InlineKeyboardButton("Riwayat Pembayaran", callback_data="vip_history")])
+        rows.append([InlineKeyboardButton("📜 Riwayat Pembayaran", callback_data="vip_history")])
     else:
         rows = [[InlineKeyboardButton(
-            "Hubungi Admin",
+            "💬 Hubungi Admin",
             url=f"https://t.me/{ADMIN_CONTACT.lstrip('@')}"
         )]]
 
@@ -166,8 +167,8 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         pkg_pending = _get_package(pending["package_days"])
         label_pending = pkg_pending["label"] if pkg_pending else f"{pending['package_days']} hari"
         kb_existing = InlineKeyboardMarkup([
-            [InlineKeyboardButton("Cek Status Pembayaran", callback_data=f"check_payment_{pending['order_id']}")],
-            [InlineKeyboardButton("Batalkan & Buat Baru", callback_data=f"cancel_payment_{pending['order_id']}")],
+            [InlineKeyboardButton("🔍 Cek Status Pembayaran", callback_data=f"check_payment_{pending['order_id']}")],
+            [InlineKeyboardButton("❌ Batalkan & Buat Baru", callback_data=f"cancel_payment_{pending['order_id']}")],
         ])
         await query.edit_message_text(
             f"Kamu masih punya pembayaran pending.\n\n"
@@ -243,8 +244,8 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("Cek Status Pembayaran", callback_data=f"check_payment_{order_id}")],
-        [InlineKeyboardButton("Batalkan",              callback_data=f"cancel_payment_{order_id}")],
+        [InlineKeyboardButton("🔍 Cek Status Pembayaran", callback_data=f"check_payment_{order_id}")],
+        [InlineKeyboardButton("❌ Batalkan Pembayaran", callback_data=f"cancel_payment_{order_id}")],
     ])
 
     qr_chat_id    = None
