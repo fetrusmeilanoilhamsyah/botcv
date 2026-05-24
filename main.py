@@ -45,27 +45,33 @@ from handlers.broadcast import cmd_broadcast, handle_broadcast_msg, STATE as BRO
 from handlers.media_broadcast import cmd_media_broadcast, handle_broadcast_media, STATE as MEDIA_BROADCAST_STATE
 from handlers.new_member import cmd_newmember, handle_newmember_id, STATE as NEWMEMBER_STATE
 from handlers.del_member import cmd_delmember, handle_delmember_id, STATE as DELMEMBER_STATE
-from handlers.admin_navy import cmd_admin, handle_admin_navy, STATES as AN_STATES
+from handlers.admin_navy import cmd_admin, handle_admin_navy, handle_show_admin_help_callback, STATES as AN_STATES
 from handlers.merge import (
     cmd_merge, handle_merge_file, handle_merge_done, handle_merge_naming,
+    handle_show_merge_help_callback,
     STATE as MERGE_STATE, STATE_NAMING as MERGE_NAMING,
 )
 from handlers.vcftotxt import (
     cmd_vcftotxt, handle_vcftotxt_file, handle_vcftotxt_done, handle_vcftotxt_naming,
+    handle_show_vcftotxt_help_callback,
     STATE as VCF2TXT_STATE, STATE_NAMING as VCF2TXT_NAMING,
 )
 from handlers.count import (
     cmd_count, handle_count_file, handle_count_done, handle_show_count_help_callback, STATE as COUNT_STATE,
 )
 from handlers.xlsxtotxt import (
-    cmd_xlsxtotxt, handle_xlsxtotxt_file, handle_xlsxtotxt_done, STATE as XLSX2TXT_STATE,
+    cmd_xlsxtotxt, handle_xlsxtotxt_file, handle_xlsxtotxt_done,
+    handle_show_xlsxtotxt_help_callback,
+    STATE as XLSX2TXT_STATE,
 )
 from handlers.pecahvcf import (
     cmd_pecahvcf, handle_pecah_per_file, handle_pecah_vcf_file,
+    handle_show_pecahvcf_help_callback,
     STATE_PER_FILE as PECAH_S1, STATE_WAIT_VCF as PECAH_S2,
 )
 from handlers.rename import (
     cmd_rename, handle_rename_name, handle_rename_file,
+    handle_show_rename_help_callback,
     STATE_NAME as RENAME_S1, STATE_FILE as RENAME_S2,
 )
 from handlers.duplikat import (
@@ -76,6 +82,7 @@ from handlers.txttovcf import (
     cmd_txttovcf,
     handle_ttv_contact_name, handle_ttv_per_file, handle_ttv_file_name,
     handle_ttv_awalan, handle_ttv_file, handle_ttv_done,
+    handle_show_txttovcf_help_callback,
     S0, S1, S2, S3, S4, S5,
 )
 
@@ -529,6 +536,13 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_back_to_start,   pattern="^back_to_start$"))
     app.add_handler(CallbackQueryHandler(handle_show_duplikat_help_callback, pattern="^show_duplikat_help$"))
     app.add_handler(CallbackQueryHandler(handle_show_count_help_callback, pattern="^show_count_help$"))
+    app.add_handler(CallbackQueryHandler(handle_show_txttovcf_help_callback, pattern="^show_txttovcf_help$"))
+    app.add_handler(CallbackQueryHandler(handle_show_vcftotxt_help_callback, pattern="^show_vcftotxt_help$"))
+    app.add_handler(CallbackQueryHandler(handle_show_xlsxtotxt_help_callback, pattern="^show_xlsxtotxt_help$"))
+    app.add_handler(CallbackQueryHandler(handle_show_merge_help_callback, pattern="^show_merge_help$"))
+    app.add_handler(CallbackQueryHandler(handle_show_pecahvcf_help_callback, pattern="^show_pecahvcf_help$"))
+    app.add_handler(CallbackQueryHandler(handle_show_rename_help_callback, pattern="^show_rename_help$"))
+    app.add_handler(CallbackQueryHandler(handle_show_admin_help_callback, pattern="^show_admin_help$"))
     app.add_handler(CallbackQueryHandler(handle_reset_callback,  pattern="^admin_db_reset"))
 
     if VIP_PAKASIR_MODE:

@@ -39,6 +39,9 @@ async def cmd_duplikat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     asyncio.create_task(adb.increment_usage(user_id))
     
+    from handlers.start import delete_welcome_messages
+    await delete_welcome_messages(context.bot, user_id, update.effective_chat.id)
+
     # Set session state
     db.set_session(user_id, STATE, {})
     

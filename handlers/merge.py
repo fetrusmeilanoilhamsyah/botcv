@@ -88,6 +88,10 @@ async def cmd_merge(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     user_id = update.effective_user.id
     asyncio.create_task(adb.increment_usage(user_id))
+
+    from handlers.start import delete_welcome_messages
+    await delete_welcome_messages(context.bot, user_id, update.effective_chat.id)
+
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     db.set_session(user_id, STATE, {"count": 0, "total_size": 0, "mode": None})
@@ -336,10 +340,18 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                 f"Total file input : {total_files} VCF\n"
                 f"Total kontak     : {len(all_contacts)} kontak"
             )
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_merge_help", style="success"),
+                    InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
+                ]
+            ])
             with open(out_path, "rb") as f:
                 await update.message.reply_document(
                     document=f, filename=f"{file_name}.vcf",
-                    read_timeout=120, write_timeout=120, connect_timeout=60
+                    read_timeout=120, write_timeout=120, connect_timeout=60,
+                    reply_markup=keyboard
                 )
 
         else:
@@ -383,10 +395,18 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                 f"Total file input : {total_files} TXT\n"
                 f"Total nomor      : {len(numbers)} nomor (sudah deduplikasi)"
             )
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_merge_help", style="success"),
+                    InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
+                ]
+            ])
             with open(out_path, "rb") as f:
                 await update.message.reply_document(
                     document=f, filename=f"{file_name}.txt",
-                    read_timeout=120, write_timeout=120, connect_timeout=60
+                    read_timeout=120, write_timeout=120, connect_timeout=60,
+                    reply_markup=keyboard
                 )
 
     finally:
@@ -398,3 +418,25 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                     os.remove(out_path)
             except Exception:
                 pass
+
+
+async def handle_show_merge_help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Callback untuk tombol PROSES FILE LAIN (Merge File)"""
+    query = update.callback_query
+    await query.answer()
+    try:
+        await query.message.delete()
+    except Exception:
+        pass
+    user_id = query.from_user.id
+    asyncio.create_task(adb.increment_usage(user_id))
+    _cancel_timer(user_id)
+    _clear_buffers(user_id)
+    db.set_session(user_id, STATE, {"count": 0, "total_size": 0, "mode": None})
+    await context.bot.send_message(
+        chat_id=query.message.chat_id,
+        text=(
+            "Kirim file VCF atau TXT.\n"
+            "Ketik /done jika selesai."
+        )
+    )

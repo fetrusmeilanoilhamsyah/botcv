@@ -88,6 +88,10 @@ async def cmd_vcftotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     user_id = update.effective_user.id
     asyncio.create_task(adb.increment_usage(user_id))
+    
+    from handlers.start import delete_welcome_messages
+    await delete_welcome_messages(context.bot, user_id, update.effective_chat.id)
+
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     db.set_session(user_id, STATE, {"count": 0, "total_size": 0, "total_contacts": 0})
@@ -355,13 +359,40 @@ async def handle_vcftotxt_naming(update: Update, context: ContextTypes.DEFAULT_T
             if i + chunk_size < total_created:
                 await asyncio.sleep(0.5)
 
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_vcftotxt_help", style="success"),
+                InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
+            ]
+        ])
         await progress_msg.edit_text(
             f"Proses selesai.\n"
             f"Total file VCF  : {total_files}\n"
             f"Total file TXT  : {total_created}\n"
-            f"File dikirim    : {total_created} file"
+            f"File dikirim    : {total_created} file",
+            reply_markup=keyboard
         )
 
     finally:
         db.clear_session(user_id)
         _clear_buffers(user_id)
+
+
+async def handle_show_vcftotxt_help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Callback untuk tombol PROSES FILE LAIN (VCF to TXT)"""
+    query = update.callback_query
+    await query.answer()
+    try:
+        await query.message.delete()
+    except Exception:
+        pass
+    user_id = query.from_user.id
+    asyncio.create_task(adb.increment_usage(user_id))
+    _cancel_timer(user_id)
+    _clear_buffers(user_id)
+    db.set_session(user_id, STATE, {"count": 0, "total_size": 0, "total_contacts": 0})
+    await context.bot.send_message(
+        chat_id=query.message.chat_id,
+        text="Kirim file VCF.\nKetik /done jika selesai."
+    )

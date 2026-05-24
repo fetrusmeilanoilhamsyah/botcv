@@ -106,6 +106,9 @@ async def cmd_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     asyncio.create_task(adb.increment_usage(user_id))
 
+    from handlers.start import delete_welcome_messages
+    await delete_welcome_messages(context.bot, user_id, update.effective_chat.id)
+
     import shutil
     count_dir = os.path.join(get_user_dir(user_id), "count")
     shutil.rmtree(count_dir, ignore_errors=True)

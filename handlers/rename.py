@@ -41,6 +41,10 @@ async def cmd_rename(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     user_id = update.effective_user.id
     asyncio.create_task(adb.increment_usage(user_id))
+
+    from handlers.start import delete_welcome_messages
+    await delete_welcome_messages(context.bot, user_id, update.effective_chat.id)
+
     db.set_session(user_id, STATE_NAME, {})
     await update.message.reply_text(
         "Ketik nama kontak baru.\n"
@@ -110,6 +114,13 @@ async def handle_rename_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
             buf = io.BytesIO(vcf_content.encode("utf-8"))
             buf.name = doc.file_name
 
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_rename_help", style="success"),
+                    InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
+                ]
+            ])
             await update.message.reply_document(
                 document=buf,
                 filename=doc.file_name,
@@ -118,6 +129,7 @@ async def handle_rename_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     f"{len(contacts)} kontak diubah: "
                     f"{base_name} {start_counter + 1} - {base_name} {data['counter']}"
                 ),
+                reply_markup=keyboard,
             )
 
         except Exception as e:
@@ -129,3 +141,23 @@ async def handle_rename_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     os.remove(tmp_path)
             except Exception:
                 pass
+
+
+async def handle_show_rename_help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Callback untuk tombol PROSES FILE LAIN (Rename VCF)"""
+    query = update.callback_query
+    await query.answer()
+    try:
+        await query.message.delete()
+    except Exception:
+        pass
+    user_id = query.from_user.id
+    asyncio.create_task(adb.increment_usage(user_id))
+    db.set_session(user_id, STATE_NAME, {})
+    await context.bot.send_message(
+        chat_id=query.message.chat_id,
+        text=(
+            "Ketik nama kontak baru.\n"
+            "Contoh: FEE"
+        )
+    )

@@ -44,6 +44,10 @@ async def cmd_pecahvcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     user_id = update.effective_user.id
     asyncio.create_task(adb.increment_usage(user_id))
+    
+    from handlers.start import delete_welcome_messages
+    await delete_welcome_messages(context.bot, user_id, update.effective_chat.id)
+
     _cancel_timer(user_id)
     db.set_session(user_id, STATE_PER_FILE, {})
     await update.message.reply_text(
@@ -189,6 +193,13 @@ async def handle_pecah_vcf_file(update: Update, context: ContextTypes.DEFAULT_TY
         except Exception:
             pass
 
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_pecahvcf_help", style="success"),
+                InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
+            ]
+        ])
         await update.message.reply_text(
             f"✅ <b>Selesai dipecah!</b>\n"
             f"{'─' * 20}\n"
@@ -197,6 +208,7 @@ async def handle_pecah_vcf_file(update: Update, context: ContextTypes.DEFAULT_TY
             f"📁 File dihasilkan: <b>{total_parts}</b>\n"
             f"{'─' * 20}",
             parse_mode="HTML",
+            reply_markup=keyboard,
         )
 
     except Exception as e:
@@ -208,3 +220,26 @@ async def handle_pecah_vcf_file(update: Update, context: ContextTypes.DEFAULT_TY
     finally:
         _processing.discard(user_id)
         shutil.rmtree(pecah_dir, ignore_errors=True)
+
+
+async def handle_show_pecahvcf_help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Callback untuk tombol PROSES FILE LAIN (Pecah VCF)"""
+    query = update.callback_query
+    await query.answer()
+    try:
+        await query.message.delete()
+    except Exception:
+        pass
+    user_id = query.from_user.id
+    asyncio.create_task(adb.increment_usage(user_id))
+    _cancel_timer(user_id)
+    db.set_session(user_id, STATE_PER_FILE, {})
+    await context.bot.send_message(
+        chat_id=query.message.chat_id,
+        text=(
+            "✂️ <b>Pecah VCF</b>\n\n"
+            "Berapa kontak per file?\n"
+            "<i>Contoh: 50</i>"
+        ),
+        parse_mode="HTML"
+    )

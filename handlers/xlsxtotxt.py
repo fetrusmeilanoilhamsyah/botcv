@@ -120,6 +120,9 @@ async def cmd_xlsxtotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     asyncio.create_task(adb.increment_usage(user_id))
 
+    from handlers.start import delete_welcome_messages
+    await delete_welcome_messages(context.bot, user_id, update.effective_chat.id)
+
     import shutil
     xlsx_dir = os.path.join(get_user_dir(user_id), "xlsxtotxt")
     shutil.rmtree(xlsx_dir, ignore_errors=True)
@@ -229,7 +232,14 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
             pass
 
     if total == 0:
-        await update.message.reply_text("Tidak ada nomor yang ditemukan dari file yang dikirim.")
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_xlsxtotxt_help", style="success"),
+                InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
+            ]
+        ])
+        await update.message.reply_text("Tidak ada nomor yang ditemukan dari file yang dikirim.", reply_markup=keyboard)
         db.clear_session(user_id)
         import shutil
         shutil.rmtree(os.path.join(get_user_dir(user_id), "xlsxtotxt"), ignore_errors=True)
@@ -239,6 +249,13 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
     master_txt = os.path.join(xlsx_dir, "extracted_numbers.txt")
 
     try:
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_xlsxtotxt_help", style="success"),
+                InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
+            ]
+        ])
         with open(master_txt, 'rb') as f:
             buffer = BytesIO(f.read())
             buffer.name = "Hasil_Ekstrak.txt"
@@ -254,6 +271,7 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
                 f"{'─' * 20}"
             ),
             parse_mode="HTML",
+            reply_markup=keyboard,
         )
     except Exception as e:
         logger.error("Error kirim hasil xlsx: %s", e)
@@ -262,3 +280,35 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
         db.clear_session(user_id)
         import shutil
         shutil.rmtree(xlsx_dir, ignore_errors=True)
+
+
+async def handle_show_xlsxtotxt_help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Callback untuk tombol PROSES FILE LAIN (Excel/CSV to TXT)"""
+    query = update.callback_query
+    await query.answer()
+    try:
+        await query.message.delete()
+    except Exception:
+        pass
+    user_id = query.from_user.id
+    asyncio.create_task(adb.increment_usage(user_id))
+
+    import shutil
+    xlsx_dir = os.path.join(get_user_dir(user_id), "xlsxtotxt")
+    shutil.rmtree(xlsx_dir, ignore_errors=True)
+    os.makedirs(xlsx_dir, exist_ok=True)
+
+    master_txt = os.path.join(xlsx_dir, "extracted_numbers.txt")
+    open(master_txt, 'w').close()
+
+    db.set_session(user_id, STATE, {"total_kontak": 0, "total_file": 0})
+
+    await context.bot.send_message(
+        chat_id=query.message.chat_id,
+        text=(
+            "📊 <b>Kirim file Excel atau CSV</b>\n\n"
+            "Bisa kirim banyak sekaligus (.xlsx / .csv).\n"
+            "Ketik /done jika sudah selesai."
+        ),
+        parse_mode="HTML"
+    )

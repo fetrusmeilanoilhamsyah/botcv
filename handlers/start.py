@@ -7,6 +7,19 @@ from config import ADMIN_CONTACT, TUTORIAL_LINK
 from middleware.auth import is_admin
 
 
+_welcome_messages = {}
+
+def register_welcome_messages(user_id: int, message_ids: list[int]):
+    _welcome_messages[user_id] = message_ids
+
+async def delete_welcome_messages(bot, user_id: int, chat_id: int):
+    msg_ids = _welcome_messages.pop(user_id, [])
+    for msg_id in msg_ids:
+        try:
+            await bot.delete_message(chat_id=chat_id, message_id=msg_id)
+        except Exception:
+            pass
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     first_name = user.first_name or "Kawan"
@@ -48,7 +61,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
 
     # ── Reply LANGSUNG — tidak tunggu DB ──────────────────────────────────────
-    await update.message.reply_text(
+    msg1 = await update.message.reply_text(
         f"<b>Halo {first_name}!</b> Selamat datang di bot konversi kontak.\n\n"
         f"{fitur}\n"
         f"━━━━━━━━━━━━━━━━━\n"
@@ -57,11 +70,12 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=ReplyKeyboardMarkup(keyboard_buttons, resize_keyboard=True),
         disable_web_page_preview=True,
     )
-    await update.message.reply_text(
+    msg2 = await update.message.reply_text(
         "<b>Butuh panduan?</b> Klik tombol di bawah:",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK, style="success")]]),
     )
+    register_welcome_messages(user.id, [msg1.message_id, msg2.message_id])
 
     # ── Semua DB + cleanup di background ──────────────────────────────────────
     async def _bg():
@@ -177,7 +191,7 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
     ]
 
     # Kirim menu utama kembali
-    await context.bot.send_message(
+    msg1 = await context.bot.send_message(
         chat_id=chat_id,
         text=(
             f"<b>Halo {first_name}!</b> Selamat datang di bot konversi kontak.\n\n"
@@ -189,10 +203,11 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
         reply_markup=ReplyKeyboardMarkup(keyboard_buttons, resize_keyboard=True),
         disable_web_page_preview=True,
     )
-    await context.bot.send_message(
+    msg2 = await context.bot.send_message(
         chat_id=chat_id,
         text="<b>Butuh panduan?</b> Klik tombol di bawah:",
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK, style="success")]]),
     )
+    register_welcome_messages(user.id, [msg1.message_id, msg2.message_id])
 

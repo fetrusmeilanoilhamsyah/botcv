@@ -40,6 +40,10 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_member(update, context):
         return
     user_id = update.effective_user.id
+    
+    from handlers.start import delete_welcome_messages
+    await delete_welcome_messages(context.bot, user_id, update.effective_chat.id)
+
     db.set_session(user_id, STATES["WAIT_ADMIN_NUMBERS"], {})
     await update.message.reply_text(
         "Nomor ADMIN (satu per baris):"
@@ -108,7 +112,32 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
             vcf_bytes = contacts_to_vcf(contacts).encode("utf-8")
             db.clear_session(user_id)
 
+            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            keyboard = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_admin_help", style="success"),
+                    InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
+                ]
+            ])
             await update.message.reply_document(
                 document=io.BytesIO(vcf_bytes),
-                filename=f"{data['file_name']}.vcf"
+                filename=f"{data['file_name']}.vcf",
+                reply_markup=keyboard,
             )
+
+
+async def handle_show_admin_help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Callback untuk tombol PROSES FILE LAIN (Admin VCF)"""
+    query = update.callback_query
+    await query.answer()
+    try:
+        await query.message.delete()
+    except Exception:
+        pass
+    user_id = query.from_user.id
+    asyncio.create_task(adb.increment_usage(user_id))
+    db.set_session(user_id, STATES["WAIT_ADMIN_NUMBERS"], {})
+    await context.bot.send_message(
+        chat_id=query.message.chat_id,
+        text="Nomor ADMIN (satu per baris):"
+    )
