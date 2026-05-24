@@ -1,605 +1,567 @@
 """
-main.py - OPTIMIZED VERSION
-Entry point DiBot CV FEE.
-
-CHANGELOG:
-- Set concurrent_updates = 8 (max 8 parallel processes)
-- Naikin timeout configuration
-- Add rate limiting middleware
-- Fix logging level
-- ADDED: Memory leak fixes for handlers
+main.py - Entry point DiBot CV FEE
 """
 import logging
 import os
+import time
+import threading
+from asyncio import Semaphore
+from collections import defaultdict
+from logging.handlers import RotatingFileHandler
+
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
+    CallbackQueryHandler,
     CommandHandler,
     MessageHandler,
-    CallbackQueryHandler,
     filters,
-    ContextTypes,
 )
-from logging.handlers import RotatingFileHandler
-from config import BOT_TOKEN
-from database import db
 
-from handlers.start import cmd_start
-from handlers.reset import cmd_reset
-from handlers.admin_navy import (
-    cmd_admin,
-    handle_admin_navy,
-    STATES as AN_STATES,
+from config import (
+    BOT_TOKEN,
+    ERROR_ALERT_COOLDOWN,
+    JOB_CLEANUP_SESSION_INTERVAL,
+    JOB_EXPIRE_VIP_INTERVAL,
+    JOB_NOTIFY_EXPIRY_INTERVAL,
+    JOB_CLEANUP_DISK_INTERVAL,
+    SESSION_INACTIVE_TIMEOUT,
+    SESSION_STUCK_TIMEOUT,
+    HEALTH_PORT,       # FIX: import dari config agar konsisten
+    WEBHOOK_PORT,      # FIX: import dari config agar konsisten (default 8081 ≠ 8080)
 )
+from database import db
+from database.db_async import adb
+
+# ── Handlers ──────────────────────────────────────────────────────────────────
+from handlers.start import cmd_start
+from handlers.reset import cmd_reset, handle_reset_callback
+from handlers.referral import cmd_referral
+from handlers.daftar import cmd_daftar
+from handlers.stat import cmd_stat
+from handlers.akun import cmd_akun
+from handlers.addvip import cmd_addvip, cmd_delvip
+from handlers.broadcast import cmd_broadcast, handle_broadcast_msg, STATE as BROADCAST_STATE
+from handlers.media_broadcast import cmd_media_broadcast, handle_broadcast_media, STATE as MEDIA_BROADCAST_STATE
+from handlers.new_member import cmd_newmember, handle_newmember_id, STATE as NEWMEMBER_STATE
+from handlers.del_member import cmd_delmember, handle_delmember_id, STATE as DELMEMBER_STATE
+from handlers.admin_navy import cmd_admin, handle_admin_navy, STATES as AN_STATES
 from handlers.merge import (
-    cmd_merge,
-    handle_merge_file,
-    handle_merge_done,
-    handle_merge_naming,
-    STATE as MERGE_STATE,
-    STATE_NAMING as MERGE_NAMING,
+    cmd_merge, handle_merge_file, handle_merge_done, handle_merge_naming,
+    STATE as MERGE_STATE, STATE_NAMING as MERGE_NAMING,
 )
 from handlers.vcftotxt import (
-    cmd_vcftotxt,
-    handle_vcftotxt_file,
-    handle_vcftotxt_done,
-    handle_vcftotxt_naming,
-    STATE as VCF2TXT_STATE,
-    STATE_NAMING as VCF2TXT_NAMING,
+    cmd_vcftotxt, handle_vcftotxt_file, handle_vcftotxt_done, handle_vcftotxt_naming,
+    STATE as VCF2TXT_STATE, STATE_NAMING as VCF2TXT_NAMING,
 )
 from handlers.count import (
-    STATE as COUNT_STATE,
-    cmd_count,
-    handle_count_file,
-    handle_count_done,
+    cmd_count, handle_count_file, handle_count_done, STATE as COUNT_STATE,
 )
 from handlers.xlsxtotxt import (
-    STATE as XLSX2TXT_STATE,
-    cmd_xlsxtotxt,
-    handle_xlsxtotxt_file,
-    handle_xlsxtotxt_done,
+    cmd_xlsxtotxt, handle_xlsxtotxt_file, handle_xlsxtotxt_done, STATE as XLSX2TXT_STATE,
 )
 from handlers.pecahvcf import (
-    cmd_pecahvcf,
-    handle_pecah_per_file,
-    handle_pecah_vcf_file,
-    STATE_PER_FILE as PECAH_S1,
-    STATE_WAIT_VCF as PECAH_S2,
+    cmd_pecahvcf, handle_pecah_per_file, handle_pecah_vcf_file,
+    STATE_PER_FILE as PECAH_S1, STATE_WAIT_VCF as PECAH_S2,
 )
 from handlers.rename import (
-    cmd_rename,
-    handle_rename_name,
-    handle_rename_file,
-    STATE_NAME as RENAME_S1,
-    STATE_FILE as RENAME_S2,
+    cmd_rename, handle_rename_name, handle_rename_file,
+    STATE_NAME as RENAME_S1, STATE_FILE as RENAME_S2,
 )
 from handlers.txttovcf import (
     cmd_txttovcf,
-    handle_ttv_contact_name,
-    handle_ttv_per_file,
-    handle_ttv_file_name,
-    handle_ttv_awalan,
-    handle_ttv_file,
-    handle_ttv_done,
+    handle_ttv_contact_name, handle_ttv_per_file, handle_ttv_file_name,
+    handle_ttv_awalan, handle_ttv_file, handle_ttv_done,
     S0, S1, S2, S3, S4, S5,
 )
-from handlers.broadcast import (
-    cmd_broadcast,
-    handle_broadcast_msg,
-    STATE as BROADCAST_STATE,
-)
-from handlers.media_broadcast import (
-    cmd_media_broadcast,
-    handle_broadcast_media,
-    STATE as MEDIA_BROADCAST_STATE,
-)
-from handlers.new_member import (
-    cmd_newmember,
-    handle_newmember_id,
-    STATE as NEWMEMBER_STATE,
-)
-from handlers.referral import cmd_referral
-from handlers.del_member import (
-    cmd_delmember,
-    handle_delmember_id,
-    STATE as DELMEMBER_STATE,
-)
-from handlers.daftar import cmd_daftar
-from handlers.vip import cmd_vip
-from handlers.addvip import cmd_addvip, cmd_delvip
-from handlers.stat import cmd_stat
 
-# Rate limiting imports
-from asyncio import Semaphore
-from collections import defaultdict
+# ── VIP handler (Pakasir auto-fallback) ───────────────────────────────────────
+VIP_PAKASIR_MODE = False
+try:
+    from handlers.vip_pakasir import (
+        cmd_vip,
+        handle_buy_vip,
+        handle_check_payment,
+        handle_cancel_payment,
+        handle_vip_history,
+    )
+    VIP_PAKASIR_MODE = True
+except ImportError as e:
+    from handlers.vip import cmd_vip  # noqa: F811
+    print(f"VIP Pakasir tidak tersedia, fallback ke handler manual: {e}")
 
-from aiohttp import web
-import threading
-import time
-
+# ── Logging ───────────────────────────────────────────────────────────────────
 os.makedirs("logs", exist_ok=True)
-
-# ===== OPTIMIZED LOGGING =====
 logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format="%(asctime)s %(name)s %(levelname)s %(message)s",
     level=logging.INFO,
     handlers=[
-        RotatingFileHandler("logs/bot.log", maxBytes=10*1024*1024, backupCount=5, encoding="utf-8"),
+        RotatingFileHandler("logs/bot.log", maxBytes=10 * 1024 * 1024, backupCount=5, encoding="utf-8"),
         logging.StreamHandler(),
     ],
 )
-logging.getLogger("httpx").setLevel(logging.WARNING)  # Mencegah spam log getUpdates HTTP
+logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
-# Error handler rate limiting
-_error_last_sent = {}
-from config import (
-    ERROR_ALERT_COOLDOWN as _ERROR_COOLDOWN,
-    JOB_EXPIRE_VIP_INTERVAL,
-    JOB_CLEANUP_SESSION_INTERVAL,
-    JOB_NOTIFY_EXPIRY_INTERVAL,
-    SESSION_STUCK_TIMEOUT,
-    SESSION_INACTIVE_TIMEOUT
-)
-
-# Job overlap prevention
-_job_running = {"expire": False, "cleanup": False, "notify": False}
-
-# ===== RATE LIMITING =====
-# Command: max 2 operasi paralel per user (cegah spam)
-# File upload: max 16 agar file ke-3, 4, dst tidak antri saat user kirim banyak sekaligus
-MAX_CONCURRENT_PER_USER = 2
-MAX_CONCURRENT_FILE_UPLOAD = 16
+# ── Rate limiting ─────────────────────────────────────────────────────────────
+MAX_CONCURRENT_PER_USER  = 2
+MAX_CONCURRENT_FILE      = 16
 user_semaphores      = defaultdict(lambda: Semaphore(MAX_CONCURRENT_PER_USER))
-user_file_semaphores = defaultdict(lambda: Semaphore(MAX_CONCURRENT_FILE_UPLOAD))
+user_file_semaphores = defaultdict(lambda: Semaphore(MAX_CONCURRENT_FILE))
+
+_error_last_sent: dict = {}
+_job_running = {"expire": False, "cleanup": False, "notify": False}
+_start_time = time.time()
 
 
 def rate_limiter(func):
-    """Decorator untuk rate limiting per user (untuk command)"""
-    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        user_id = update.effective_user.id
-        text = update.message.text if update.message else "NON-TEXT"
-        logger.debug(f"Incoming: User {user_id} -> {text}")
-        
-        semaphore = user_semaphores[user_id]
-        
-        async with semaphore:
+    async def wrapper(update: Update, context):
+        async with user_semaphores[update.effective_user.id]:
             return await func(update, context)
-    
+    wrapper.__name__ = func.__name__
     return wrapper
 
 
 def file_rate_limiter(func):
-    """Decorator untuk rate limiting file upload — limit lebih longgar agar tidak antri"""
-    async def wrapper(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        user_id = update.effective_user.id
-        logger.debug(f"Incoming: User {user_id} -> None")
-        
-        semaphore = user_file_semaphores[user_id]
-        
-        async with semaphore:
+    async def wrapper(update: Update, context):
+        async with user_file_semaphores[update.effective_user.id]:
             return await func(update, context)
-    
+    wrapper.__name__ = func.__name__
     return wrapper
 
 
-async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE):
+# ── Error handler ─────────────────────────────────────────────────────────────
+async def error_handler(update: object, context):
     from telegram.error import NetworkError, TimedOut, Conflict
-    import time
-    
-    # NetworkError / TimedOut / Conflict = koneksi/polling issue — PTB auto-retry
     if isinstance(context.error, (NetworkError, TimedOut, Conflict)):
-        logger.warning("Network/Conflict error (akan auto-retry): %s", context.error)
+        logger.warning("Network error (auto-retry): %s", context.error)
         return
 
-    logger.error("Exception saat handle update:", exc_info=context.error)
+    logger.error("Exception:", exc_info=context.error)
 
-    # Rate limiting untuk error alerts ke admin
     now = time.time()
-    error_type = type(context.error).__name__
-    
-    # Check if we sent this error type recently
-    if error_type in _error_last_sent:
-        if now - _error_last_sent[error_type] < _ERROR_COOLDOWN:
-            logger.warning("Error alert throttled: %s (sent %ds ago)", 
-                          error_type, int(now - _error_last_sent[error_type]))
-            return
-    
-    _error_last_sent[error_type] = now
+    err_type = type(context.error).__name__
+    if now - _error_last_sent.get(err_type, 0) < ERROR_ALERT_COOLDOWN:
+        return
+    _error_last_sent[err_type] = now
 
-    # Kirim alert ke semua admin di Telegram
-    from config import ADMIN_IDS
     import traceback
+    from config import ADMIN_IDS
     tb = "".join(traceback.format_exception(type(context.error), context.error, context.error.__traceback__))
     short_tb = tb[-1500:] if len(tb) > 1500 else tb
-    
     for admin_id in ADMIN_IDS:
         try:
             await context.bot.send_message(
                 chat_id=admin_id,
-                text=f"<b>ERROR BOT</b>\n<code>{error_type}</code>\n<pre>{short_tb}</pre>",
-                parse_mode="HTML"
+                text=f"<b>ERROR BOT</b>\n<code>{err_type}</code>\n<pre>{short_tb}</pre>",
+                parse_mode="HTML",
             )
         except Exception:
             pass
 
     if isinstance(update, Update) and update.message:
-        await update.message.reply_text(
-            "Terjadi kesalahan. Ketik /reset untuk mereset sesi."
-        )
+        await update.message.reply_text("Terjadi kesalahan. Ketik /reset untuk mereset sesi.")
 
 
-async def text_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# ── Text & file routers ───────────────────────────────────────────────────────
+async def text_router(update: Update, context):
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
     if not sess:
         return
 
     state = sess.get("state")
+    text = (update.message.text or "").strip().lower()
 
-    # Selesaikan proses jika kata kunci "selesai" atau "done" dikirim
-    # PENGECUALIAN: Jangan tangkap jika dalam mode broadcast agar admin bisa kirim kata tersebut
-    if update.message and update.message.text:
-        text_lower = update.message.text.strip().lower()
-        if text_lower in ["selesai", "done"]:
-            if state not in [BROADCAST_STATE, MEDIA_BROADCAST_STATE]:
-                await done_router(update, context)
-                return
+    # "selesai" / "done" sebagai teks biasa (bukan /done command)
+    if text in ("selesai", "done") and state not in (BROADCAST_STATE, MEDIA_BROADCAST_STATE):
+        await done_router(update, context)
+        return
 
-    if state in AN_STATES.values():
-        await handle_admin_navy(update, context)
-    elif state == MERGE_NAMING:
-        await handle_merge_naming(update, context)
-    elif state == VCF2TXT_NAMING:
-        await handle_vcftotxt_naming(update, context)
-    elif state == PECAH_S1:
-        await handle_pecah_per_file(update, context)
-    elif state == RENAME_S1:
-        await handle_rename_name(update, context)
-    elif state == S1:
-        await handle_ttv_contact_name(update, context)
-    elif state == S2:
-        await handle_ttv_per_file(update, context)
-    elif state == S3:
-        await handle_ttv_file_name(update, context)
-    elif state == S4:
-        await handle_ttv_awalan(update, context)
-    elif state == BROADCAST_STATE:
-        await handle_broadcast_msg(update, context)
-    elif state == NEWMEMBER_STATE:
-        await handle_newmember_id(update, context)
-    elif state == DELMEMBER_STATE:
-        await handle_delmember_id(update, context)
-    elif state == MEDIA_BROADCAST_STATE:
-        await handle_broadcast_media(update, context)
+    route = {
+        **{v: handle_admin_navy for v in AN_STATES.values()},
+        MERGE_NAMING:     handle_merge_naming,
+        VCF2TXT_NAMING:   handle_vcftotxt_naming,
+        PECAH_S1:         handle_pecah_per_file,
+        RENAME_S1:        handle_rename_name,
+        S1:               handle_ttv_contact_name,
+        S2:               handle_ttv_per_file,
+        S3:               handle_ttv_file_name,
+        S4:               handle_ttv_awalan,
+        BROADCAST_STATE:  handle_broadcast_msg,
+        NEWMEMBER_STATE:  handle_newmember_id,
+        DELMEMBER_STATE:  handle_delmember_id,
+        MEDIA_BROADCAST_STATE: handle_broadcast_media,
+    }
+    handler = route.get(state)
+    if handler:
+        await handler(update, context)
 
 
-async def file_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def file_router(update: Update, context):
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
     if not sess:
         return
+
     state = sess.get("state")
-    
-    # Validasi Media: Kebanyakan handler hanya menerima dokumen
     is_doc = bool(update.message.document)
-    
-    if state == MERGE_STATE:
+
+    doc_states = {
+        MERGE_STATE:    (handle_merge_file,       "file VCF atau TXT berupa DOKUMEN"),
+        VCF2TXT_STATE:  (handle_vcftotxt_file,    "file VCF berupa DOKUMEN"),
+        PECAH_S2:       (handle_pecah_vcf_file,   "file VCF berupa DOKUMEN"),
+        RENAME_S2:      (handle_rename_file,      "file VCF berupa DOKUMEN"),
+        S0:             (handle_ttv_file,         "file TXT berupa DOKUMEN"),
+        S5:             (handle_ttv_file,         "file TXT berupa DOKUMEN"),
+        COUNT_STATE:    (handle_count_file,       "file VCF berupa DOKUMEN"),
+        XLSX2TXT_STATE: (handle_xlsxtotxt_file,   "file XLSX/CSV berupa DOKUMEN"),
+    }
+
+    if state in doc_states:
+        handler, hint = doc_states[state]
         if not is_doc:
-            await update.message.reply_text("Kirim file VCF atau TXT berupa DOKUMEN.")
+            await update.message.reply_text(f"Kirim {hint}.")
             return
-        await handle_merge_file(update, context)
-    elif state == VCF2TXT_STATE:
-        if not is_doc:
-            await update.message.reply_text("Kirim file VCF berupa DOKUMEN.")
-            return
-        await handle_vcftotxt_file(update, context)
-    elif state == PECAH_S2:
-        if not is_doc:
-            await update.message.reply_text("Kirim file VCF berupa DOKUMEN.")
-            return
-        await handle_pecah_vcf_file(update, context)
-    elif state == RENAME_S2:
-        if not is_doc:
-            await update.message.reply_text("Kirim file VCF berupa DOKUMEN.")
-            return
-        await handle_rename_file(update, context)
-    elif state in [S0, S5]:
-        if not is_doc:
-            await update.message.reply_text("Kirim file TXT berupa DOKUMEN.")
-            return
-        await handle_ttv_file(update, context)
-    elif state == COUNT_STATE:
-        if not is_doc:
-            await update.message.reply_text("Kirim file VCF berupa DOKUMEN.")
-            return
-        await handle_count_file(update, context)
-    elif state == XLSX2TXT_STATE:
-        if not is_doc:
-            await update.message.reply_text("Kirim file XLSX/CSV berupa DOKUMEN.")
-            return
-        await handle_xlsxtotxt_file(update, context)
+        await handler(update, context)
     elif state == MEDIA_BROADCAST_STATE:
-        # Media broadcast mendukung foto/video/animasi
         await handle_broadcast_media(update, context)
 
-# The done_router function is now integrated into text_router for "selesai", "/done", "done" messages.
-# However, the CommandHandler("done", ...) still needs a function.
-# We can keep a simplified done_router for the /done command specifically.
-async def done_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+async def done_router(update: Update, context):
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
-    if not sess:
+    if not sess or not sess.get("state"):
         await update.message.reply_text("Tidak ada proses aktif.")
         return
-    state = sess.get("state")
 
-    if state == MERGE_STATE:
-        await handle_merge_done(update, context)
-    elif state == VCF2TXT_STATE:
-        await handle_vcftotxt_done(update, context)
-    elif state in [S0, S5]:
-        await handle_ttv_done(update, context)
-    elif state == COUNT_STATE:
-        await handle_count_done(update, context)
-    elif state == XLSX2TXT_STATE:
-        await handle_xlsxtotxt_done(update, context)
+    state = sess.get("state")
+    route = {
+        MERGE_STATE:    handle_merge_done,
+        VCF2TXT_STATE:  handle_vcftotxt_done,
+        S0:             handle_ttv_done,
+        S5:             handle_ttv_done,
+        COUNT_STATE:    handle_count_done,
+        XLSX2TXT_STATE: handle_xlsxtotxt_done,
+    }
+    handler = route.get(state)
+    if handler:
+        await handler(update, context)
     else:
         await update.message.reply_text("Tidak ada proses aktif yang bisa diselesaikan.")
 
 
-# Health check HTTP server
-async def health_check(request):
-    """Simple health check endpoint untuk monitoring"""
+# ── show_vip_menu callback ─────────────────────────────────────────────────────
+async def cb_show_vip_menu(update: Update, context):
+    """
+    Callback dari tombol 'Lihat Paket VIP' di require_member.
+    Jawab query lalu kirim pesan VIP langsung — tidak pakai fake Update object.
+    """
+    query = update.callback_query
+    await query.answer()
+
+    user    = query.from_user
+    chat_id = query.message.chat_id
+
+    # Bangun konten VIP menu secara langsung (tanpa import cmd_vip logic ganda)
+    from handlers.vip_pakasir import cmd_vip as _cmd_vip, QRIS_ENABLED, PAKET, _fmt_price, PAKASIR_SANDBOX
+    from database.db_async import adb as _adb
+    from datetime import datetime
+
+    status_line = ""
+    if await _adb.is_member(user.id):
+        expired_at = await _adb.get_vip_expiry(user.id)
+        if expired_at:
+            exp  = datetime.fromisoformat(expired_at)
+            sisa = (exp - datetime.now()).days
+            status_line = (
+                f"Status VIP    : Aktif\n"
+                f"Berakhir      : {exp.strftime('%d/%m/%Y')} ({sisa} hari lagi)\n\n"
+            )
+        else:
+            status_line = "Status        : Member Permanen\n\n"
+
+    paket_lines = "PAKET VIP\n" + ("-" * 28) + "\n"
+    for p in PAKET:
+        paket_lines += f"  {p['label']:<12}  {_fmt_price(p['price'])}\n"
+
+    if QRIS_ENABLED:
+        mode = "SANDBOX" if PAKASIR_SANDBOX else "QRIS Otomatis"
+        info = f"\nPembayaran: {mode}\nPilih paket, bayar QRIS, VIP aktif otomatis."
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        rows = [
+            [InlineKeyboardButton(
+                f"{p['label']} — {_fmt_price(p['price'])}",
+                callback_data=f"buy_vip_{p['days']}"
+            )]
+            for p in PAKET
+        ]
+        rows.append([InlineKeyboardButton("Riwayat Pembayaran", callback_data="vip_history")])
+    else:
+        from config import ADMIN_CONTACT as _AC
+        info = f"\nPembayaran: Manual\nHubungi {_AC} untuk aktivasi."
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        rows = [[InlineKeyboardButton(
+            "Hubungi Admin",
+            url=f"https://t.me/{_AC.lstrip('@')}"
+        )]]
+
+    await context.bot.send_message(
+        chat_id=chat_id,
+        text=f"{status_line}{paket_lines}{info}",
+        reply_markup=InlineKeyboardMarkup(rows),
+    )
+
+
+# ── Scheduled jobs ────────────────────────────────────────────────────────────
+async def _job_expire_vip(context):
+    if _job_running["expire"]:
+        return
+    _job_running["expire"] = True
     try:
-        stats = db.get_db_stats()
+        count = await adb.expire_vip_members()
+        if count:
+            logger.info("[JOB] %d VIP expired", count)
+    finally:
+        _job_running["expire"] = False
+
+
+async def _job_cleanup_sessions(context):
+    if _job_running["cleanup"]:
+        return
+    _job_running["cleanup"] = True
+    try:
+        from middleware.session import clear_user_dir
+        tmp_base = os.path.join("tmp", "sessions")
+        if not os.path.exists(tmp_base):
+            return
+
+        now = time.time()
+        cleaned = 0
+        for uid_str in os.listdir(tmp_base):
+            if not uid_str.isdigit():
+                continue
+            path = os.path.join(tmp_base, uid_str)
+            try:
+                if os.path.isdir(path) and (now - os.path.getmtime(path)) > SESSION_STUCK_TIMEOUT:
+                    sess = db.get_session(int(uid_str))
+                    if not sess or not sess.get("state"):
+                        clear_user_dir(int(uid_str))
+                        cleaned += 1
+            except Exception:
+                pass
+        if cleaned:
+            logger.info("[JOB] Cleaned %d stuck session dirs", cleaned)
+
+        # Cleanup semaphores untuk user lama tidak aktif
+        inactive = []
+        for uid in list(user_semaphores.keys()):
+            user = db.get_user(uid)
+            if user:
+                try:
+                    from datetime import datetime
+                    last = datetime.fromisoformat(dict(user)["last_active"])
+                    if (datetime.now() - last).total_seconds() > SESSION_INACTIVE_TIMEOUT:
+                        inactive.append(uid)
+                except Exception:
+                    pass
+        for uid in inactive:
+            user_semaphores.pop(uid, None)
+            user_file_semaphores.pop(uid, None)
+        if inactive:
+            logger.info("[JOB] Cleaned %d inactive semaphores", len(inactive))
+
+        cleaned_cache = await adb.cleanup_stale_sessions()
+        if cleaned_cache:
+            logger.info("[JOB] Cleaned %d stale session cache", cleaned_cache)
+    finally:
+        _job_running["cleanup"] = False
+
+
+async def _job_notify_expiry(context):
+    if _job_running["notify"]:
+        return
+    _job_running["notify"] = True
+    try:
+        for u in await adb.get_users_for_expiry_notif():
+            uid = u["id"]
+            try:
+                await context.bot.send_message(
+                    chat_id=uid,
+                    text="Masa aktif VIP kamu tinggal 24 jam lagi. Perpanjang agar fitur tetap aktif.",
+                )
+                await adb.mark_expiry_notified(uid)
+            except Exception:
+                pass
+    finally:
+        _job_running["notify"] = False
+
+
+async def job_expire_pending_payments(context):
+    """Expire QRIS payment yang sudah > 5 menit, hapus pesan QR, dan beritahu user."""
+    try:
+        expired_payments = await adb.get_and_expire_old_pending_payments(minutes=5)
+        
+        if expired_payments:
+            logger.info("[Job] expire_pending_payments: memproses %d transaksi kedaluwarsa", len(expired_payments))
+            for p in expired_payments:
+                # 1. Hapus pesan QR di Telegram
+                qr_chat_id = p.get("qr_chat_id")
+                qr_message_id = p.get("qr_message_id")
+                if qr_chat_id and qr_message_id:
+                    try:
+                        await context.bot.delete_message(chat_id=qr_chat_id, message_id=qr_message_id)
+                        logger.info("[Job] Berhasil menghapus pesan QR untuk order %s", p["order_id"])
+                    except Exception as e:
+                        logger.debug("[Job] Gagal menghapus pesan QR untuk order %s: %s", p["order_id"], e)
+                
+                # 2. Kirim notifikasi kedaluwarsa ke user
+                try:
+                    text_msg = (
+                        f"⏰ <b>Pembayaran Kedaluwarsa!</b>\n\n"
+                        f"Batas waktu pembayaran QRIS selama 5 menit telah habis.\n"
+                        f"Order ID: <code>{p['order_id']}</code>\n\n"
+                        f"Jika Anda masih ingin membeli VIP, silakan gunakan perintah /vip kembali."
+                    )
+                    await context.bot.send_message(
+                        chat_id=p["user_id"],
+                        text=text_msg,
+                        parse_mode="HTML"
+                    )
+                except Exception as e:
+                    logger.debug("[Job] Gagal mengirim notifikasi kedaluwarsa ke user %s: %s", p["user_id"], e)
+    except Exception as exc:
+        logger.error("[Job] expire_pending_payments error: %s", exc)
+
+
+async def job_cleanup_disk(context):
+    """Hapus session files user yang sudah tidak aktif > 24 jam."""
+    try:
+        from middleware.session import cleanup_old_sessions
+        count = cleanup_old_sessions(max_age_hours=24)
+        if count > 0:
+            logger.info("[Job] cleanup_disk: removed %d stale session dirs", count)
+    except Exception as exc:
+        logger.error("[Job] cleanup_disk error: %s", exc)
+
+
+# ── Health check ──────────────────────────────────────────────────────────────
+def _run_health_server():
+    from aiohttp import web
+
+    async def health(request):
         try:
-            from handlers.merge import _user_timers as merge_timers
-            from handlers.vcftotxt import _user_timers as vcf2txt_timers
-            from handlers.txttovcf import _user_timers as ttv_timers
-            from handlers.pecahvcf import _user_timers as pecah_timers
-            from handlers.rename import _user_timers as rename_timers
-            active_timers = sum(len(d) for d in [merge_timers, vcf2txt_timers, ttv_timers, pecah_timers, rename_timers] if hasattr(d, '__len__'))
-        except Exception:
-            active_timers = 0
+            from database import db as _db
+            stats = _db.get_db_stats()
+            return web.json_response({
+                "status": "ok",
+                "uptime": int(time.time() - _start_time),
+                **stats,
+            })
+        except Exception as e:
+            return web.json_response({"status": "error", "error": str(e)}, status=500)
 
-        return web.json_response({
-            "status": "healthy",
-            "uptime_seconds": int(time.time() - _start_time),
-            "database": stats,
-            "active_semaphores": len(user_semaphores),
-            "active_timers": active_timers
-        })
-    except Exception as e:
-        return web.json_response({
-            "status": "unhealthy",
-            "error": str(e)
-        }, status=500)
-
-def run_health_server():
-    """Run health check server on port 8080"""
-    app_http = web.Application()
-    app_http.router.add_get('/health', health_check)
-    web.run_app(app_http, host='0.0.0.0', port=8080, print=None, handle_signals=False)
+    app = web.Application()
+    app.router.add_get("/health", health)
+    # FIX: gunakan HEALTH_PORT dari config (bukan os.getenv ulang)
+    web.run_app(app, host="0.0.0.0", port=HEALTH_PORT, print=None, handle_signals=False)
 
 
+# ── main ────────────────────────────────────────────────────────────────────────
 def main():
-    """
-    OPTIMIZED APPLICATION BUILDER UNTUK 50-100 USER BERSAMAAN
-    """
-    # Start health check server di background thread
-    global _start_time
-    _start_time = time.time()
-    
-    health_thread = threading.Thread(target=run_health_server, daemon=True)
-    health_thread.start()
-    logger.info("🏥 Health check server running on http://0.0.0.0:8080/health")
+    # Health check server (background)
+    threading.Thread(target=_run_health_server, daemon=True, name="health-server").start()
+    # FIX: gunakan HEALTH_PORT dari config (konsisten)
+    logger.info("Health check server started on port %s", HEALTH_PORT)
+
     app = (
         ApplicationBuilder()
         .token(BOT_TOKEN)
-        .concurrent_updates(32)       # Max 32 request diproses paralel (match pool size)
-        .connection_pool_size(100)    # Naikkan pool network request ke Telegram API
+        .concurrent_updates(32)
+        .connection_pool_size(100)
         .pool_timeout(30)
-        .read_timeout(30)             # Lebih pendek agar restart cepat (was 60)
+        .read_timeout(30)
         .write_timeout(120)
         .connect_timeout(30)
         .build()
     )
 
-    # Command handlers
-    app.add_handler(CommandHandler("start", rate_limiter(cmd_start)))
-    app.add_handler(CommandHandler(["reset", "resetdatabase"], rate_limiter(cmd_reset)))
-    app.add_handler(CommandHandler(["admin", "Admin"], rate_limiter(cmd_admin)))
-    app.add_handler(CommandHandler("txttovcf", rate_limiter(cmd_txttovcf)))
-    app.add_handler(CommandHandler("xlsxtotxt", rate_limiter(cmd_xlsxtotxt)))
-    app.add_handler(CommandHandler("merge", rate_limiter(cmd_merge)))
-    app.add_handler(CommandHandler("vcftotxt", rate_limiter(cmd_vcftotxt)))
-    app.add_handler(CommandHandler("pecahvcf", rate_limiter(cmd_pecahvcf)))
-    app.add_handler(CommandHandler("rename", rate_limiter(cmd_rename)))
-    app.add_handler(CommandHandler("count", rate_limiter(cmd_count)))
+    # ── Command handlers ──
+    app.add_handler(CommandHandler("start",                              rate_limiter(cmd_start)))
+    app.add_handler(CommandHandler(["reset", "resetdatabase"],          rate_limiter(cmd_reset)))
+    app.add_handler(CommandHandler(["admin", "Admin"],                  rate_limiter(cmd_admin)))
+    app.add_handler(CommandHandler("txttovcf",                          rate_limiter(cmd_txttovcf)))
+    app.add_handler(CommandHandler("xlsxtotxt",                         rate_limiter(cmd_xlsxtotxt)))
+    app.add_handler(CommandHandler("merge",                             rate_limiter(cmd_merge)))
+    app.add_handler(CommandHandler("vcftotxt",                          rate_limiter(cmd_vcftotxt)))
+    app.add_handler(CommandHandler("pecahvcf",                          rate_limiter(cmd_pecahvcf)))
+    app.add_handler(CommandHandler("rename",                            rate_limiter(cmd_rename)))
+    app.add_handler(CommandHandler("count",                             rate_limiter(cmd_count)))
     app.add_handler(CommandHandler(["broadcast", "brodcast", "Brodcast"], rate_limiter(cmd_broadcast)))
-    app.add_handler(CommandHandler("mediabroadcast", rate_limiter(cmd_media_broadcast)))
-    app.add_handler(CommandHandler("newmember", rate_limiter(cmd_newmember)))
-    app.add_handler(CommandHandler(["delmember", "copotmember"], rate_limiter(cmd_delmember)))
-    app.add_handler(CommandHandler(["referal", "referral"], rate_limiter(cmd_referral)))
-    app.add_handler(CommandHandler("daftar", rate_limiter(cmd_daftar)))
-    app.add_handler(CommandHandler("vip", rate_limiter(cmd_vip)))
-    app.add_handler(CommandHandler("addvip", rate_limiter(cmd_addvip)))
-    app.add_handler(CommandHandler("delvip", rate_limiter(cmd_delvip)))
-    app.add_handler(CommandHandler("stat", rate_limiter(cmd_stat)))
-    app.add_handler(CommandHandler("done", rate_limiter(done_router)))
+    app.add_handler(CommandHandler("mediabroadcast",                    rate_limiter(cmd_media_broadcast)))
+    app.add_handler(CommandHandler("newmember",                         rate_limiter(cmd_newmember)))
+    app.add_handler(CommandHandler(["delmember", "copotmember"],        rate_limiter(cmd_delmember)))
+    app.add_handler(CommandHandler(["referal", "referral"],             rate_limiter(cmd_referral)))
+    app.add_handler(CommandHandler("daftar",                            rate_limiter(cmd_daftar)))
+    app.add_handler(CommandHandler("vip",                               rate_limiter(cmd_vip)))
+    app.add_handler(CommandHandler("addvip",                            rate_limiter(cmd_addvip)))
+    app.add_handler(CommandHandler("delvip",                            rate_limiter(cmd_delvip)))
+    app.add_handler(CommandHandler("stat",                              rate_limiter(cmd_stat)))
+    app.add_handler(CommandHandler("akun",                             rate_limiter(cmd_akun)))
+    app.add_handler(CommandHandler("done",                              rate_limiter(done_router)))
 
-    # Callback Query Handlers
-    from handlers.reset import handle_reset_callback
+    # ── Callback handlers ──
+    app.add_handler(CallbackQueryHandler(cb_show_vip_menu,       pattern="^show_vip_menu$"))
+    app.add_handler(CallbackQueryHandler(handle_reset_callback,  pattern="^admin_db_reset"))
 
-    async def cb_show_vip_menu(update, context):
-        query = update.callback_query
-        await query.answer()
-        # Fake update object for cmd_vip since it expects a message
-        class FakeUpdate:
-            message = query.message
-            effective_user = update.effective_user
-        await cmd_vip(FakeUpdate(), context)
+    if VIP_PAKASIR_MODE:
+        app.add_handler(CallbackQueryHandler(handle_buy_vip,         pattern="^buy_vip_"))
+        app.add_handler(CallbackQueryHandler(handle_check_payment,   pattern="^check_payment_"))
+        app.add_handler(CallbackQueryHandler(handle_cancel_payment,  pattern="^cancel_payment_"))
+        app.add_handler(CallbackQueryHandler(handle_vip_history,     pattern="^vip_history$"))
 
-    app.add_handler(CallbackQueryHandler(cb_show_vip_menu, pattern="^show_vip_menu$"))
-    app.add_handler(CallbackQueryHandler(handle_reset_callback, pattern="^admin_db_reset"))
-
-    # Message handlers
-    app.add_handler(MessageHandler(filters.Document.ALL | filters.PHOTO | filters.VIDEO | filters.ANIMATION, file_rate_limiter(file_router)))
+    # ── Message handlers ──
+    app.add_handler(MessageHandler(
+        filters.Document.ALL | filters.PHOTO | filters.VIDEO | filters.ANIMATION,
+        file_rate_limiter(file_router),
+    ))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, rate_limiter(text_router)))
 
-    # Error handler
+    # ── Error handler ──
     app.add_error_handler(error_handler)
 
-    logger.info("🚀 DiBot CV FEE berjalan (OPTIMIZED VERSION)...")
-    print("🚀 DiBot CV FEE berjalan (OPTIMIZED VERSION)...")
-    print(f"📊 Max concurrent updates: 32")
-    print(f"⏱️  Timeouts: pool=30s, read=30s, write=120s, connect=30s")
-    print(f"🔐 Rate limit: Max {MAX_CONCURRENT_PER_USER} operations per user")
+    # ── Startup: expire VIP ──
+    from database import db as _db
+    expired = _db.expire_vip_members()
+    if expired:
+        logger.info("Startup: %d VIP expired", expired)
 
-    # Auto-expire VIP members on startup
-    expired_count = db.expire_vip_members()
-    if expired_count:
-        logger.info("%d VIP member expired direset saat startup", expired_count)
-
-    # ── Scheduled jobs via PTB JobQueue ────────────────────────────────────────
-    async def job_expire_vip(context):
-        """Setiap 1 jam — expire VIP yang habis masa berlaku"""
-        if _job_running["expire"]:
-            logger.warning("[JOB] Previous expire_vip still running, skip")
-            return
-        
-        _job_running["expire"] = True
-        try:
-            count = db.expire_vip_members()
-            if count:
-                logger.info("[JOB] %d VIP member expired", count)
-        finally:
-            _job_running["expire"] = False
-
-    async def job_cleanup_sessions(context):
-        """Cleanup direktori tmp sesi yang stuck + cleanup semaphores & locks"""
-        if _job_running["cleanup"]:
-            logger.warning("[JOB] Previous cleanup still running, skip")
-            return
-        
-        _job_running["cleanup"] = True
-        try:
-            from middleware.session import clear_user_dir
-            from datetime import datetime
-            
-            tmp_base = os.path.join("tmp", "sessions")
-            if not os.path.exists(tmp_base):
-                return
-            
-            now   = time.time()
-            cleaned = 0
-            
+    # ── Pakasir webhook server ──
+    if os.getenv("PAKASIR_ENABLED", "false").lower() == "true" and VIP_PAKASIR_MODE:
+        # Validasi: pastikan WEBHOOK_PORT != HEALTH_PORT agar tidak bentrok
+        if WEBHOOK_PORT == HEALTH_PORT:
+            logger.error(
+                "WEBHOOK_PORT (%s) == HEALTH_PORT (%s)! Ganti salah satunya di .env. "
+                "Webhook server TIDAK dijalankan untuk mencegah crash.",
+                WEBHOOK_PORT, HEALTH_PORT
+            )
+        else:
             try:
-                for uid_str in os.listdir(tmp_base):
-                    if not uid_str.isdigit():
-                        continue
-                    path = os.path.join(tmp_base, uid_str)
-                    try:
-                        if os.path.isdir(path) and (now - os.path.getmtime(path)) > SESSION_STUCK_TIMEOUT:
-                            sess = db.get_session(int(uid_str))
-                            if not sess or sess.get("state") is None:
-                                clear_user_dir(int(uid_str))
-                                cleaned += 1
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-            
-            if cleaned:
-                logger.info("[JOB] Cleaned %d stuck session dirs", cleaned)
-            
-            # Cleanup semaphores untuk user inactive
-            inactive_users = []
-            
-            for uid in list(user_semaphores.keys()):
-                sess = db.get_session(uid)
-                if not sess or sess.get("state") is None:
-                    user = db.get_user(uid)
-                    if user:
-                        try:
-                            from datetime import datetime
-                            last_active = datetime.fromisoformat(dict(user)["last_active"])
-                            if (datetime.now() - last_active).total_seconds() > SESSION_INACTIVE_TIMEOUT:
-                                inactive_users.append(uid)
-                        except:
-                            pass
-            
-            cleaned_sem = 0
-            for uid in inactive_users:
-                user_semaphores.pop(uid, None)
-                user_file_semaphores.pop(uid, None)
-                cleaned_sem += 1
-            
-            if cleaned_sem:
-                logger.info("[JOB] Cleaned %d inactive user semaphores", cleaned_sem)
-
-            # ====== ADDED: FIX BUG #26 & #27 (Cleanup locks and timers) ======
-            cleaned_handler_locks = 0
-            try:
-                from handlers.xlsxtotxt import cleanup_inactive_locks as cleanup_xlsx
-                from handlers.merge import cleanup_inactive_users as cleanup_merge
-                from handlers.txttovcf import cleanup_inactive_users as cleanup_ttv
-                from handlers.vcftotxt import cleanup_inactive_users as cleanup_v2t
-                from handlers.admin_navy import cleanup_inactive_users as cleanup_an
-                from handlers.count import cleanup_inactive_users as cleanup_count
-                from handlers.pecahvcf import cleanup_inactive_users as cleanup_pecah
-                from handlers.rename import cleanup_inactive_users as cleanup_rename
-
-                cleaned_handler_locks += cleanup_xlsx(inactive_users)
-                cleaned_handler_locks += cleanup_merge(inactive_users)
-                cleaned_handler_locks += cleanup_ttv(inactive_users)
-                cleaned_handler_locks += cleanup_v2t(inactive_users)
-                cleaned_handler_locks += cleanup_an(inactive_users)
-                cleaned_handler_locks += cleanup_count(inactive_users)
-                cleaned_handler_locks += cleanup_pecah(inactive_users)
-                cleaned_handler_locks += cleanup_rename(inactive_users)
+                from webhook_pakasir import start_webhook_server_thread
+                # FIX: gunakan WEBHOOK_PORT dari config (bukan os.getenv ulang dengan default berbeda)
+                start_webhook_server_thread(WEBHOOK_PORT, app.bot)
+                logger.info("Pakasir webhook server started on port %s", WEBHOOK_PORT)
             except Exception as e:
-                logger.error("[JOB] Error cleaning handler locks: %s", e)
+                logger.error("Gagal start webhook server: %s", e)
 
-            if cleaned_handler_locks:
-                logger.info("[JOB] Cleaned %d inactive handler locks/timers", cleaned_handler_locks)
-            # =================================================================
-                
-            # Cleanup stale session cache
-            cleaned_cache = db.cleanup_stale_sessions()
-            if cleaned_cache:
-                logger.info("[JOB] Cleaned %d stale session cache entries", cleaned_cache)
-        finally:
-            _job_running["cleanup"] = False
+    # ── Scheduled jobs ──
+    app.job_queue.run_repeating(_job_expire_vip,               interval=JOB_EXPIRE_VIP_INTERVAL,       first=60)
+    app.job_queue.run_repeating(_job_cleanup_sessions,         interval=JOB_CLEANUP_SESSION_INTERVAL,  first=120)
+    app.job_queue.run_repeating(_job_notify_expiry,            interval=JOB_NOTIFY_EXPIRY_INTERVAL,    first=300)
+    app.job_queue.run_repeating(job_expire_pending_payments,   interval=60,                            first=60)
+    app.job_queue.run_repeating(job_cleanup_disk,              interval=JOB_CLEANUP_DISK_INTERVAL,     first=120)
 
-    async def job_notify_expiry(context):
-        """Cek user yang akan habis masa berlakunya dalam 24 jam"""
-        if _job_running["notify"]:
-            logger.warning("[JOB] Previous notify_expiry still running, skip")
-            return
-        
-        _job_running["notify"] = True
-        try:
-            users = db.get_users_for_expiry_notif()
-            for u in users:
-                uid = u["id"]
-                try:
-                    await context.bot.send_message(
-                        chat_id=uid,
-                        text="Pemberitahuan: Masa aktif VIP kamu tinggal 24 jam lagi. Yuk perpanjang agar fitur premium tetap aktif."
-                    )
-                    db.mark_expiry_notified(uid)
-                except Exception:
-                    pass
-        finally:
-            _job_running["notify"] = False
-
-    app.job_queue.run_repeating(job_expire_vip,    interval=JOB_EXPIRE_VIP_INTERVAL, first=60)
-    app.job_queue.run_repeating(job_cleanup_sessions, interval=JOB_CLEANUP_SESSION_INTERVAL, first=120)
-    app.job_queue.run_repeating(job_notify_expiry,   interval=JOB_NOTIFY_EXPIRY_INTERVAL, first=300)
-    # ───────────────────────────────────────────────────────────────────────────
-
+    logger.info("Bot berjalan...")
     app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
 
 

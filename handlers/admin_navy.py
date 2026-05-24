@@ -5,6 +5,7 @@ import io
 from telegram import Update
 from telegram.ext import ContextTypes
 from database import db
+from database.db_async import adb
 from middleware.auth import require_member
 from core.vcf_parser import add_plus, contacts_to_vcf
 from core.utils import sanitize_filename

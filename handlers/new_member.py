@@ -1,6 +1,7 @@
 from telegram import Update
 from telegram.ext import ContextTypes
 from database import db
+from database.db_async import adb
 from middleware.auth import require_admin
 
 STATE = "NEWMEMBER_WAIT_ID"

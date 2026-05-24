@@ -9,12 +9,15 @@ Key improvements:
 """
 import sqlite3
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import queue
 from contextlib import contextmanager
 import threading
 import copy
 import logging
+
+# Setup logger
+logger = logging.getLogger(__name__)
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "bot.db")
 
@@ -22,7 +25,7 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "bot.db")
 _conn_pool = queue.Queue(maxsize=32)
 _pool_initialized = False
 _pool_lock = threading.Lock()
-_pool_put_lock = threading.Lock()
+_pool_put_lock = threading.Lock()  # NOTE: Queue.put sudah thread-safe, lock ini redundant tapi dibiarkan untuk kompatibilitas
 
 
 def _init_connection():
@@ -72,9 +75,15 @@ def get_connection():
         raise RuntimeError("Database connection pool exhausted (timeout 30s). Bot overloaded.")
     try:
         yield conn
+    except Exception:
+        try:
+            conn.rollback()
+        except Exception:
+            pass
+        raise
     finally:
-        with _pool_put_lock:
-            _conn_pool.put(conn)
+        # FIX: Queue.put() sudah thread-safe, tidak perlu lock tambahan
+        _conn_pool.put(conn)
 
 
 # ─── DATABASE INITIALIZATION ──────────────────────────────────────────────────
@@ -140,6 +149,26 @@ def init_db():
             )
         """)
 
+        # ── PAKASIR PAYMENTS TABLE ──────────────────────────────────────
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS payments (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id         INTEGER NOT NULL,
+                order_id        TEXT    NOT NULL UNIQUE,
+                amount          INTEGER NOT NULL,
+                package_days    INTEGER NOT NULL,
+                payment_method  TEXT    DEFAULT 'qris',
+                payment_number  TEXT    DEFAULT NULL,
+                status          TEXT    DEFAULT 'pending',
+                expired_at      TEXT    DEFAULT NULL,
+                completed_at    TEXT    DEFAULT NULL,
+                created_at      TEXT    DEFAULT (datetime('now')),
+                qr_chat_id      INTEGER DEFAULT NULL,
+                qr_message_id   INTEGER DEFAULT NULL,
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            )
+        """)
+
         # Schema version tracking
         conn.execute("""
             CREATE TABLE IF NOT EXISTS schema_version (
@@ -172,7 +201,20 @@ def init_db():
         conn.execute("CREATE INDEX IF NOT EXISTS idx_users_ref ON users(referred_by)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_users_usage ON users(usage_count)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_broadcast_admin ON broadcast_log(admin_id)")
-        
+        # Payment indexes
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_payments_user ON payments(user_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_payments_order ON payments(order_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_payments_status ON payments(status)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_payments_created ON payments(created_at)")
+
+        # Migrasi: tambah kolom qr_chat_id dan qr_message_id jika belum ada
+        for col in ['qr_chat_id INTEGER DEFAULT NULL', 'qr_message_id INTEGER DEFAULT NULL']:
+            col_name = col.split()[0]
+            try:
+                conn.execute(f'ALTER TABLE payments ADD COLUMN {col}')
+            except Exception:
+                pass  # kolom sudah ada
+
         conn.commit()
         print(f"✅ Database tables and indexes initialized")
 
@@ -270,20 +312,31 @@ def get_user(user_id: int):
 
 
 def is_member(user_id: int) -> bool:
-    """Check if user is an active member (auto-expires if past due)"""
-    from datetime import datetime
-    row = get_user(user_id)
-    if row is None or not bool(row["is_member"]):
-        return False
-    # Check VIP expiry — admins have no expiry (expired_at = NULL)
-    expired_at = dict(row).get("expired_at")
-    if expired_at is None:
-        return True  # Permanent member (admin or manually added)
-    if datetime.fromisoformat(expired_at) < datetime.now():
-        # Auto-revoke expired VIP
-        remove_member(user_id)
-        return False
-    return True
+    """Check if user is an active member.
+    FIX RACE CONDITION: Gunakan single query atomic — cek dan revoke dalam 1 transaksi
+    untuk mencegah double-query race condition pada concurrent request dari user yang sama.
+    """
+    with get_connection() as conn:
+        # Single atomic query: update expired rows sekaligus
+        now_iso = datetime.now().isoformat()
+        # Revoke VIP yang sudah expired dalam satu query
+        conn.execute(
+            """UPDATE users
+               SET is_member = 0, expired_at = NULL
+               WHERE id = ? AND is_member = 1
+                 AND expired_at IS NOT NULL
+                 AND expired_at < ?""",
+            (user_id, now_iso)
+        )
+        conn.commit()
+        # Sekarang baca status terkini
+        row = conn.execute(
+            "SELECT is_member, expired_at FROM users WHERE id = ?",
+            (user_id,)
+        ).fetchone()
+        if row is None:
+            return False
+        return bool(row["is_member"])
 
 
 def remove_member(user_id: int):
@@ -430,7 +483,23 @@ def get_session(user_id: int) -> dict:
 
 
 def set_session(user_id: int, state: str, data: dict):
-    """Set user session (in-memory) with deep copy to prevent mutation"""
+    """Set user session (in-memory) with deep copy to prevent mutation.
+    FIX MEMORY LEAK: Evict entri terlama jika cache melebihi SESSION_CACHE_MAX_SIZE.
+    """
+    try:
+        from config import SESSION_CACHE_MAX_SIZE
+        max_size = SESSION_CACHE_MAX_SIZE
+    except ImportError:
+        max_size = 2000
+
+    # Evict 10% entri terlama jika cache penuh
+    if len(_session_cache) >= max_size and user_id not in _session_cache:
+        evict_count = max(1, max_size // 10)
+        for old_uid in list(_session_cache.keys())[:evict_count]:
+            _session_cache.pop(old_uid, None)
+            _all_buffers.pop(old_uid, None)
+        logger.warning("[db] Session cache penuh, evict %d entri terlama", evict_count)
+
     _session_cache[user_id] = {
         "state": state,
         "data": copy.deepcopy(data)
@@ -504,6 +573,191 @@ def cleanup_stale_sessions(max_age_hours=24):
         cleaned += 1
     
     return cleaned
+
+
+# ─── PAYMENT FUNCTIONS ────────────────────────────────────────────────────────
+
+def create_payment(
+    user_id: int,
+    order_id: str,
+    amount: int,
+    package_days: int,
+    payment_number: str = None,
+    expired_at: str = None,
+    qr_chat_id: int = None,
+    qr_message_id: int = None,
+) -> bool:
+    """Create new payment record"""
+    try:
+        with get_connection() as conn:
+            conn.execute("""
+                INSERT INTO payments (
+                    user_id, order_id, amount, package_days,
+                    payment_method, payment_number, expired_at, status,
+                    qr_chat_id, qr_message_id
+                )
+                VALUES (?, ?, ?, ?, 'qris', ?, ?, 'pending', ?, ?)
+            """, (user_id, order_id, amount, package_days, payment_number, expired_at, qr_chat_id, qr_message_id))
+            conn.commit()
+        logger.info(f"[DB] Payment created: {order_id} for user {user_id}")
+        return True
+    except sqlite3.IntegrityError as e:
+        logger.error(f"[DB] Payment create failed (duplicate?): {e}")
+        return False
+    except Exception as e:
+        logger.error(f"[DB] Payment create exception: {e}")
+        return False
+
+
+def get_payment(order_id: str):
+    """Get payment by order_id"""
+    try:
+        with get_connection() as conn:
+            row = conn.execute("""
+                SELECT * FROM payments WHERE order_id = ?
+            """, (order_id,)).fetchone()
+            return dict(row) if row else None
+    except Exception as e:
+        logger.error(f"[DB] Get payment exception: {e}")
+        return None
+
+
+def get_user_payments(user_id: int, limit: int = 10):
+    """Get user's payment history"""
+    try:
+        with get_connection() as conn:
+            rows = conn.execute("""
+                SELECT * FROM payments
+                WHERE user_id = ?
+                ORDER BY created_at DESC
+                LIMIT ?
+            """, (user_id, limit)).fetchall()
+            return [dict(row) for row in rows]
+    except Exception as e:
+        logger.error(f"[DB] Get user payments exception: {e}")
+        return []
+
+
+def update_payment_status(order_id: str, status: str, completed_at: str = None) -> bool:
+    """Update payment status"""
+    try:
+        with get_connection() as conn:
+            if completed_at:
+                conn.execute("""
+                    UPDATE payments
+                    SET status = ?, completed_at = ?
+                    WHERE order_id = ?
+                """, (status, completed_at, order_id))
+            else:
+                conn.execute("""
+                    UPDATE payments SET status = ? WHERE order_id = ?
+                """, (status, order_id))
+            conn.commit()
+        logger.info(f"[DB] Payment status updated: {order_id} -> {status}")
+        return True
+    except Exception as e:
+        logger.error(f"[DB] Update payment status exception: {e}")
+        return False
+
+
+def expire_old_pending_payments(minutes: int = 20) -> int:
+    """
+    FIX UX: Tandai payment 'pending' yang sudah lebih dari `minutes` menit
+    sebagai 'expired'. QRIS Pakasir berlaku ~15 menit, jadi 20 menit aman.
+    Dipanggil dari job scheduler tiap 5 menit.
+    Returns: jumlah payment yang di-expire.
+    """
+    cutoff = (datetime.now() - timedelta(minutes=minutes)).isoformat()
+    try:
+        with get_connection() as conn:
+            result = conn.execute(
+                """UPDATE payments
+                   SET status = 'expired'
+                   WHERE status = 'pending' AND created_at < ?""",
+                (cutoff,)
+            )
+            conn.commit()
+            count = result.rowcount
+            if count > 0:
+                logger.info("[DB] expire_old_pending_payments: %d payment di-expire", count)
+            return count
+    except Exception as exc:
+        logger.error("[DB] expire_old_pending_payments error: %s", exc)
+        return 0
+
+
+def get_and_expire_old_pending_payments(minutes: int = 5) -> list:
+    """
+    Mendapatkan semua pembayaran pending yang sudah kedaluwarsa (> minutes) secara UTC-to-UTC,
+    kemudian memperbarui statusnya menjadi 'expired' di database dalam satu transaksi.
+    Returns: list of dict berisi pembayaran yang expired (user_id, order_id, qr_chat_id, qr_message_id, dll).
+    """
+    time_clause = f"-{minutes} minutes"
+    try:
+        with get_connection() as conn:
+            rows = conn.execute(
+                """SELECT id, user_id, order_id, amount, qr_chat_id, qr_message_id
+                   FROM payments
+                   WHERE status = 'pending' AND created_at < datetime('now', ?)""",
+                (time_clause,)
+            ).fetchall()
+            
+            expired_list = [dict(r) for r in rows]
+            
+            if expired_list:
+                conn.execute(
+                    """UPDATE payments
+                       SET status = 'expired'
+                       WHERE status = 'pending' AND created_at < datetime('now', ?)""",
+                    (time_clause,)
+                )
+                conn.commit()
+                logger.info("[DB] get_and_expire_old_pending_payments: %d payment di-expire", len(expired_list))
+            return expired_list
+    except Exception as exc:
+        logger.error("[DB] get_and_expire_old_pending_payments error: %s", exc)
+        return []
+
+
+def complete_payment_if_pending(order_id: str, completed_at: str = None) -> bool:
+    """
+    ATOMIC: Set status='completed' HANYA jika status saat ini 'pending'.
+    Mencegah race condition double-activation antara webhook dan manual cek.
+    Returns True jika berhasil di-update (artinya kita yang pertama proses),
+    False jika sudah diproses sebelumnya.
+    """
+    try:
+        ts = completed_at or datetime.now().isoformat()
+        with get_connection() as conn:
+            result = conn.execute(
+                """UPDATE payments
+                   SET status = 'completed', completed_at = ?
+                   WHERE order_id = ? AND status = 'pending'""",
+                (ts, order_id),
+            )
+            conn.commit()
+            updated = result.rowcount > 0
+            if updated:
+                logger.info("[DB] complete_payment_if_pending: %s marked completed", order_id)
+            else:
+                logger.info("[DB] complete_payment_if_pending: %s already processed, skip", order_id)
+            return updated
+    except Exception as exc:
+        logger.error("[DB] complete_payment_if_pending error: %s", exc)
+        return False
+
+
+def get_payment_stats():
+    """Get payment statistics"""
+    try:
+        with get_connection() as conn:
+            total = conn.execute("SELECT COUNT(*) as c FROM payments").fetchone()["c"]
+            completed = conn.execute("SELECT COUNT(*) as c FROM payments WHERE status = 'completed'").fetchone()["c"]
+            pending = conn.execute("SELECT COUNT(*) as c FROM payments WHERE status = 'pending'").fetchone()["c"]
+            return {"total": total, "completed": completed, "pending": pending}
+    except Exception as e:
+        logger.error(f"[DB] Get payment stats exception: {e}")
+        return {"total": 0, "completed": 0, "pending": 0}
 
 
 # Initialize on module import

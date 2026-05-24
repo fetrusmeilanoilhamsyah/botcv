@@ -5,6 +5,7 @@ Hanya bisa diakses oleh admin.
 from telegram import Update
 from telegram.ext import ContextTypes
 from database import db
+from database.db_async import adb
 from middleware.auth import require_admin
 
 CHUNK = 15  # Jumlah user per pesan — dijaga agar tidak melebihi 4096 karakter Telegram

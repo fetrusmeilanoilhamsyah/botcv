@@ -10,6 +10,7 @@ import logging
 from telegram import Update
 from telegram.ext import ContextTypes
 from database import db
+from database.db_async import adb
 from middleware.auth import require_member
 from middleware.session import get_user_dir
 from core.vcf_parser import parse_vcf_file, contacts_to_vcf
@@ -39,7 +40,7 @@ async def cmd_rename(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_member(update, context):
         return
     user_id = update.effective_user.id
-    db.increment_usage(user_id)
+    asyncio.create_task(adb.increment_usage(user_id))
     db.set_session(user_id, STATE_NAME, {})
     await update.message.reply_text(
         "Ketik nama kontak baru.\n"

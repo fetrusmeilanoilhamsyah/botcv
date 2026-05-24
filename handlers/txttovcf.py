@@ -7,6 +7,7 @@ import asyncio
 from telegram import Update
 from telegram.ext import ContextTypes
 from database import db
+from database.db_async import adb
 from middleware.auth import require_member
 from middleware.session import get_user_dir
 from core.vcf_parser import add_plus, contacts_to_vcf
@@ -90,7 +91,7 @@ async def cmd_txttovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_member(update, context):
         return
     user_id = update.effective_user.id
-    db.increment_usage(user_id)
+    asyncio.create_task(adb.increment_usage(user_id))
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     db.set_session(user_id, S0, {"count": 0, "total_size": 0, "total_contacts": 0})

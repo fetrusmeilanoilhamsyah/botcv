@@ -7,6 +7,7 @@ from io import BytesIO
 from telegram import Update
 from telegram.ext import ContextTypes
 from database import db
+from database.db_async import adb
 from middleware.session import get_user_dir
 
 logger = logging.getLogger(__name__)
@@ -117,7 +118,7 @@ async def cmd_xlsxtotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     user_id = update.effective_user.id
-    db.increment_usage(user_id)
+    asyncio.create_task(adb.increment_usage(user_id))
 
     import shutil
     xlsx_dir = os.path.join(get_user_dir(user_id), "xlsxtotxt")

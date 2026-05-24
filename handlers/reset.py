@@ -2,6 +2,7 @@ import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from database import db
+from database.db_async import adb
 from middleware.session import clear_user_dir, clear_all_sessions
 from middleware.auth import require_member, require_admin
 from handlers.cancel_helper import cancel_all

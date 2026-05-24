@@ -4,6 +4,7 @@ media_broadcast.py — Admin-only: kirim iklan berupa foto atau video ke semua u
 from telegram import Update
 from telegram.ext import ContextTypes
 from database import db
+from database.db_async import adb
 from middleware.auth import require_admin
 from config import ADMIN_IDS
 import asyncio

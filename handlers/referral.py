@@ -4,6 +4,7 @@ handlers/referral.py — Referral system logic.
 from telegram import Update
 from telegram.ext import ContextTypes
 from database import db
+from database.db_async import adb
 
 async def cmd_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
