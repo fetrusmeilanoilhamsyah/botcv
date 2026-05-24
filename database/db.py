@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 DB_PATH = os.path.join(os.path.dirname(__file__), "bot.db")
 
 # ─── CONNECTION POOL ──────────────────────────────────────────────────────────
-_conn_pool = queue.Queue(maxsize=32)
+_conn_pool = queue.Queue(maxsize=8)
 _pool_initialized = False
 _pool_lock = threading.Lock()
 _pool_put_lock = threading.Lock()  # NOTE: Queue.put sudah thread-safe, lock ini redundant tapi dibiarkan untuk kompatibilitas
@@ -38,25 +38,26 @@ def _init_connection():
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA synchronous=NORMAL")
+    conn.execute("PRAGMA busy_timeout=30000")  # Explicitly set busy timeout to 30 seconds
     conn.execute("PRAGMA cache_size=-64000")  # 64MB cache
     conn.execute("PRAGMA temp_store=MEMORY")   # Use memory for temp tables
     return conn
 
 
 def init_connection_pool():
-    """Initialize connection pool with 10 connections"""
+    """Initialize connection pool with 8 connections"""
     global _pool_initialized
     
     with _pool_lock:
         if _pool_initialized:
             return
             
-        for _ in range(32):
+        for _ in range(8):
             conn = _init_connection()
             _conn_pool.put(conn)
         
         _pool_initialized = True
-        print(f"✅ Database connection pool initialized (32 connections)")
+        print(f"✅ Database connection pool initialized (8 connections)")
 
 
 @contextmanager
