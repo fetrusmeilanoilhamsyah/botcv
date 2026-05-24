@@ -10,6 +10,9 @@ async def cmd_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     bot_username = context.bot.username or "Bot"
     
+    from handlers.start import delete_welcome_messages
+    await delete_welcome_messages(context.bot, user.id, update.effective_chat.id)
+    
     # Hitung jumlah referral
     count = db.get_referral_count(user.id)
     

@@ -84,6 +84,9 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     await adb.upsert_user(user.id, user.username or "", user.full_name or "")
 
+    from handlers.start import delete_welcome_messages
+    await delete_welcome_messages(context.bot, user.id, update.effective_chat.id)
+
     # Status VIP
     status_line = ""
     if await adb.is_member(user.id):

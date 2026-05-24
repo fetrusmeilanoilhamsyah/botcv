@@ -20,6 +20,9 @@ PAKET = [
 async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
 
+    from handlers.start import delete_welcome_messages
+    await delete_welcome_messages(context.bot, user.id, update.effective_chat.id)
+
     expired_at  = db.get_vip_expiry(user.id)
     status_line = ""
     if db.is_member(user.id):

@@ -11,6 +11,9 @@ from handlers.cancel_helper import cancel_all
 async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
 
+    from handlers.start import delete_welcome_messages
+    await delete_welcome_messages(context.bot, user_id, update.effective_chat.id)
+
     await update.message.reply_text(
         "Sesi dibersihkan."
     )

@@ -14,6 +14,9 @@ logger = logging.getLogger(__name__)
 async def cmd_akun(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
 
+    from handlers.start import delete_welcome_messages
+    await delete_welcome_messages(context.bot, user.id, update.effective_chat.id)
+
     # Semua query paralel — tidak serial
     import asyncio
     row, member, expired_at, ref_count = await asyncio.gather(
