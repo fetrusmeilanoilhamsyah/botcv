@@ -14,20 +14,24 @@ def register_welcome_messages(user_id: int, message_ids: list[int]):
 
 async def delete_welcome_messages(bot, user_id: int, chat_id: int):
     msg_ids = _welcome_messages.pop(user_id, [])
-    for msg_id in msg_ids:
-        try:
-            await bot.delete_message(chat_id=chat_id, message_id=msg_id)
-        except Exception:
-            pass
+    if msg_ids:
+        async def safe_delete(msg_id):
+            try:
+                await bot.delete_message(chat_id=chat_id, message_id=msg_id)
+            except Exception:
+                pass
+        await asyncio.gather(*(safe_delete(msg_id) for msg_id in msg_ids))
 
 async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, reply_markup=None):
-    # Hapus welcome messages di atas agar layar bersih
+    # Hapus welcome messages di atas secara paralel (sinkron/barengan) agar tidak lelet
     msg_ids = _welcome_messages.pop(user_id, [])
-    for msg_id in msg_ids:
-        try:
-            await bot.delete_message(chat_id=chat_id, message_id=msg_id)
-        except Exception:
-            pass
+    if msg_ids:
+        async def safe_delete(msg_id):
+            try:
+                await bot.delete_message(chat_id=chat_id, message_id=msg_id)
+            except Exception:
+                pass
+        await asyncio.gather(*(safe_delete(msg_id) for msg_id in msg_ids))
 
     # Balas/kirim pesan baru di bawah agar user langsung melihat responnya
     msg = await bot.send_message(
