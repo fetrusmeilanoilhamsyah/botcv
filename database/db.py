@@ -423,7 +423,7 @@ def get_all_users_detail():
     """Get all users with full details for /daftar command"""
     with get_connection() as conn:
         rows = conn.execute(
-            "SELECT id, username, full_name, is_member, joined_at, expired_at FROM users ORDER BY joined_at DESC"
+            "SELECT id, username, full_name, is_member, joined_at, expired_at, usage_count FROM users ORDER BY joined_at DESC"
         ).fetchall()
         return [dict(r) for r in rows]
 
@@ -748,16 +748,17 @@ def complete_payment_if_pending(order_id: str, completed_at: str = None) -> bool
 
 
 def get_payment_stats():
-    """Get payment statistics"""
+    """Get payment statistics including income"""
     try:
         with get_connection() as conn:
             total = conn.execute("SELECT COUNT(*) as c FROM payments").fetchone()["c"]
             completed = conn.execute("SELECT COUNT(*) as c FROM payments WHERE status = 'completed'").fetchone()["c"]
             pending = conn.execute("SELECT COUNT(*) as c FROM payments WHERE status = 'pending'").fetchone()["c"]
-            return {"total": total, "completed": completed, "pending": pending}
+            income = conn.execute("SELECT SUM(amount) as s FROM payments WHERE status = 'completed'").fetchone()["s"] or 0
+            return {"total": total, "completed": completed, "pending": pending, "income": income}
     except Exception as e:
         logger.error(f"[DB] Get payment stats exception: {e}")
-        return {"total": 0, "completed": 0, "pending": 0}
+        return {"total": 0, "completed": 0, "pending": 0, "income": 0}
 
 
 # Initialize on module import
