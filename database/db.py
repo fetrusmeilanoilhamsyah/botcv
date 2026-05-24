@@ -280,8 +280,9 @@ def get_referrer(user_id: int):
 def get_top_users(limit=5):
     """Get top active users for leaderboard"""
     with get_connection() as conn:
-        rows = conn.execute("SELECT full_name, usage_count FROM users ORDER BY usage_count DESC LIMIT ?", (limit,)).fetchall()
+        rows = conn.execute("SELECT id, full_name, username, usage_count FROM users ORDER BY usage_count DESC LIMIT ?", (limit,)).fetchall()
         return [dict(r) for r in rows]
+
 
 def get_users_for_expiry_notif():
     """Get users who expire in ~24 hours and haven't been notified"""

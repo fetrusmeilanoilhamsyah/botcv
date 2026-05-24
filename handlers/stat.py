@@ -1,137 +1,168 @@
 """
-stat.py — Admin dashboard: statistik bot realtime.
+stat.py — Dashboard owner: statistik bot realtime, bersih tanpa emoji berlebihan.
 """
 import os
 import time
+from datetime import datetime, timezone, timedelta
 from telegram import Update
 from telegram.ext import ContextTypes
 from database import db
-from middleware.auth import require_admin
+from middleware.auth import require_admin, is_admin
 
-# Waktu startup bot (diset saat import)
 _START_TIME = time.time()
+_JAKARTA = timezone(timedelta(hours=7))
 
 
 def _uptime_str() -> str:
     secs = int(time.time() - _START_TIME)
     h, rem = divmod(secs, 3600)
     m, s   = divmod(rem, 60)
+    d, h   = divmod(h, 24)
+    if d:
+        return f"{d}h {h}j {m}m"
     if h:
-        return f"{h}j {m}m {s}s"
-    return f"{m}m {s}s"
+        return f"{h}j {m}m {s}d"
+    return f"{m}m {s}d"
+
+
+def _fmt_rp(n: int) -> str:
+    return f"Rp {n:,}".replace(",", ".")
+
+
+def _server_health() -> str:
+    """Cek disk & RAM usage VPS secara sederhana."""
+    lines = []
+    # Disk
+    try:
+        st = os.statvfs("/")
+        total_gb  = st.f_blocks * st.f_frsize / (1024 ** 3)
+        free_gb   = st.f_bavail * st.f_frsize / (1024 ** 3)
+        used_gb   = total_gb - free_gb
+        pct       = used_gb / total_gb * 100
+        lines.append(f"Disk    : {used_gb:.1f}/{total_gb:.1f} GB ({pct:.0f}%)")
+    except Exception:
+        lines.append("Disk    : -")
+
+    # RAM (Linux /proc/meminfo)
+    try:
+        mem = {}
+        with open("/proc/meminfo") as f:
+            for line in f:
+                k, v = line.split(":")
+                mem[k.strip()] = int(v.strip().split()[0])
+        total_mb = mem["MemTotal"] / 1024
+        avail_mb = mem["MemAvailable"] / 1024
+        used_mb  = total_mb - avail_mb
+        pct      = used_mb / total_mb * 100
+        lines.append(f"RAM     : {used_mb:.0f}/{total_mb:.0f} MB ({pct:.0f}%)")
+    except Exception:
+        lines.append("RAM     : -")
+
+    # Tmp session dir
+    tmp_dir = os.path.join("tmp", "sessions")
+    tmp_count = 0
+    tmp_mb    = 0.0
+    if os.path.exists(tmp_dir):
+        for root, _, files in os.walk(tmp_dir):
+            for f in files:
+                fp = os.path.join(root, f)
+                try:
+                    tmp_mb += os.path.getsize(fp)
+                    tmp_count += 1
+                except Exception:
+                    pass
+    tmp_mb /= (1024 * 1024)
+    lines.append(f"Sesi    : {tmp_count} file ({tmp_mb:.2f} MB)")
+
+    return "\n".join(lines)
 
 
 async def cmd_stat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_admin(update, context):
         return
 
-    users = db.get_all_users_detail()
-    total = len(users)
-    
-    # Hitung tipe member
+    now_jakarta = datetime.now(_JAKARTA)
+
+    # ── User stats ──────────────────────────────────────────────────────────────
+    users        = db.get_all_users_detail()
+    total        = len(users)
     members_list = [u for u in users if u["is_member"]]
     total_member = len(members_list)
     total_non    = total - total_member
-    
-    vip_timed = [u for u in members_list if u.get("expired_at")]
-    vip_perm  = [u for u in members_list if not u.get("expired_at")]
-    
-    # Hitung file temp
-    tmp_dir    = os.path.join("tmp", "sessions")
-    tmp_count  = 0
-    tmp_size   = 0
-    if os.path.exists(tmp_dir):
-        for root, dirs, files in os.walk(tmp_dir):
-            for f in files:
-                fp = os.path.join(root, f)
-                try:
-                    tmp_size += os.path.getsize(fp)
-                    tmp_count += 1
-                except Exception:
-                    pass
+    vip_timed    = [u for u in members_list if u.get("expired_at")]
+    vip_perm     = [u for u in members_list if not u.get("expired_at")]
 
-    tmp_size_mb = tmp_size / (1024 * 1024)
-    
-    # Statistik Pembayaran & Omset
-    pay_stats = db.get_payment_stats()
-    def _fmt_money(n: int) -> str:
-        return f"Rp {n:,}".replace(",", ".")
-    
-    # Leaderboard Top 5
-    top_users = db.get_top_users(5)
-    lb_text = "🏆 <b>TOP 5 USER AKTIF:</b>\n"
-    if top_users:
-        for idx, u in enumerate(top_users, 1):
-            lb_text += f"  {idx}. {u['full_name']} — {u['usage_count']}x\n"
-    else:
-        lb_text += "  Belum ada data.\n"
-        
-    # Daftar Detail Member VIP Aktif (maks 15 agar tidak limit karakter)
-    from datetime import timezone, timedelta, datetime
-    jakarta_tz = timezone(timedelta(hours=7))
-    
-    vip_list_text = "\n💎 <b>DAFTAR MEMBER VIP AKTIF (Maks 15):</b>\n"
-    if vip_timed:
-        # Urutkan berdasarkan waktu expired terdekat
+    # ── Payment stats ───────────────────────────────────────────────────────────
+    pay = db.get_payment_stats()
+
+    # ── Top 3 user aktif (exclude admin) ────────────────────────────────────────
+    all_top = db.get_top_users(50)
+    top3 = [u for u in all_top if not is_admin(u.get("id", 0))][:3]
+
+    # ── Server health ───────────────────────────────────────────────────────────
+    health = _server_health()
+
+    # ── VIP list (maks 10, urutkan expired terdekat) ────────────────────────────
+    try:
+        vip_sorted = sorted(
+            vip_timed,
+            key=lambda x: datetime.fromisoformat(x["expired_at"].replace("Z", "+00:00"))
+        )
+    except Exception:
+        vip_sorted = vip_timed
+
+    vip_rows = []
+    for idx, u in enumerate(vip_sorted[:10], 1):
+        name     = u["full_name"] or u["username"] or str(u["id"])
+        username = f"@{u['username']}" if u["username"] else "-"
         try:
-            vip_timed_sorted = sorted(
-                vip_timed,
-                key=lambda x: datetime.fromisoformat(x["expired_at"].replace("Z", "+00:00"))
-            )
+            exp  = datetime.fromisoformat(u["expired_at"].replace("Z", "+00:00")).astimezone(_JAKARTA)
+            sisa = (exp.replace(tzinfo=None) - datetime.now()).days
+            sisa_str = f"{sisa}h lagi" if sisa >= 0 else "EXPIRED"
+            exp_str  = exp.strftime("%d/%m/%Y")
         except Exception:
-            vip_timed_sorted = vip_timed
-            
-        for idx, u in enumerate(vip_timed_sorted[:15], 1):
-            username = f"@{u['username']}" if u["username"] else "No username"
-            name = u["full_name"] or u["username"] or str(u["id"])
-            usage = u.get("usage_count", 0)
-            
-            try:
-                exp = datetime.fromisoformat(u["expired_at"].replace("Z", "+00:00")).astimezone(jakarta_tz)
-                sisa = (exp.replace(tzinfo=None) - datetime.now()).days
-                exp_str = exp.strftime("%d/%m/%Y %H:%M") + " WIB"
-                sisa_str = f"({sisa} hari lagi)" if sisa >= 0 else "(Expired)"
-            except Exception:
-                exp_str = str(u["expired_at"])
-                sisa_str = ""
-                
-            vip_list_text += f"  {idx}. <b>{name}</b> ({username})\n"
-            vip_list_text += f"     ID: <code>{u['id']}</code> | Pakai: {usage}x\n"
-            vip_list_text += f"     Expired: {exp_str} {sisa_str}\n"
-    else:
-        vip_list_text += "  Tidak ada member VIP aktif.\n"
+            exp_str  = "-"
+            sisa_str = "-"
+        vip_rows.append(
+            f"  {idx}. {name} ({username})\n"
+            f"     {exp_str} — {sisa_str}"
+        )
 
-    # Daftar Member Permanen
-    perm_list_text = "\n👑 <b>MEMBER PERMANEN / ADMIN:</b>\n"
-    if vip_perm:
-        for idx, u in enumerate(vip_perm[:10], 1):
-            username = f"@{u['username']}" if u["username"] else "No username"
-            name = u["full_name"] or str(u["id"])
-            usage = u.get("usage_count", 0)
-            perm_list_text += f"  {idx}. <b>{name}</b> ({username}) | Pakai: {usage}x\n"
-    else:
-        perm_list_text += "  Tidak ada member permanen.\n"
+    vip_block = "\n".join(vip_rows) if vip_rows else "  Tidak ada."
 
+    # ── Top 3 block ──────────────────────────────────────────────────────────────
+    top3_lines = []
+    for idx, u in enumerate(top3, 1):
+        name = u["full_name"] or u.get("username") or "-"
+        top3_lines.append(f"  {idx}. {name} — {u['usage_count']}x")
+    top3_block = "\n".join(top3_lines) if top3_lines else "  Belum ada data."
+
+    # ── Rakitan pesan ────────────────────────────────────────────────────────────
+    SEP = "─" * 28
     msg = (
-        f"📊 <b>STATISTIK BOT REALTIME</b>\n"
-        f"{'─'*28}\n"
-        f"⏱ <b>Uptime:</b> {_uptime_str()}\n"
-        f"👥 <b>Total User:</b> {total} orang\n"
-        f"💼 <b>Non-Member:</b> {total_non} orang\n"
-        f"⭐ <b>Total Member:</b> {total_member} orang\n"
-        f"   └ 💎 VIP Berjangka : {len(vip_timed)} orang\n"
-        f"   └ 👑 Permanen/Admin : {len(vip_perm)} orang\n"
-        f"📂 <b>Tmp Disk Sesi:</b> {tmp_count} file ({tmp_size_mb:.2f} MB)\n"
-        f"{'─'*28}\n"
-        f"💳 <b>STATISTIK PEMBAYARAN (QRIS):</b>\n"
-        f"   ├ Total Transaksi : {pay_stats['total']}x\n"
-        f"   ├ Sukses Terbayar : {pay_stats['completed']}x\n"
-        f"   ├ Pending/Expired : {pay_stats['pending']}x\n"
-        f"   └ 💰 <b>Total Omset : {_fmt_money(pay_stats['income'])}</b>\n"
-        f"{'─'*28}\n"
-        + lb_text
-        + vip_list_text
-        + perm_list_text
+        f"<b>STATISTIK BOT</b>\n"
+        f"{now_jakarta.strftime('%d/%m/%Y %H:%M')} WIB  |  Uptime: {_uptime_str()}\n"
+        f"{SEP}\n"
+        f"<b>USER</b>\n"
+        f"  Total        : {total}\n"
+        f"  Non-member   : {total_non}\n"
+        f"  VIP berjangka: {len(vip_timed)}\n"
+        f"  VIP permanen : {len(vip_perm)}\n"
+        f"{SEP}\n"
+        f"<b>PEMBAYARAN (QRIS)</b>\n"
+        f"  Transaksi    : {pay['total']}x\n"
+        f"  Sukses       : {pay['completed']}x\n"
+        f"  Pending      : {pay['pending']}x\n"
+        f"  Omset        : <b>{_fmt_rp(pay['income'])}</b>\n"
+        f"{SEP}\n"
+        f"<b>KESEHATAN SERVER</b>\n"
+        f"{health}\n"
+        f"{SEP}\n"
+        f"<b>TOP 3 PENGGUNA (non-admin)</b>\n"
+        f"{top3_block}\n"
+        f"{SEP}\n"
+        f"<b>VIP AKTIF (maks 10, terdekat expired)</b>\n"
+        f"{vip_block}"
     )
 
     await update.message.reply_text(msg, parse_mode="HTML")
