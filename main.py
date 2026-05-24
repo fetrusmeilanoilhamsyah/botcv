@@ -260,6 +260,12 @@ async def cb_show_vip_menu(update: Update, context):
     query = update.callback_query
     await query.answer()
 
+    # Hapus pesan peringatan VIP/redirect agar layar tidak menumpuk
+    try:
+        await query.message.delete()
+    except Exception:
+        pass
+
     user    = query.from_user
     chat_id = query.message.chat_id
 

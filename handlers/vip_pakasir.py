@@ -421,6 +421,10 @@ async def handle_cancel_payment(update: Update, context: ContextTypes.DEFAULT_TY
             await adb.update_payment_status(order_id, "cancelled")
             # Hapus pesan QR lama — tombol di QR sudah tidak valid setelah cancel
             await _delete_qr_message(context.bot, payment)
+            try:
+                await query.message.delete()
+            except Exception:
+                pass
             await reply(f"Pembayaran dibatalkan.\nOrder ID: {order_id}\n\nKamu bisa buat QRIS baru kapan saja via /vip.")
         else:
             await reply(f"Gagal membatalkan. Hubungi {ADMIN_CONTACT} jika diperlukan.")
@@ -437,6 +441,12 @@ async def handle_cancel_payment(update: Update, context: ContextTypes.DEFAULT_TY
 async def handle_vip_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
+    # Hapus pesan menu VIP agar layar tidak menumpuk saat melihat riwayat
+    try:
+        await query.message.delete()
+    except Exception:
+        pass
 
     user    = query.from_user
     chat_id = query.message.chat_id
