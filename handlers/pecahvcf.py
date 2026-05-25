@@ -52,7 +52,7 @@ async def cmd_pecahvcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "✂️ <b>Pecah VCF</b>\n\nBerapa kontak per file?\n<i>Contoh: 50</i>",
+        "Silakan tentukan jumlah kontak maksimal untuk setiap file pecahan Anda (Contoh: 50, 100, atau 500):",
         reply_markup=ReplyKeyboardRemove(),
         update=update
     )
@@ -80,8 +80,8 @@ async def handle_pecah_per_file(update: Update, context: ContextTypes.DEFAULT_TY
     db.set_session(user_id, STATE_WAIT_VCF, {"per_file": per_file})
     from handlers.start import get_start_keyboard
     await update.message.reply_text(
-        f"✅ Kontak per file: <b>{per_file}</b>\n\n"
-        f"Sekarang kirim file VCF (SATU VCF PER SESI).",
+        f"Pengaturan berhasil: maksimal <b>{per_file}</b> kontak per file.\n\n"
+        f"Sekarang silakan kirimkan file .VCF yang ingin Anda pecah (satu file per sesi):",
         parse_mode="HTML",
         reply_markup=ReplyKeyboardRemove()
     )
@@ -238,11 +238,7 @@ async def handle_show_pecahvcf_help_callback(update: Update, context: ContextTyp
     # Edit the message in-place instead of deleting it to provide a smooth morphing transition
     try:
         await query.message.edit_text(
-            text=(
-                "✂️ <b>Pecah VCF</b>\n\n"
-                "Berapa kontak per file?\n"
-                "<i>Contoh: 50</i>"
-            ),
+            text="Silakan tentukan jumlah kontak maksimal untuk setiap file pecahan Anda (Contoh: 50, 100, atau 500):",
             parse_mode="HTML"
         )
     except Exception:
@@ -253,11 +249,7 @@ async def handle_show_pecahvcf_help_callback(update: Update, context: ContextTyp
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text=(
-                "✂️ <b>Pecah VCF</b>\n\n"
-                "Berapa kontak per file?\n"
-                "<i>Contoh: 50</i>"
-            ),
+            text="Silakan tentukan jumlah kontak maksimal untuk setiap file pecahan Anda (Contoh: 50, 100, atau 500):",
             parse_mode="HTML",
             reply_markup=ReplyKeyboardRemove()
         )

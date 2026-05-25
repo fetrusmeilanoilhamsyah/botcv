@@ -118,7 +118,7 @@ async def cmd_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "📂 <b>Kirim file TXT atau VCF</b>\n\nBisa kirim banyak sekaligus.\nKetik /done jika sudah selesai.",
+        "Silakan kirimkan satu atau beberapa file .TXT atau .VCF Anda sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk menghitung total kontak.",
         reply_markup=ReplyKeyboardRemove(),
         update=update
     )
@@ -242,11 +242,7 @@ async def handle_show_count_help_callback(update: Update, context: ContextTypes.
     # Edit the message in-place instead of deleting it to provide a smooth morphing transition
     try:
         await query.message.edit_text(
-            text=(
-                "📂 <b>Kirim file TXT atau VCF</b>\n\n"
-                "Bisa kirim banyak sekaligus.\n"
-                "Ketik /done jika sudah selesai."
-            ),
+            text="Silakan kirimkan satu atau beberapa file .TXT atau .VCF Anda sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk menghitung total kontak.",
             parse_mode="HTML"
         )
         msg = query.message
@@ -258,11 +254,7 @@ async def handle_show_count_help_callback(update: Update, context: ContextTypes.
             pass
         msg = await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text=(
-                "📂 <b>Kirim file TXT atau VCF</b>\n\n"
-                "Bisa kirim banyak sekaligus.\n"
-                "Ketik /done jika sudah selesai."
-            ),
+            text="Silakan kirimkan satu atau beberapa file .TXT atau .VCF Anda sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk menghitung total kontak.",
             parse_mode="HTML",
             reply_markup=ReplyKeyboardRemove()
         )

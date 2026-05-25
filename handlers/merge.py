@@ -97,7 +97,7 @@ async def cmd_merge(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Kirim file VCF atau TXT.\nKetik /done jika selesai.",
+        "Silakan kirimkan file-file .VCF atau .TXT yang ingin Anda gabungkan sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk memproses.",
         reply_markup=ReplyKeyboardRemove(),
         update=update
     )
@@ -238,8 +238,7 @@ async def handle_merge_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.set_session(user_id, STATE_NAMING, data)
     from handlers.start import get_start_keyboard
     await update.message.reply_text(
-        f"{data['count']} file {mode.upper()} diterima.\n"
-        "Nama file output:",
+        f"Berhasil menerima {data['count']} file {mode.upper()}.\n\nSilakan masukkan nama yang Anda inginkan untuk file hasil penggabungan (Contoh: File_Gabungan, atau Hasil_Merge):",
         reply_markup=ReplyKeyboardRemove()
     )
 
@@ -451,10 +450,7 @@ async def handle_show_merge_help_callback(update: Update, context: ContextTypes.
     # Edit the message in-place instead of deleting it to provide a smooth morphing transition
     try:
         await query.message.edit_text(
-            text=(
-                "Kirim file VCF atau TXT.\n"
-                "Ketik /done jika selesai."
-            )
+            text="Silakan kirimkan file-file .VCF atau .TXT yang ingin Anda gabungkan sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk memproses."
         )
     except Exception:
         # Fallback if editing fails
@@ -464,9 +460,6 @@ async def handle_show_merge_help_callback(update: Update, context: ContextTypes.
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text=(
-                "Kirim file VCF atau TXT.\n"
-                "Ketik /done jika selesai."
-            ),
+            text="Silakan kirimkan file-file .VCF atau .TXT yang ingin Anda gabungkan sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk memproses.",
             reply_markup=ReplyKeyboardRemove()
         )

@@ -50,7 +50,7 @@ async def cmd_duplikat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "KIRIM FILE KONTAK (VCF ATAU TXT)\n\nSilakan kirim file VCF atau TXT berupa dokumen yang ingin Anda bersihkan dari nomor kontak duplikat.",
+        "Silakan kirimkan file .VCF atau .TXT Anda sekarang. Bot akan otomatis membersihkan nomor kontak duplikat dan memberikan file hasil perbaikannya.",
         reply_markup=ReplyKeyboardRemove(),
         update=update
     )
@@ -260,10 +260,7 @@ async def handle_show_duplikat_help_callback(update: Update, context: ContextTyp
     # Edit message in-place instead of deleting it to provide a smooth morphing transition
     try:
         await query.message.edit_text(
-            text=(
-                "KIRIM FILE KONTAK (VCF ATAU TXT)\n\n"
-                "Silakan kirim file VCF atau TXT berupa dokumen yang ingin Anda bersihkan dari nomor kontak duplikat."
-            ),
+            text="Silakan kirimkan file .VCF atau .TXT Anda sekarang. Bot akan otomatis membersihkan nomor kontak duplikat dan memberikan file hasil perbaikannya.",
             parse_mode="HTML"
         )
     except Exception:
@@ -274,10 +271,7 @@ async def handle_show_duplikat_help_callback(update: Update, context: ContextTyp
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text=(
-                "KIRIM FILE KONTAK (VCF ATAU TXT)\n\n"
-                "Silakan kirim file VCF atau TXT berupa dokumen yang ingin Anda bersihkan dari nomor kontak duplikat."
-            ),
+            text="Silakan kirimkan file .VCF atau .TXT Anda sekarang. Bot akan otomatis membersihkan nomor kontak duplikat dan memberikan file hasil perbaikannya.",
             parse_mode="HTML",
             reply_markup=ReplyKeyboardRemove()
         )

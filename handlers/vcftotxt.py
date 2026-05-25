@@ -53,7 +53,7 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 jumlah_kontak = sess["data"].get("total_contacts", 0)
                 await context.bot.send_message(
                     chat_id=chat_id,
-                    text=f"{jumlah_file} file diterima ({jumlah_kontak} kontak). /done jika selesai."
+                    text=f"Berhasil menerima {jumlah_file} file dengan total {jumlah_kontak} kontak. Silakan ketik /done jika Anda sudah selesai mengirim semua file."
                 )
     except asyncio.CancelledError:
         pass
@@ -97,7 +97,7 @@ async def cmd_vcftotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Kirim file VCF.\nKetik /done jika selesai.",
+        "Silakan kirimkan satu atau beberapa file VCF Anda sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk melanjutkan.",
         reply_markup=ReplyKeyboardRemove(),
         update=update
     )
@@ -213,7 +213,7 @@ async def handle_vcftotxt_done(update: Update, context: ContextTypes.DEFAULT_TYP
     db.set_session(user_id, STATE_NAMING, sess["data"])
     from handlers.start import get_start_keyboard
     await update.message.reply_text(
-        f"{sess['data']['count']} file diterima ({sess['data'].get('total_contacts', 0)} kontak). Nama file:",
+        f"Berhasil mendeteksi {sess['data']['count']} file dengan total {sess['data'].get('total_contacts', 0)} kontak.\n\nSilakan masukkan nama yang Anda inginkan untuk file .TXT hasil konversi (Contoh: Hasil_Ekstrak, atau Kontak):",
         reply_markup=ReplyKeyboardRemove()
     )
 
@@ -404,7 +404,7 @@ async def handle_show_vcftotxt_help_callback(update: Update, context: ContextTyp
     # Edit the message in-place instead of deleting it to provide a smooth morphing transition
     try:
         await query.message.edit_text(
-            text="Kirim file VCF.\nKetik /done jika selesai."
+            text="Silakan kirimkan satu atau beberapa file VCF Anda sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk melanjutkan."
         )
     except Exception:
         # Fallback if editing fails
@@ -414,6 +414,6 @@ async def handle_show_vcftotxt_help_callback(update: Update, context: ContextTyp
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Kirim file VCF.\nKetik /done jika selesai.",
+            text="Silakan kirimkan satu atau beberapa file VCF Anda sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk melanjutkan.",
             reply_markup=ReplyKeyboardRemove()
         )

@@ -101,7 +101,7 @@ async def cmd_txttovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Silakan kirim file TXT.\nKetik /done jika sudah selesai mengirim semua file.",
+        "Silakan kirimkan file .TXT Anda sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk melanjutkan ke langkah berikutnya.",
         reply_markup=ReplyKeyboardRemove(),
         update=update
     )
@@ -117,7 +117,7 @@ async def handle_ttv_contact_name(update: Update, context: ContextTypes.DEFAULT_
     data["contact_name"] = update.message.text.strip()
     db.set_session(user_id, S2, data)
     from handlers.start import get_start_keyboard
-    await update.message.reply_text("Kontak per file: (misal: 50)", reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text("Silakan tentukan jumlah kontak maksimal untuk setiap file VCF (Contoh: 50, 100, atau 500):", reply_markup=ReplyKeyboardRemove())
 
 
 async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -127,19 +127,19 @@ async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
     text = update.message.text.strip()
     if not text.isdigit():
-        await update.message.reply_text("Input angka valid.")
+        await update.message.reply_text("Input tidak valid. Harap masukkan angka yang benar (Contoh: 50).")
         return
     
     per_file = int(text)
     if per_file < 1 or per_file > MAX_CONTACTS_PER_FILE:
-        await update.message.reply_text(f"Input angka 1-{MAX_CONTACTS_PER_FILE}.")
+        await update.message.reply_text(f"Harap masukkan angka antara 1 sampai {MAX_CONTACTS_PER_FILE:,}.")
         return
 
     data = sess["data"]
     data["per_file"] = per_file
     db.set_session(user_id, S3, data)
     from handlers.start import get_start_keyboard
-    await update.message.reply_text("Nama file: (misal: FEE)", reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text("Silakan masukkan nama dasar untuk file hasil konversi Anda (Contoh: Kontak_Hari_Ini, atau FEE):", reply_markup=ReplyKeyboardRemove())
 
 
 async def handle_ttv_file_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -151,7 +151,7 @@ async def handle_ttv_file_name(update: Update, context: ContextTypes.DEFAULT_TYP
     data["file_name"] = sanitize_filename(update.message.text.strip())
     db.set_session(user_id, S4, data)
     from handlers.start import get_start_keyboard
-    await update.message.reply_text("Nomor file: (misal: 1)", reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text("Silakan tentukan nomor urut awal untuk file pertama Anda (Contoh: 1, atau 100):", reply_markup=ReplyKeyboardRemove())
 
 
 async def handle_ttv_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -284,7 +284,7 @@ async def handle_ttv_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.set_session(user_id, S1, data)
         from handlers.start import get_start_keyboard
         await update.message.reply_text(
-            f"Total: {data.get('total_contacts', 0)} kontak.\n\nNama kontak: (misal: FEE)",
+            f"Berhasil mendeteksi total {data.get('total_contacts', 0)} kontak.\n\nSilakan masukkan nama kontak yang diinginkan (Contoh: Klien Baru, Admin, atau FEE):",
             reply_markup=ReplyKeyboardRemove()
         )
         return
@@ -483,10 +483,7 @@ async def handle_show_txttovcf_help_callback(update: Update, context: ContextTyp
     # Edit the message in-place instead of deleting it to provide a smooth morphing transition
     try:
         await query.message.edit_text(
-            text=(
-                "Silakan kirim file TXT.\n"
-                "Ketik /done jika sudah selesai mengirim semua file."
-            )
+            text="Silakan kirimkan file .TXT Anda sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk melanjutkan ke langkah berikutnya."
         )
     except Exception:
         # Fallback if editing fails
@@ -496,9 +493,6 @@ async def handle_show_txttovcf_help_callback(update: Update, context: ContextTyp
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text=(
-                "Silakan kirim file TXT.\n"
-                "Ketik /done jika sudah selesai mengirim semua file."
-            ),
+            text="Silakan kirimkan file .TXT Anda sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk melanjutkan ke langkah berikutnya.",
             reply_markup=ReplyKeyboardRemove()
         )
