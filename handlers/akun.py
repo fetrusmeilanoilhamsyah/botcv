@@ -14,8 +14,7 @@ logger = logging.getLogger(__name__)
 async def cmd_akun(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
 
-    from handlers.start import delete_welcome_messages
-    await delete_welcome_messages(context.bot, user.id, update.effective_chat.id)
+    from handlers.start import transition_to_handler
 
     # Semua query paralel — tidak serial
     import asyncio
@@ -86,9 +85,11 @@ async def cmd_akun(update: Update, context: ContextTypes.DEFAULT_TYPE):
         rows.append([InlineKeyboardButton("LANGGANAN VIP", callback_data="show_vip_menu", style="success")])
     rows.append([InlineKeyboardButton("SALIN LINK REFERRAL", switch_inline_query=ref_link, style="primary")])
 
-    await update.message.reply_text(
+    await transition_to_handler(
+        context.bot,
+        user.id,
+        update.effective_chat.id,
         "\n".join(lines),
-        parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(rows),
-        disable_web_page_preview=True,
+        update=update
     )

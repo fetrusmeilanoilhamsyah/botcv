@@ -20,9 +20,8 @@ PAKET = [
 async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
 
-    from handlers.start import delete_welcome_messages
-    await delete_welcome_messages(context.bot, user.id, update.effective_chat.id)
-
+    from handlers.start import transition_to_handler
+    
     expired_at  = db.get_vip_expiry(user.id)
     status_line = ""
     if db.is_member(user.id):
@@ -39,11 +38,15 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     keyboard = [[InlineKeyboardButton("Daftar VIP", url=f"https://t.me/{ADMIN_CONTACT.lstrip('@')}")]]
 
-    await update.message.reply_text(
+    await transition_to_handler(
+        context.bot,
+        user.id,
+        update.effective_chat.id,
         f"PAKET VIP\n\n"
         f"{status_line}\n"
         + "\n".join(lines) +
         f"\n\nCara daftar: Hubungi {ADMIN_CONTACT}\n"
         f"Akses aktif setelah bukti transfer dikirim.",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        update=update
     )
