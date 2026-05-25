@@ -133,13 +133,13 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"<b>Owner:</b> {ADMIN_CONTACT}"
         ),
         parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK)]]),
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🟢 TUTORIAL LENGKAP 🟢", url=TUTORIAL_LINK)]]),
         disable_web_page_preview=True,
     )
 
     # ── Kirim msg2 (Keyboard helper) pembawa custom keyboard bawah ──
     msg2 = await update.message.reply_text(
-        text="⚡ <b>Silakan pilih menu di bawah:</b>",
+        text="<b>Silakan pilih menu di bawah:</b>",
         parse_mode="HTML",
         reply_markup=get_start_keyboard(),
     )
@@ -265,14 +265,14 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
         chat_id=chat_id,
         text=menu_text,
         parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK)]]),
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🟢 TUTORIAL LENGKAP 🟢", url=TUTORIAL_LINK)]]),
         disable_web_page_preview=True,
     )
 
     # Kirim ulang msg2 (Keyboard helper) pembawa custom keyboard bawah
     msg2 = await context.bot.send_message(
         chat_id=chat_id,
-        text="⚡ <b>Silakan pilih menu di bawah:</b>",
+        text="<b>Silakan pilih menu di bawah:</b>",
         parse_mode="HTML",
         reply_markup=get_start_keyboard(),
     )
