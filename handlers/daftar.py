@@ -2,14 +2,13 @@
 daftar.py — Tampilkan daftar semua pengguna bot.
 Hanya bisa diakses oleh admin.
 """
+import io
+from datetime import datetime, timezone, timedelta
 from telegram import Update
 from telegram.ext import ContextTypes
 from database import db
 from database.db_async import adb
 from middleware.auth import require_admin
-
-CHUNK = 15  # Jumlah user per pesan — dijaga agar tidak melebihi 4096 karakter Telegram
-
 
 async def cmd_daftar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_admin(update, context):
@@ -25,21 +24,53 @@ async def cmd_daftar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total_member = sum(1 for u in users if u["is_member"])
     total_non   = total - total_member
 
-    header = (
-        f"<b>DAFTAR PENGGUNA</b>\n"
-        f"Total: {total} | Member: {total_member} | Non: {total_non}\n\n"
+    # Dapatkan waktu local WIB (UTC+7)
+    try:
+        jakarta_tz = timezone(timedelta(hours=7))
+        now_dt = datetime.now(jakarta_tz)
+    except Exception:
+        now_dt = datetime.now()
+    now_str = now_dt.strftime("%d/%m/%Y %H:%M")
+
+    # Format isi file .txt
+    lines = [
+        "========================================",
+        "             DAFTAR PENGGUNA            ",
+        "========================================",
+        f"Tanggal    : {now_str} WIB",
+        f"Total User : {total}",
+        f"VIP Member : {total_member}",
+        f"Regular    : {total_non}",
+        "========================================\n"
+    ]
+
+    for idx, u in enumerate(users, 1):
+        status   = "VIP Member" if u["is_member"] else "Regular"
+        username = f"@{u['username']}" if u["username"] else "-"
+        name     = u["full_name"] or "-"
+        uid      = u["id"]
+        
+        lines.append(f"{idx:02d}. Nama     : {name}")
+        lines.append(f"    Username : {username}")
+        lines.append(f"    ID       : {uid}")
+        lines.append(f"    Status   : {status}")
+        lines.append("") # Baris kosong pemisah
+
+    file_content = "\n".join(lines)
+    
+    # Bungkus ke memory byte stream
+    file_bytes = io.BytesIO(file_content.encode('utf-8'))
+    file_bytes.name = f"daftar_pengguna_{now_dt.strftime('%Y%m%d_%H%M%S')}.txt"
+
+    # Kirim dokumen (.txt) ke admin
+    await update.message.reply_document(
+        document=file_bytes,
+        filename=file_bytes.name,
+        caption=(
+            f"<b>DAFTAR PENGGUNA BOT</b>\n"
+            f"• Total : {total}\n"
+            f"• VIP   : {total_member}\n"
+            f"• Reg   : {total_non}"
+        ),
+        parse_mode="HTML"
     )
-
-    # Kirim dalam chunks agar tidak melebihi batas 4096 karakter Telegram
-    for i in range(0, total, CHUNK):
-        chunk = users[i:i + CHUNK]
-        lines = []
-        for u in chunk:
-            icon     = "*" if u["is_member"] else "-"
-            username = f"@{u['username']}" if u["username"] else "-"
-            name     = u["full_name"] or "-"
-            uid      = u["id"]
-            lines.append(f"{icon} <b>{name}</b> ({username})\nID: <code>{uid}</code>")
-
-        msg = (header if i == 0 else "") + "\n\n".join(lines)
-        await update.message.reply_text(msg, parse_mode="HTML")
