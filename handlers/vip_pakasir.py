@@ -334,8 +334,11 @@ async def handle_check_payment(update: Update, context: ContextTypes.DEFAULT_TYP
     chat_id  = query.message.chat_id
 
     async def reply(text: str):
-        """Selalu kirim pesan baru — aman untuk pesan foto maupun teks."""
-        await context.bot.send_message(chat_id=chat_id, text=text)
+        """Kirim pesan baru dengan tombol KEMBALI KE MENU"""
+        back_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
+        ])
+        await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=back_markup)
 
     try:
         # FIX: gunakan adb.get_payment (async) bukan get_payment sync
@@ -409,7 +412,11 @@ async def handle_cancel_payment(update: Update, context: ContextTypes.DEFAULT_TY
     chat_id  = query.message.chat_id
 
     async def reply(text: str):
-        await context.bot.send_message(chat_id=chat_id, text=text)
+        """Kirim pesan baru dengan tombol KEMBALI KE MENU"""
+        back_markup = InlineKeyboardMarkup([
+            [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
+        ])
+        await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=back_markup)
 
     try:
         # FIX: gunakan adb.get_payment (async) bukan get_payment sync
