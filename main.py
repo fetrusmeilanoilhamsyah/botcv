@@ -71,8 +71,8 @@ from handlers.pecahvcf import (
 )
 from handlers.pecahtxt import (
     cmd_pecahtxt, handle_pecahtxt_per_file, handle_pecahtxt_file,
-    handle_show_pecahtxt_help_callback,
-    STATE_PER_FILE as PECAHTXT_S1, STATE_WAIT_TXT as PECAHTXT_S2,
+    handle_pecahtxt_done, handle_show_pecahtxt_help_callback,
+    STATE_PER_FILE as PECAHTXT_S1, STATE_COLLECTING as PECAHTXT_S2,
 )
 from handlers.rename import (
     cmd_rename, handle_rename_name, handle_rename_file,
@@ -258,6 +258,7 @@ async def done_router(update: Update, context):
     route = {
         MERGE_STATE:    handle_merge_done,
         VCF2TXT_STATE:  handle_vcftotxt_done,
+        PECAHTXT_S2:    handle_pecahtxt_done,
         S0:             handle_ttv_done,
         S5:             handle_ttv_done,
         COUNT_STATE:    handle_count_done,

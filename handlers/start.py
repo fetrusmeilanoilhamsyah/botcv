@@ -94,6 +94,7 @@ def build_menu_text(first_name: str, user_id: int) -> str:
         "├ /admin — Buat file Admin VCF\n"
         "├ /merge — Gabungkan file VCF/TXT\n"
         "├ /pecahvcf — Pecah file VCF\n"
+        "├ /pecahtxt — Pecah file TXT\n"
         "├ /rename — Ganti nama VCF\n"
         "├ /duplikat — Bersihkan duplikat\n"
         "└ /count — Hitung kontak\n\n"
