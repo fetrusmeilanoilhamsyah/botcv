@@ -254,22 +254,40 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
         f"<b>Owner:</b> {ADMIN_CONTACT}"
     )
 
-    # Selalu hapus pesan lama (tombol proses selesai) agar chat bersih
+    # Coba edit pesan callback in-place agar transisi super smooth!
+    edited_msg = None
     try:
-        await query.message.delete()
-    except Exception:
-        pass
+        edited_msg = await query.edit_message_text(
+            text=menu_text,
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK, style="success")]]),
+            disable_web_page_preview=True,
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Gagal edit_message_text di back_to_start, fallback ke send: %s", e)
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
 
-    # Kirim ulang msg1 (Welcome menu) dengan tombol inline hijau premium
-    msg1 = await context.bot.send_message(
-        chat_id=chat_id,
-        text=menu_text,
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK, style="success")]]),
-        disable_web_page_preview=True,
-    )
+    welcome_msg_id = edited_msg.message_id if edited_msg else None
 
-    # Kirim ulang msg2 (Keyboard helper) pembawa custom keyboard bawah
+    if not welcome_msg_id:
+        # Fallback: Kirim ulang msg1
+        msg1 = await context.bot.send_message(
+            chat_id=chat_id,
+            text=menu_text,
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK, style="success")]]),
+            disable_web_page_preview=True,
+        )
+        welcome_msg_id = msg1.message_id
+
+    # Untuk msg2 (helper keyboard bawah), kita kirim pesan baru di bawahnya agar custom keyboard muncul.
+    # Sebelumnya pastikan pop daftar welcome messages lama agar tidak menumpuk
+    _welcome_messages.pop(user.id, None)
+
     msg2 = await context.bot.send_message(
         chat_id=chat_id,
         text="<b>Silakan pilih menu di bawah:</b>",
@@ -277,7 +295,7 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
         reply_markup=get_start_keyboard(),
     )
 
-    register_welcome_messages(user.id, [msg1.message_id, msg2.message_id])
+    register_welcome_messages(user.id, [welcome_msg_id, msg2.message_id])
 
 
 
