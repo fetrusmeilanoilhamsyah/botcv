@@ -91,11 +91,7 @@ def get_start_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(keyboard_buttons, resize_keyboard=True, one_time_keyboard=True)
 
 
-async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    first_name = user.first_name or "Kawan"
-
-    # ── Bangun menu ────────────────────────────────────────────────────────────
+def build_menu_text(first_name: str, user_id: int) -> str:
     fitur = (
         "<b>FITUR UTAMA</b>\n"
         "├ /txttovcf — Konversi TXT ke VCF\n"
@@ -114,7 +110,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "├ /reset — Bersihkan sesi\n"
         "└ /done — Selesaikan proses"
     )
-    if is_admin(user.id):
+    if is_admin(user_id):
         fitur += (
             "\n\n<b>ADMIN</b>\n"
             "├ /stat — Statistik\n"
@@ -124,28 +120,43 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "└ /resetdatabase — Bersihkan cache"
         )
 
-    # ── Kirim msg1 (Welcome menu) dengan tombol inline hijau premium ──
-    msg1 = await update.message.reply_text(
-        text=(
-            f"<b>Halo {first_name}!</b> Selamat datang di bot konversi kontak.\n\n"
-            f"{fitur}\n"
-            f"━━━━━━━━━━━━━━━━━\n"
-            f"<b>Owner:</b> {ADMIN_CONTACT}"
-        ),
+    return (
+        f"<b>Halo {first_name}!</b> Selamat datang di bot konversi kontak.\n\n"
+        f"{fitur}\n"
+        f"━━━━━━━━━━━━━━━━━\n"
+        f"<b>Owner:</b> {ADMIN_CONTACT}"
+    )
+
+
+async def send_fresh_start_menu(bot, user_id: int, chat_id: int, first_name: str):
+    await delete_welcome_messages(bot, user_id, chat_id)
+    menu_text = build_menu_text(first_name, user_id)
+
+    msg1 = await bot.send_message(
+        chat_id=chat_id,
+        text=menu_text,
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK, style="success")]]),
         disable_web_page_preview=True,
     )
 
-    # ── Kirim msg2 (Keyboard helper) pembawa custom keyboard bawah ──
-    msg2 = await update.message.reply_text(
+    msg2 = await bot.send_message(
+        chat_id=chat_id,
         text="<b>Silakan pilih menu di bawah:</b>",
         parse_mode="HTML",
         reply_markup=get_start_keyboard(),
     )
 
-    register_welcome_messages(user.id, [msg1.message_id, msg2.message_id])
+    register_welcome_messages(user_id, [msg1.message_id, msg2.message_id])
+    return msg1, msg2
 
+
+async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    first_name = user.first_name or "Kawan"
+
+    # Kirim fresh start menu secara bersih!
+    await send_fresh_start_menu(context.bot, user.id, update.effective_chat.id, first_name)
 
     # ── Semua DB + cleanup di background ──────────────────────────────────────
     async def _bg():
@@ -218,41 +229,7 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
     chat_id = query.message.chat_id
     first_name = user.first_name or "Kawan"
 
-    # ── Bangun menu ────────────────────────────────────────────────────────────
-    fitur = (
-        "<b>FITUR UTAMA</b>\n"
-        "├ /txttovcf — Konversi TXT ke VCF\n"
-        "├ /vcftotxt — Konversi VCF ke TXT\n"
-        "├ /xlsxtotxt — Ekstrak Excel/CSV\n"
-        "├ /admin — Buat file Admin VCF\n"
-        "├ /merge — Gabungkan file VCF/TXT\n"
-        "├ /pecahvcf — Pecah file VCF\n"
-        "├ /rename — Ganti nama VCF\n"
-        "├ /duplikat — Bersihkan duplikat\n"
-        "└ /count — Hitung kontak\n\n"
-        "<b>LAINNYA</b>\n"
-        "├ /vip — Paket VIP\n"
-        "├ /referal — VIP Gratis\n"
-        "├ /akun — Info akun\n"
-        "├ /reset — Bersihkan sesi\n"
-        "└ /done — Selesaikan proses"
-    )
-    if is_admin(user.id):
-        fitur += (
-            "\n\n<b>ADMIN</b>\n"
-            "├ /stat — Statistik\n"
-            "├ /daftar — Daftar user\n"
-            "├ /broadcast — Broadcast\n"
-            "├ /addvip /delvip — Kelola VIP\n"
-            "└ /resetdatabase — Bersihkan cache"
-        )
-
-    menu_text = (
-        f"<b>Halo {first_name}!</b> Selamat datang di bot konversi kontak.\n\n"
-        f"{fitur}\n"
-        f"━━━━━━━━━━━━━━━━━\n"
-        f"<b>Owner:</b> {ADMIN_CONTACT}"
-    )
+    menu_text = build_menu_text(first_name, user.id)
 
     # Coba edit pesan callback in-place agar transisi super smooth!
     edited_msg = None

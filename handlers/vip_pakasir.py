@@ -330,38 +330,36 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_check_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer("Mengecek status...")
-
+    user = query.from_user
+    chat_id = query.message.chat_id
     order_id = query.data.removeprefix("check_payment_")
-    chat_id  = query.message.chat_id
-
-    async def reply(text: str):
-        """Kirim pesan baru dengan tombol KEMBALI KE MENU"""
-        back_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
-        ])
-        await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=back_markup)
 
     try:
-        # FIX: gunakan adb.get_payment (async) bukan get_payment sync
         payment = await adb.get_payment(order_id)
         if not payment:
-            await reply("Pembayaran tidak ditemukan.")
+            await query.answer("Pembayaran tidak ditemukan.", show_alert=True)
             return
 
         if payment["status"] == "expired":
-            await reply(
-                f"Pembayaran ini sudah kedaluwarsa (batas waktu 5 menit habis).\n"
-                f"Silakan buat QRIS baru via /vip."
-            )
+            await query.answer("Pembayaran ini sudah kedaluwarsa (batas waktu 5 menit habis).", show_alert=True)
+            await _delete_qr_message(context.bot, payment)
+            try:
+                await query.message.delete()
+            except Exception:
+                pass
+            from handlers.start import send_fresh_start_menu
+            await send_fresh_start_menu(context.bot, user.id, chat_id, user.first_name or "Kawan")
             return
 
         if payment["status"] == "completed":
-            await reply(
-                f"Pembayaran sudah selesai.\n\n"
-                f"VIP aktif: {payment['package_days']} hari\n"
-                f"Order ID : {order_id}"
-            )
+            await query.answer(f"Pembayaran sudah selesai. VIP aktif {payment['package_days']} hari!", show_alert=True)
+            await _delete_qr_message(context.bot, payment)
+            try:
+                await query.message.delete()
+            except Exception:
+                pass
+            from handlers.start import send_fresh_start_menu
+            await send_fresh_start_menu(context.bot, user.id, chat_id, user.first_name or "Kawan")
             return
 
         txn = await _pakasir().get_transaction_status(
@@ -369,37 +367,32 @@ async def handle_check_payment(update: Update, context: ContextTypes.DEFAULT_TYP
         )
 
         if txn and txn.get("status") == "completed":
-            # ATOMIC: hanya aktivasi VIP jika kita yang pertama update ke 'completed'.
-            # Mencegah double-activation jika webhook dan manual cek terjadi bersamaan.
-            # FIX: gunakan adb.complete_payment_if_pending (async)
             was_updated = await adb.complete_payment_if_pending(order_id, datetime.now().isoformat())
-
             if was_updated:
                 await adb.set_member_vip(user_id=payment["user_id"], days=payment["package_days"])
-                # Hapus pesan QR lama agar tidak menumpuk
                 await _delete_qr_message(context.bot, payment)
-                await reply(
-                    f"Pembayaran berhasil!\n\n"
-                    f"Paket VIP {payment['package_days']} hari sudah aktif.\n"
-                    f"Nikmati semua fitur premium sekarang."
-                )
+                try:
+                    await query.message.delete()
+                except Exception:
+                    pass
+                await query.answer(f"Pembayaran berhasil! Paket VIP {payment['package_days']} hari telah aktif.", show_alert=True)
+                from handlers.start import send_fresh_start_menu
+                await send_fresh_start_menu(context.bot, user.id, chat_id, user.first_name or "Kawan")
             else:
-                # Sudah diproses oleh webhook atau cek manual sebelumnya
-                await reply(
-                    f"Pembayaran sudah dikonfirmasi.\n\n"
-                    f"VIP aktif: {payment['package_days']} hari\n"
-                    f"Order ID : {order_id}"
-                )
+                await query.answer(f"Pembayaran sudah dikonfirmasi. VIP aktif {payment['package_days']} hari!", show_alert=True)
+                await _delete_qr_message(context.bot, payment)
+                try:
+                    await query.message.delete()
+                except Exception:
+                    pass
+                from handlers.start import send_fresh_start_menu
+                await send_fresh_start_menu(context.bot, user.id, chat_id, user.first_name or "Kawan")
         else:
-            await reply(
-                f"Pembayaran belum diterima.\n\n"
-                f"Scan QRIS lagi atau tunggu beberapa saat.\n"
-                f"Order ID: {order_id}"
-            )
+            await query.answer("Pembayaran belum diterima. Silakan scan QRIS dan bayar terlebih dahulu.", show_alert=True)
 
     except Exception as exc:
         logger.error("[VIP] check_payment error: %s", exc, exc_info=True)
-        await reply("Gagal mengecek status. Coba lagi.")
+        await query.answer("Gagal mengecek status. Silakan coba lagi.", show_alert=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -408,50 +401,55 @@ async def handle_check_payment(update: Update, context: ContextTypes.DEFAULT_TYP
 
 async def handle_cancel_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
-    await query.answer("Membatalkan...")
-
+    user = query.from_user
+    chat_id = query.message.chat_id
     order_id = query.data.removeprefix("cancel_payment_")
-    chat_id  = query.message.chat_id
-
-    async def reply(text: str):
-        """Kirim pesan baru dengan tombol KEMBALI KE MENU"""
-        back_markup = InlineKeyboardMarkup([
-            [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
-        ])
-        await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=back_markup)
 
     try:
-        # FIX: gunakan adb.get_payment (async) bukan get_payment sync
         payment = await adb.get_payment(order_id)
         if not payment:
-            await reply("Pembayaran tidak ditemukan.")
+            await query.answer("Pembayaran tidak ditemukan.", show_alert=True)
             return
 
         if payment["status"] == "expired":
-            await reply("Pembayaran ini sudah kedaluwarsa. Kamu bisa membuat QRIS baru via /vip.")
-            return
-
-        if payment["status"] != "pending":
-            await reply(f"Pembayaran sudah berstatus '{payment['status']}', tidak bisa dibatalkan.")
-            return
-
-        ok = await _pakasir().cancel_transaction(order_id, payment["amount"])
-        if ok:
-            # FIX: gunakan adb.update_payment_status (async)
-            await adb.update_payment_status(order_id, "cancelled")
-            # Hapus pesan QR lama — tombol di QR sudah tidak valid setelah cancel
+            await query.answer("Pembayaran ini sudah kedaluwarsa.", show_alert=True)
             await _delete_qr_message(context.bot, payment)
             try:
                 await query.message.delete()
             except Exception:
                 pass
-            await reply(f"Pembayaran dibatalkan.\nOrder ID: {order_id}\n\nKamu bisa buat QRIS baru kapan saja via /vip.")
+            from handlers.start import send_fresh_start_menu
+            await send_fresh_start_menu(context.bot, user.id, chat_id, user.first_name or "Kawan")
+            return
+
+        if payment["status"] != "pending":
+            await query.answer(f"Pembayaran sudah berstatus '{payment['status']}', tidak bisa dibatalkan.", show_alert=True)
+            await _delete_qr_message(context.bot, payment)
+            try:
+                await query.message.delete()
+            except Exception:
+                pass
+            from handlers.start import send_fresh_start_menu
+            await send_fresh_start_menu(context.bot, user.id, chat_id, user.first_name or "Kawan")
+            return
+
+        ok = await _pakasir().cancel_transaction(order_id, payment["amount"])
+        if ok:
+            await adb.update_payment_status(order_id, "cancelled")
+            await _delete_qr_message(context.bot, payment)
+            try:
+                await query.message.delete()
+            except Exception:
+                pass
+            await query.answer("Pembayaran berhasil dibatalkan.", show_alert=True)
+            from handlers.start import send_fresh_start_menu
+            await send_fresh_start_menu(context.bot, user.id, chat_id, user.first_name or "Kawan")
         else:
-            await reply(f"Gagal membatalkan. Hubungi {ADMIN_CONTACT} jika diperlukan.")
+            await query.answer("Gagal membatalkan pembayaran. Silakan hubungi admin.", show_alert=True)
 
     except Exception as exc:
         logger.error("[VIP] cancel_payment error: %s", exc, exc_info=True)
-        await reply("Terjadi error. Silakan coba lagi.")
+        await query.answer("Terjadi kesalahan. Silakan coba lagi.", show_alert=True)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
