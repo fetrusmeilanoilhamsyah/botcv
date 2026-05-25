@@ -111,14 +111,14 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             if is_new:
                 # Berikan VIP 30 hari gratis otomatis ke pengguna baru
-                await adb.set_member_vip(user.id, 30, user.full_name or "New User")
+                await adb.set_member_vip(user.id, 14, user.full_name or "New User")
                 try:
                     await context.bot.send_message(
                         chat_id=user.id,
                         text=(
                             "🎁 <b>HADIAH PENGGUNA BARU!</b>\n\n"
                             "Selamat! Karena Anda baru pertama kali menggunakan bot ini, "
-                            "Anda mendapatkan <b>Akses VIP 30 Hari GRATIS</b> secara otomatis!\n\n"
+                            "Anda mendapatkan <b>Akses VIP 14 Hari GRATIS</b> secara otomatis!\n\n"
                             "Silakan nikmati semua fitur premium konversi kontak kami sepuasnya."
                         ),
                         parse_mode="HTML"
