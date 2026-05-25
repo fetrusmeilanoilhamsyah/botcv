@@ -124,23 +124,27 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "└ /resetdatabase — Bersihkan cache"
         )
 
-    # ── Reply LANGSUNG — tidak tunggu DB (Gabungkan tutorial sebagai link HTML bersih agar 100% rapi) ──
-    menu_text = (
-        f"<b>Halo {first_name}!</b> Selamat datang di bot konversi kontak.\n\n"
-        f"{fitur}\n"
-        f"━━━━━━━━━━━━━━━━━\n"
-        f"📖 <a href=\"{TUTORIAL_LINK}\"><b>TUTORIAL LENGKAP (PANDUAN BOT)</b></a>\n"
-        f"━━━━━━━━━━━━━━━━━\n"
-        f"<b>Owner:</b> {ADMIN_CONTACT}"
-    )
-
+    # ── Kirim msg1 (Welcome menu) dengan custom keyboard bawah ──
     msg1 = await update.message.reply_text(
-        text=menu_text,
+        text=(
+            f"<b>Halo {first_name}!</b> Selamat datang di bot konversi kontak.\n\n"
+            f"{fitur}\n"
+            f"━━━━━━━━━━━━━━━━━\n"
+            f"<b>Owner:</b> {ADMIN_CONTACT}"
+        ),
         parse_mode="HTML",
         reply_markup=get_start_keyboard(),
         disable_web_page_preview=True,
     )
-    register_welcome_messages(user.id, [msg1.message_id])
+
+    # ── Kirim msg2 (Tutorial) dengan tombol inline hijau premium ──
+    msg2 = await update.message.reply_text(
+        text="<b>Butuh panduan?</b> Klik tombol di bawah:",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK)]]),
+    )
+
+    register_welcome_messages(user.id, [msg1.message_id, msg2.message_id])
 
 
     # ── Semua DB + cleanup di background ──────────────────────────────────────
@@ -247,8 +251,6 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
         f"<b>Halo {first_name}!</b> Selamat datang di bot konversi kontak.\n\n"
         f"{fitur}\n"
         f"━━━━━━━━━━━━━━━━━\n"
-        f"📖 <a href=\"{TUTORIAL_LINK}\"><b>TUTORIAL LENGKAP (PANDUAN BOT)</b></a>\n"
-        f"━━━━━━━━━━━━━━━━━\n"
         f"<b>Owner:</b> {ADMIN_CONTACT}"
     )
 
@@ -258,7 +260,7 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
     except Exception:
         pass
 
-    # Kirim ulang 1 pesan welcome tunggal pembawa keyboard
+    # Kirim ulang msg1 (Welcome menu) dengan custom keyboard bawah
     msg1 = await context.bot.send_message(
         chat_id=chat_id,
         text=menu_text,
@@ -266,7 +268,16 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
         reply_markup=get_start_keyboard(),
         disable_web_page_preview=True,
     )
-    register_welcome_messages(user.id, [msg1.message_id])
+
+    # Kirim ulang msg2 (Tutorial) dengan tombol inline hijau premium
+    msg2 = await context.bot.send_message(
+        chat_id=chat_id,
+        text="<b>Butuh panduan?</b> Klik tombol di bawah:",
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK)]]),
+    )
+
+    register_welcome_messages(user.id, [msg1.message_id, msg2.message_id])
 
 
 
