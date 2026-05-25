@@ -267,7 +267,7 @@ async def done_router(update: Update, context):
 async def cb_show_vip_menu(update: Update, context):
     """
     Callback dari tombol 'Lihat Paket VIP' di require_member.
-    Jawab query lalu kirim pesan VIP langsung — tidak pakai fake Update object.
+    Jawab query lalu edit/tampilkan pesan VIP langsung.
     """
     query = update.callback_query
     await query.answer()
@@ -278,59 +278,12 @@ async def cb_show_vip_menu(update: Update, context):
     except Exception:
         pass
 
-    user    = query.from_user
-    chat_id = query.message.chat_id
-
-    # Bangun konten VIP menu secara langsung (tanpa import cmd_vip logic ganda)
-    from handlers.vip_pakasir import cmd_vip as _cmd_vip, QRIS_ENABLED, PAKET, _fmt_price, PAKASIR_SANDBOX
-    from database.db_async import adb as _adb
-    from datetime import datetime
-
-    status_line = ""
-    if await _adb.is_member(user.id):
-        expired_at = await _adb.get_vip_expiry(user.id)
-        if expired_at:
-            exp  = datetime.fromisoformat(expired_at)
-            sisa = (exp - datetime.now()).days
-            status_line = (
-                f"Status VIP    : Aktif\n"
-                f"Berakhir      : {exp.strftime('%d/%m/%Y')} ({sisa} hari lagi)\n\n"
-            )
-        else:
-            status_line = "Status        : Member Permanen\n\n"
-
-    paket_lines = "PAKET VIP\n" + ("-" * 28) + "\n"
-    for p in PAKET:
-        paket_lines += f"  {p['label']:<12}  {_fmt_price(p['price'])}\n"
-
-    if QRIS_ENABLED:
-        mode = "SANDBOX" if PAKASIR_SANDBOX else "QRIS Otomatis"
-        info = f"\nPembayaran: {mode}\nPilih paket, bayar QRIS, VIP aktif otomatis."
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        rows = []
-        for p in PAKET:
-            rows.append([
-                InlineKeyboardButton(
-                    f"{p['label'].upper()} — {_fmt_price(p['price'])}",
-                    callback_data=f"buy_vip_{p['days']}",
-                    style="primary"
-                )
-            ])
-        rows.append([InlineKeyboardButton("RIWAYAT PEMBAYARAN", callback_data="vip_history", style="success")])
+    if VIP_PAKASIR_MODE:
+        from handlers.vip_pakasir import cmd_vip
+        await cmd_vip(update, context)
     else:
-        from config import ADMIN_CONTACT as _AC
-        info = f"\nPembayaran: Manual\nHubungi {_AC} untuk aktivasi."
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        rows = [[InlineKeyboardButton(
-            "HUBUNGI ADMIN",
-            url=f"https://t.me/{_AC.lstrip('@')}"
-        )]]
-
-    await context.bot.send_message(
-        chat_id=chat_id,
-        text=f"{status_line}{paket_lines}{info}",
-        reply_markup=InlineKeyboardMarkup(rows),
-    )
+        from handlers.vip import cmd_vip
+        await cmd_vip(update, context)
 
 
 # ── Scheduled jobs ────────────────────────────────────────────────────────────

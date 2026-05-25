@@ -36,7 +36,10 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for p in PAKET:
         lines.append(f"{p['label']} - {p['harga']}")
 
-    keyboard = [[InlineKeyboardButton("Daftar VIP", url=f"https://t.me/{ADMIN_CONTACT.lstrip('@')}")]]
+    keyboard = [
+        [InlineKeyboardButton("Daftar VIP", url=f"https://t.me/{ADMIN_CONTACT.lstrip('@')}")],
+        [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
+    ]
 
     await transition_to_handler(
         context.bot,

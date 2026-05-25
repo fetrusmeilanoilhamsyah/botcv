@@ -124,11 +124,12 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
             ])
         rows.append([InlineKeyboardButton("RIWAYAT PEMBAYARAN", callback_data="vip_history", style="success")])
+        rows.append([InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")])
     else:
-        rows = [[InlineKeyboardButton(
-            "HUBUNGI ADMIN",
-            url=f"https://t.me/{ADMIN_CONTACT.lstrip('@')}"
-        )]]
+        rows = [
+            [InlineKeyboardButton("HUBUNGI ADMIN", url=f"https://t.me/{ADMIN_CONTACT.lstrip('@')}")],
+            [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
+        ]
 
     text = f"{status_line}{paket_lines}{info}"
     await transition_to_handler(
@@ -452,23 +453,21 @@ async def handle_vip_history(update: Update, context: ContextTypes.DEFAULT_TYPE)
     query = update.callback_query
     await query.answer()
 
-    # Hapus pesan menu VIP agar layar tidak menumpuk saat melihat riwayat
-    try:
-        await query.message.delete()
-    except Exception:
-        pass
-
     user    = query.from_user
     chat_id = query.message.chat_id
 
-    async def reply(text: str):
-        await context.bot.send_message(chat_id=chat_id, text=text)
+    back_markup = InlineKeyboardMarkup([
+        [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
+    ])
 
     try:
         # FIX: gunakan adb.get_user_payments (async) bukan get_user_payments sync
         payments = await adb.get_user_payments(user.id, limit=10)
         if not payments:
-            await reply("Belum ada riwayat pembayaran.\nBeli paket VIP untuk mulai.")
+            await query.edit_message_text(
+                "Belum ada riwayat pembayaran.\nBeli paket VIP untuk mulai.",
+                reply_markup=back_markup
+            )
             return
 
         lines = ["RIWAYAT PEMBAYARAN\n"]
@@ -481,11 +480,24 @@ async def handle_vip_history(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 f"   {p['order_id']}\n"
             )
 
-        await reply("\n".join(lines)[:4000])
+        await query.edit_message_text(
+            "\n".join(lines)[:4000],
+            reply_markup=back_markup
+        )
 
     except Exception as exc:
         logger.error("[VIP] vip_history error: %s", exc, exc_info=True)
-        await context.bot.send_message(chat_id=chat_id, text="Gagal memuat riwayat. Coba lagi.")
+        try:
+            await query.edit_message_text(
+                "Gagal memuat riwayat. Coba lagi.",
+                reply_markup=back_markup
+            )
+        except Exception:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text="Gagal memuat riwayat. Coba lagi.",
+                reply_markup=back_markup
+            )
 
 
 # ──────────────────────────────────────────────────────────────────────────────

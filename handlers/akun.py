@@ -84,6 +84,7 @@ async def cmd_akun(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not member:
         rows.append([InlineKeyboardButton("LANGGANAN VIP", callback_data="show_vip_menu", style="success")])
     rows.append([InlineKeyboardButton("SALIN LINK REFERRAL", switch_inline_query=ref_link, style="primary")])
+    rows.append([InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")])
 
     await transition_to_handler(
         context.bot,
