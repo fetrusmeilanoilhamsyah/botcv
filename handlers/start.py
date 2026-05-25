@@ -133,7 +133,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"<b>Owner:</b> {ADMIN_CONTACT}"
         ),
         parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🟢 TUTORIAL LENGKAP 🟢", url=TUTORIAL_LINK)]]),
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK)]]),
         disable_web_page_preview=True,
     )
 
@@ -265,7 +265,7 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
         chat_id=chat_id,
         text=menu_text,
         parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🟢 TUTORIAL LENGKAP 🟢", url=TUTORIAL_LINK)]]),
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK)]]),
         disable_web_page_preview=True,
     )
 
