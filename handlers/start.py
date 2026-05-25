@@ -33,14 +33,12 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
     # Ambil pesan welcome yang sedang aktif
     msg_ids = _welcome_messages.pop(user_id, [])
     if msg_ids:
-        # Pesan pertama (msg1) adalah pesan bot yang panjang (menu utama). JANGAN DIHAPUS.
-        long_menu_id = msg_ids[0]
+        # Pesan pertama (msg_ids[0]) adalah pesan bot yang panjang (menu utama).
+        # Kita EDIT pesan panjang ini langsung menjadi prompt baru agar tidak menumpuk!
+        edit_msg_id = msg_ids[0]
         
-        # Pesan terakhir (msg2 atau restore_msg) yang akan diedit menjadi prompt handler
-        edit_msg_id = msg_ids[-1]
-        
-        # Pesan di antara (misal tutorial msg2 jika ada restore_msg) dihapus agar bersih
-        delete_ids = msg_ids[1:-1]
+        # Pesan-pesan lain di bawahnya (seperti tutorial msg2 atau restore_msg) kita hapus semuanya
+        delete_ids = msg_ids[1:]
         if delete_ids:
             async def safe_delete(msg_id):
                 try:
@@ -50,7 +48,7 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
             await asyncio.gather(*(safe_delete(msg_id) for msg_id in delete_ids))
 
         try:
-            # Edit pesan terakhir menjadi prompt handler baru
+            # Edit pesan welcome panjang secara langsung
             msg = await bot.edit_message_text(
                 chat_id=chat_id,
                 message_id=edit_msg_id,
@@ -58,8 +56,8 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
                 parse_mode="HTML",
                 reply_markup=reply_markup
             )
-            # Daftarkan kembali menu panjang dan pesan prompt baru ini sebagai welcome messages
-            register_welcome_messages(user_id, [long_menu_id, edit_msg_id])
+            # Daftarkan kembali pesan yang diedit ini sebagai welcome message aktif
+            register_welcome_messages(user_id, [edit_msg_id])
             return msg
         except Exception:
             pass
@@ -72,6 +70,7 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
         reply_markup=reply_markup
     )
     return msg
+
 
 
 
