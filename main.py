@@ -10,12 +10,14 @@ from collections import defaultdict
 from logging.handlers import RotatingFileHandler
 
 from telegram import Update
+from telegram.constants import ParseMode
 from telegram.ext import (
     ApplicationBuilder,
     CallbackQueryHandler,
     CommandHandler,
     MessageHandler,
     filters,
+    Defaults,
 )
 
 from config import (
@@ -83,12 +85,32 @@ from handlers.duplikat import (
     cmd_duplikat, handle_duplikat_file, handle_show_duplikat_help_callback,
     STATE as DUPLICAT_STATE,
 )
+from handlers.walink import (
+    cmd_walink, handle_walink_file, handle_show_walink_help_callback,
+    STATE as WALINK_STATE,
+)
+from handlers.walinkweb import (
+    cmd_walinkweb, handle_walinkweb_file, handle_walinkweb_msg,
+    handle_show_walinkweb_help_callback,
+    S0 as WALINKWEB_S0, S1 as WALINKWEB_S1,
+)
+from handlers.cleanup import (
+    cmd_cleanup, handle_cleanup_file, handle_show_cleanup_help_callback,
+    STATE as CLEANUP_STATE,
+)
 from handlers.txttovcf import (
     cmd_txttovcf,
     handle_ttv_contact_name, handle_ttv_per_file, handle_ttv_file_name,
     handle_ttv_awalan, handle_ttv_file, handle_ttv_done,
     handle_show_txttovcf_help_callback,
     S0, S1, S2, S3, S4, S5,
+)
+from handlers.xlsxtovcf import (
+    cmd_xlsxtovcf,
+    handle_xtv_contact_name, handle_xtv_per_file, handle_xtv_file_name,
+    handle_xtv_awalan, handle_xtv_file, handle_xtv_done,
+    handle_show_xlsxtovcf_help_callback,
+    S0 as XTV_S0, S1 as XTV_S1, S2 as XTV_S2, S3 as XTV_S3, S4 as XTV_S4, S5 as XTV_S5,
 )
 
 # ── VIP handler (Pakasir auto-fallback) ───────────────────────────────────────
@@ -205,6 +227,11 @@ async def text_router(update: Update, context):
         S2:               handle_ttv_per_file,
         S3:               handle_ttv_file_name,
         S4:               handle_ttv_awalan,
+        XTV_S1:           handle_xtv_contact_name,
+        XTV_S2:           handle_xtv_per_file,
+        XTV_S3:           handle_xtv_file_name,
+        XTV_S4:           handle_xtv_awalan,
+        WALINKWEB_S1:     handle_walinkweb_msg,
         BROADCAST_STATE:  handle_broadcast_msg,
         NEWMEMBER_STATE:  handle_newmember_id,
         DELMEMBER_STATE:  handle_delmember_id,
@@ -232,9 +259,14 @@ async def file_router(update: Update, context):
         RENAME_S2:      (handle_rename_file,      "file VCF berupa DOKUMEN"),
         S0:             (handle_ttv_file,         "file TXT berupa DOKUMEN"),
         S5:             (handle_ttv_file,         "file TXT berupa DOKUMEN"),
+        XTV_S0:         (handle_xtv_file,         "file XLSX/CSV berupa DOKUMEN"),
+        XTV_S5:         (handle_xtv_file,         "file XLSX/CSV berupa DOKUMEN"),
         COUNT_STATE:    (handle_count_file,       "file VCF berupa DOKUMEN"),
         XLSX2TXT_STATE: (handle_xlsxtotxt_file,   "file XLSX/CSV berupa DOKUMEN"),
         DUPLICAT_STATE: (handle_duplikat_file,    "file VCF atau TXT berupa DOKUMEN"),
+        WALINK_STATE:   (handle_walink_file,      "file VCF atau TXT berupa DOKUMEN"),
+        WALINKWEB_S0:   (handle_walinkweb_file,   "file XLSX, CSV, TXT, atau VCF berupa DOKUMEN"),
+        CLEANUP_STATE:  (handle_cleanup_file,     "file VCF atau TXT berupa DOKUMEN"),
     }
 
     if state in doc_states:
@@ -261,6 +293,8 @@ async def done_router(update: Update, context):
         PECAHTXT_S2:    handle_pecahtxt_done,
         S0:             handle_ttv_done,
         S5:             handle_ttv_done,
+        XTV_S0:         handle_xtv_done,
+        XTV_S5:         handle_xtv_done,
         COUNT_STATE:    handle_count_done,
         XLSX2TXT_STATE: handle_xlsxtotxt_done,
     }
@@ -458,6 +492,7 @@ def main():
     app = (
         ApplicationBuilder()
         .token(BOT_TOKEN)
+        .defaults(Defaults(parse_mode=ParseMode.HTML))
         .concurrent_updates(32)
         .connection_pool_size(100)
         .pool_timeout(30)
@@ -472,6 +507,7 @@ def main():
     app.add_handler(CommandHandler(["reset", "resetdatabase"],          rate_limiter(cmd_reset)))
     app.add_handler(CommandHandler(["admin", "Admin"],                  rate_limiter(cmd_admin)))
     app.add_handler(CommandHandler("txttovcf",                          rate_limiter(cmd_txttovcf)))
+    app.add_handler(CommandHandler("xlsxtovcf",                         rate_limiter(cmd_xlsxtovcf)))
     app.add_handler(CommandHandler("xlsxtotxt",                         rate_limiter(cmd_xlsxtotxt)))
     app.add_handler(CommandHandler("merge",                             rate_limiter(cmd_merge)))
     app.add_handler(CommandHandler("vcftotxt",                          rate_limiter(cmd_vcftotxt)))
@@ -480,6 +516,9 @@ def main():
     app.add_handler(CommandHandler("rename",                            rate_limiter(cmd_rename)))
     app.add_handler(CommandHandler("count",                             rate_limiter(cmd_count)))
     app.add_handler(CommandHandler("duplikat",                          rate_limiter(cmd_duplikat)))
+    app.add_handler(CommandHandler("walink",                            rate_limiter(cmd_walink)))
+    app.add_handler(CommandHandler("walinkweb",                         rate_limiter(cmd_walinkweb)))
+    app.add_handler(CommandHandler("cleanup",                           rate_limiter(cmd_cleanup)))
     app.add_handler(CommandHandler(["broadcast", "brodcast", "Brodcast"], rate_limiter(cmd_broadcast)))
     app.add_handler(CommandHandler("mediabroadcast",                    rate_limiter(cmd_media_broadcast)))
     app.add_handler(CommandHandler("newmember",                         rate_limiter(cmd_newmember)))
@@ -499,12 +538,16 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_show_duplikat_help_callback, pattern="^show_duplikat_help$"))
     app.add_handler(CallbackQueryHandler(handle_show_count_help_callback, pattern="^show_count_help$"))
     app.add_handler(CallbackQueryHandler(handle_show_txttovcf_help_callback, pattern="^show_txttovcf_help$"))
+    app.add_handler(CallbackQueryHandler(handle_show_xlsxtovcf_help_callback, pattern="^show_xlsxtovcf_help$"))
     app.add_handler(CallbackQueryHandler(handle_show_vcftotxt_help_callback, pattern="^show_vcftotxt_help$"))
     app.add_handler(CallbackQueryHandler(handle_show_xlsxtotxt_help_callback, pattern="^show_xlsxtotxt_help$"))
     app.add_handler(CallbackQueryHandler(handle_show_merge_help_callback, pattern="^show_merge_help$"))
     app.add_handler(CallbackQueryHandler(handle_show_pecahvcf_help_callback, pattern="^show_pecahvcf_help$"))
     app.add_handler(CallbackQueryHandler(handle_show_pecahtxt_help_callback, pattern="^show_pecahtxt_help$"))
     app.add_handler(CallbackQueryHandler(handle_show_rename_help_callback, pattern="^show_rename_help$"))
+    app.add_handler(CallbackQueryHandler(handle_show_walink_help_callback, pattern="^show_walink_help$"))
+    app.add_handler(CallbackQueryHandler(handle_show_walinkweb_help_callback, pattern="^show_walinkweb_help$"))
+    app.add_handler(CallbackQueryHandler(handle_show_cleanup_help_callback, pattern="^show_cleanup_help$"))
     app.add_handler(CallbackQueryHandler(handle_show_admin_help_callback, pattern="^show_admin_help$"))
     app.add_handler(CallbackQueryHandler(handle_reset_callback,  pattern="^admin_db_reset"))
 

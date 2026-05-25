@@ -50,8 +50,8 @@ async def cmd_duplikat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Kirim file .VCF atau .TXT. Duplikat akan dibersihkan otomatis.",
-        reply_markup=ReplyKeyboardRemove(),
+        "Kirim file <b>.VCF</b> atau <b>.TXT</b>. Duplikat akan dibersihkan.",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
 
@@ -71,7 +71,7 @@ async def handle_duplikat_file(update: Update, context: ContextTypes.DEFAULT_TYP
 
     ext = os.path.splitext(doc.file_name)[1].lower()
     if ext not in (".txt", ".vcf"):
-        await update.message.reply_text("Ekstensi file tidak didukung. Kirim file dengan ekstensi .txt atau .vcf.")
+        await update.message.reply_text("Format tidak didukung. Kirim file .TXT atau .VCF.")
         return
 
     # Increment active requests for debouncing
@@ -172,11 +172,11 @@ async def handle_duplikat_file(update: Update, context: ContextTypes.DEFAULT_TYP
                 document=buf,
                 filename=clean_filename,
                 caption=(
-                    f"PEMBERSIHAN DUPLIKAT SELESAI\n\n"
-                    f"File       : {doc.file_name}\n"
-                    f"Total Awal : {total_awal} kontak\n"
-                    f"Dihapus    : {total_duplikat} kontak duplikat\n"
-                    f"Total Unik : {total_unik} kontak tersisa"
+                    f"Pembersihan duplikat selesai.\n\n"
+                    f"File: {doc.file_name}\n"
+                    f"Total awal: <b>{total_awal}</b>\n"
+                    f"Dihapus: <b>{total_duplikat}</b>\n"
+                    f"Total unik: <b>{total_unik}</b>"
                 )
             )
 
@@ -223,7 +223,7 @@ async def handle_duplikat_file(update: Update, context: ContextTypes.DEFAULT_TYP
                 keyboard = InlineKeyboardMarkup([
                     [
                         InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_duplikat_help", style="success"),
-                        InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
+                        InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
                     ]
                 ])
 
@@ -232,13 +232,11 @@ async def handle_duplikat_file(update: Update, context: ContextTypes.DEFAULT_TYP
                 await bot.send_message(
                     chat_id=chat_id,
                     text=(
-                        f"✅ <b>Pembersihan selesai!</b>\n"
-                        f"{'─' * 20}\n"
-                        f"📁 Total file  : <b>{count} file</b>\n"
-                        f"👥 Total awal  : <b>{t_awal:,} kontak</b>\n"
-                        f"🗑️ Total hapus : <b>{t_dup:,} duplikat</b>\n"
-                        f"👥 Total unik  : <b>{t_unik:,} tersisa</b>\n"
-                        f"{'─' * 20}"
+                        f"Pembersihan selesai!\n\n"
+                        f"Total file: <b>{count}</b>\n"
+                        f"Total awal: <b>{t_awal:,}</b>\n"
+                        f"Dihapus: <b>{t_dup:,}</b>\n"
+                        f"Total unik: <b>{t_unik:,}</b>"
                     ),
                     parse_mode="HTML",
                     reply_markup=keyboard
@@ -262,7 +260,7 @@ async def handle_show_duplikat_help_callback(update: Update, context: ContextTyp
     # Edit message in-place instead of deleting it to provide a smooth morphing transition
     try:
         await query.message.edit_text(
-            text="Silakan kirimkan file .VCF atau .TXT Anda sekarang. Bot akan otomatis membersihkan nomor kontak duplikat dan memberikan file hasil perbaikannya.",
+            text="Kirim file <b>.VCF</b> atau <b>.TXT</b> sekarang. Duplikat akan dibersihkan.",
             parse_mode="HTML"
         )
     except Exception:
@@ -273,7 +271,7 @@ async def handle_show_duplikat_help_callback(update: Update, context: ContextTyp
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Silakan kirimkan file .VCF atau .TXT Anda sekarang. Bot akan otomatis membersihkan nomor kontak duplikat dan memberikan file hasil perbaikannya.",
+            text="Kirim file <b>.VCF</b> atau <b>.TXT</b> sekarang. Duplikat akan dibersihkan.",
             parse_mode="HTML",
             reply_markup=ReplyKeyboardRemove()
         )

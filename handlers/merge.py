@@ -7,7 +7,7 @@ merge.py — Mendukung VCF dan TXT.
 import os
 import shutil
 import asyncio
-from telegram import Update, ReplyKeyboardRemove
+from telegram import Update, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from database import db
 from database.db_async import adb
@@ -53,7 +53,7 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 mode   = sess["data"].get("mode", "vcf").upper()
                 await context.bot.send_message(
                     chat_id=chat_id,
-                    text=f"{jumlah} file {mode} diterima. /done jika selesai."
+                    text=f"{jumlah} file {mode} diterima. Ketik /done jika sudah."
                 )
     except asyncio.CancelledError:
         pass  # Normal cancellation, tidak perlu log
@@ -97,8 +97,8 @@ async def cmd_merge(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Kirim file .VCF atau .TXT yang ingin digabung. Ketik /done jika sudah selesai.",
-        reply_markup=ReplyKeyboardRemove(),
+        "Kirim file <b>.VCF</b> atau <b>.TXT</b>. Ketik /done jika sudah.",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
 
@@ -153,11 +153,11 @@ async def handle_merge_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         if data["count"] >= MAX_FILES:
-            await update.message.reply_text(f"Batas {MAX_FILES} file. Ketik /done.")
+            await update.message.reply_text(f"Batas <b>{MAX_FILES}</b> file. Ketik /done.")
             return
 
         if (data["total_size"] + doc.file_size) / (1024 * 1024) > MAX_SIZE_MB:
-            await update.message.reply_text(f"Batas {MAX_SIZE_MB}MB. Ketik /done.")
+            await update.message.reply_text(f"Batas <b>{MAX_SIZE_MB}MB</b>. Ketik /done.")
             return
 
         # Set mode jika belum ada
@@ -238,7 +238,7 @@ async def handle_merge_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.set_session(user_id, STATE_NAMING, data)
     from handlers.start import get_start_keyboard
     await update.message.reply_text(
-        f"Berhasil menerima {data['count']} file {mode.upper()}.\n\nSilakan masukkan nama yang Anda inginkan untuk file hasil penggabungan (Contoh: File_Gabungan, atau Hasil_Merge):",
+        f"{data['count']} file {mode.upper()} diterima. Nama file hasil? Contoh: <b>FEE</b>",
         reply_markup=ReplyKeyboardRemove()
     )
 
@@ -354,15 +354,15 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
             keyboard = InlineKeyboardMarkup([
                 [
                     InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_merge_help", style="success"),
-                    InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
+                    InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
                 ]
             ])
             from handlers.start import clear_welcome_messages
             clear_welcome_messages(user_id)
             await update.message.reply_text(
                 f"Proses selesai.\n"
-                f"Total file input : {total_files} VCF\n"
-                f"Total kontak     : {len(all_contacts)} kontak",
+                f"Total file input: <b>{total_files} VCF</b>\n"
+                f"Total kontak: <b>{len(all_contacts)}</b>",
                 reply_markup=keyboard
             )
 
@@ -417,15 +417,15 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
             keyboard = InlineKeyboardMarkup([
                 [
                     InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_merge_help", style="success"),
-                    InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
+                    InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
                 ]
             ])
             from handlers.start import clear_welcome_messages
             clear_welcome_messages(user_id)
             await update.message.reply_text(
                 f"Proses selesai.\n"
-                f"Total file input : {total_files} TXT\n"
-                f"Total nomor      : {len(numbers)} nomor (sudah deduplikasi)",
+                f"Total file input: <b>{total_files} TXT</b>\n"
+                f"Total nomor: <b>{len(numbers)}</b>",
                 reply_markup=keyboard
             )
 
@@ -454,7 +454,7 @@ async def handle_show_merge_help_callback(update: Update, context: ContextTypes.
     # Edit the message in-place instead of deleting it to provide a smooth morphing transition
     try:
         await query.message.edit_text(
-            text="Silakan kirimkan file-file .VCF atau .TXT yang ingin Anda gabungkan sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk memproses."
+            text="Kirim file <b>.VCF</b> atau <b>.TXT</b>. Ketik /done jika sudah."
         )
     except Exception:
         # Fallback if editing fails
@@ -464,6 +464,6 @@ async def handle_show_merge_help_callback(update: Update, context: ContextTypes.
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Silakan kirimkan file-file .VCF atau .TXT yang ingin Anda gabungkan sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk memproses.",
+            text="Kirim file <b>.VCF</b> atau <b>.TXT</b>. Ketik /done jika sudah.",
             reply_markup=ReplyKeyboardRemove()
         )

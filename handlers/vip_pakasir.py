@@ -62,7 +62,7 @@ PAKET = [
     {"label": "1 Bulan",   "days": 30, "price": 20_000},
 ]
 
-_STATUS_EMOJI = {"completed": "✅", "pending": "⏳", "cancelled": "❌", "expired": "⏰"}
+_STATUS_EMOJI = {"completed": "[SUKSES]", "pending": "[PENDING]", "cancelled": "[BATAL]", "expired": "[EXPIRED]"}
 
 
 def _fmt_price(n: int) -> str:
@@ -185,11 +185,12 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("BATALKAN & BUAT BARU", callback_data=f"cancel_payment_{pending['order_id']}", style="danger")],
         ])
         await query.edit_message_text(
-            f"Kamu masih punya pembayaran pending.\n\n"
-            f"Paket   : {label_pending}\n"
-            f"Total   : {_fmt_price(pending['amount'])}\n"
-            f"Order ID: {pending['order_id']}\n\n"
-            f"Selesaikan atau batalkan dulu sebelum buat yang baru.",
+            f"Kamu masih memiliki pembayaran yang tertunda (pending).\n\n"
+            f"Paket: <b>{label_pending}</b>\n"
+            f"Total: <b>{_fmt_price(pending['amount'])}</b>\n"
+            f"Order ID: <code>{pending['order_id']}</code>\n\n"
+            f"Selesaikan atau batalkan terlebih dahulu sebelum membuat baru.",
+            parse_mode="HTML",
             reply_markup=kb_existing,
         )
         return
@@ -199,7 +200,8 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Notif loading
     msg = await query.edit_message_text(
-        f"Membuat QRIS untuk {package['label']}..."
+        f"Membuat QRIS untuk <b>{package['label']}</b>...",
+        parse_mode="HTML"
     )
 
     payment = await client.create_transaction(
@@ -339,7 +341,7 @@ async def handle_check_payment(update: Update, context: ContextTypes.DEFAULT_TYP
             return
 
         if payment["status"] == "expired":
-            await query.answer("Pembayaran ini sudah kedaluwarsa (batas waktu 5 menit habis).", show_alert=True)
+            await query.answer("Pembayaran ini sudah kedaluwarsa.", show_alert=True)
             await _delete_qr_message(context.bot, payment)
             try:
                 await query.message.delete()
@@ -386,7 +388,7 @@ async def handle_check_payment(update: Update, context: ContextTypes.DEFAULT_TYP
                 from handlers.start import send_fresh_start_menu
                 await send_fresh_start_menu(context.bot, user.id, chat_id, user.first_name or "Kawan")
         else:
-            await query.answer("Pembayaran belum diterima. Silakan scan QRIS dan bayar terlebih dahulu.", show_alert=True)
+            await query.answer("Pembayaran belum diterima. Silakan scan QRIS di atas.", show_alert=True)
 
     except Exception as exc:
         logger.error("[VIP] check_payment error: %s", exc, exc_info=True)

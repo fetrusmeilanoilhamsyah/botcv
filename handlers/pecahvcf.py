@@ -6,7 +6,7 @@ import io
 import shutil
 import asyncio
 import logging
-from telegram import Update, InputMediaDocument, ReplyKeyboardRemove
+from telegram import Update, InputMediaDocument, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import RetryAfter
 from telegram.ext import ContextTypes
 from database import db
@@ -52,8 +52,8 @@ async def cmd_pecahvcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Berapa kontak per file? Contoh: 100",
-        reply_markup=ReplyKeyboardRemove(),
+        "Berapa kontak per file? Contoh: <b>100</b>",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
 
@@ -67,7 +67,7 @@ async def handle_pecah_per_file(update: Update, context: ContextTypes.DEFAULT_TY
 
     text = update.message.text.strip()
     if not text.isdigit():
-        await update.message.reply_text("Masukkan angka yang valid. Contoh: 50")
+        await update.message.reply_text("Masukkan angka. Contoh: <b>100</b>")
         return
 
     per_file = int(text)
@@ -80,8 +80,8 @@ async def handle_pecah_per_file(update: Update, context: ContextTypes.DEFAULT_TY
     db.set_session(user_id, STATE_WAIT_VCF, {"per_file": per_file})
     from handlers.start import get_start_keyboard
     await update.message.reply_text(
-        f"Oke, {per_file} kontak per file. Kirim file .VCF sekarang.",
-        reply_markup=ReplyKeyboardRemove()
+        f"Oke, {per_file} kontak per file. Kirim file <b>.VCF</b> sekarang.",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
     )
 
 
@@ -108,7 +108,7 @@ async def handle_pecah_vcf_file(update: Update, context: ContextTypes.DEFAULT_TY
 
     # Pesan feedback langsung — user tahu bot sedang proses
     status_msg = await update.message.reply_text(
-        f"⏳ Memproses <b>{doc.file_name}</b>...",
+        f"Memproses <b>{doc.file_name}</b>...",
         parse_mode="HTML",
     )
 
@@ -140,7 +140,7 @@ async def handle_pecah_vcf_file(update: Update, context: ContextTypes.DEFAULT_TY
         # Update pesan status
         try:
             await status_msg.edit_text(
-                f"📤 Mengirim <b>{total_parts}</b> file pecahan...",
+                f"Mengirim <b>{total_parts}</b> file pecahan...",
                 parse_mode="HTML",
             )
         except Exception:
@@ -200,13 +200,13 @@ async def handle_pecah_vcf_file(update: Update, context: ContextTypes.DEFAULT_TY
         keyboard = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_pecahvcf_help", style="success"),
-                InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
+                InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
             ]
         ])
         await update.message.reply_text(
-            f"Total kontak  : {total_contacts:,}\n"
-            f"Kontak/file   : {per_file}\n"
-            f"File dihasilkan: {total_parts}",
+            f"Total kontak: <b>{total_contacts:,}</b>\n"
+            f"Kontak per file: <b>{per_file}</b>\n"
+            f"File dihasilkan: <b>{total_parts}</b>",
             reply_markup=keyboard,
         )
 
@@ -234,7 +234,7 @@ async def handle_show_pecahvcf_help_callback(update: Update, context: ContextTyp
     # Edit the message in-place instead of deleting it to provide a smooth morphing transition
     try:
         await query.message.edit_text(
-            text="Silakan tentukan jumlah kontak maksimal untuk setiap file pecahan Anda (Contoh: 50, 100, atau 500):",
+            text="Berapa kontak per file? Contoh: <b>100</b>",
             parse_mode="HTML"
         )
     except Exception:
@@ -245,7 +245,7 @@ async def handle_show_pecahvcf_help_callback(update: Update, context: ContextTyp
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Silakan tentukan jumlah kontak maksimal untuk setiap file pecahan Anda (Contoh: 50, 100, atau 500):",
+            text="Berapa kontak per file? Contoh: <b>100</b>",
             parse_mode="HTML",
             reply_markup=ReplyKeyboardRemove()
         )

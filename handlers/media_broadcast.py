@@ -76,4 +76,4 @@ async def handle_broadcast_media(update: Update, context: ContextTypes.DEFAULT_T
         except Exception:
             fail += 1
             
-    await update.message.reply_text(f"Broadcast Selesai.\nBerhasil: {success}\nGagal: {fail}")
+    await update.message.reply_text(f"<b>Broadcast selesai.</b>\nBerhasil: <b>{success}</b>\nGagal: <b>{fail}</b>", parse_mode="HTML")

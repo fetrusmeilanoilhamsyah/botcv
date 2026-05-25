@@ -1,7 +1,7 @@
 import os
 import logging
 import asyncio
-from telegram import Update, ReplyKeyboardRemove
+from telegram import Update, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from database import db
 from database.db_async import adb
@@ -52,10 +52,10 @@ def _count_contacts_sync(filepath: str, ext: str) -> int:
 
 def _status_text(total_file: int, total_kontak: int) -> str:
     return (
-        f"📂 <b>Sedang mengumpulkan...</b>\n\n"
-        f"├ File diterima : <b>{total_file}</b>\n"
-        f"└ Total kontak  : <b>{total_kontak:,}</b>\n\n"
-        f"<i>Ketik /done jika sudah selesai.</i>"
+        f"<b>Sedang mengumpulkan...</b>\n\n"
+        f"File diterima: <b>{total_file}</b>\n"
+        f"Total kontak: <b>{total_kontak:,}</b>\n\n"
+        f"Ketik /done jika sudah selesai."
     )
 
 
@@ -118,8 +118,8 @@ async def cmd_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Kirim file .TXT atau .VCF sekarang. Ketik /done jika sudah selesai.",
-        reply_markup=ReplyKeyboardRemove(),
+        "Kirim file <b>.TXT</b> atau <b>.VCF</b> sekarang. Ketik /done jika sudah.",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
 
@@ -204,16 +204,16 @@ async def handle_count_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")],
+        [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")],
         [InlineKeyboardButton("HITUNG FILE LAIN", callback_data="show_count_help", style="success")]
     ])
 
     from handlers.start import clear_welcome_messages
     clear_welcome_messages(user_id)
     await update.message.reply_text(
-        f"Total file   : {total_file}\n"
-        f"Total kontak : {total_kontak:,}\n"
-        f"Rata-rata    : {avg:,}/file",
+        f"Total file: <b>{total_file}</b>\n"
+        f"Total kontak: <b>{total_kontak:,}</b>\n"
+        f"Rata-rata: <b>{avg:,}/file</b>",
         reply_markup=keyboard,
     )
 
@@ -239,7 +239,7 @@ async def handle_show_count_help_callback(update: Update, context: ContextTypes.
 
     try:
         await query.message.edit_text(
-            text="Kirim file .TXT atau .VCF sekarang. Ketik /done jika sudah selesai."
+            text="Kirim file <b>.TXT</b> atau <b>.VCF</b> sekarang. Ketik /done jika sudah."
         )
         msg = query.message
     except Exception:
@@ -249,7 +249,7 @@ async def handle_show_count_help_callback(update: Update, context: ContextTypes.
             pass
         msg = await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Kirim file .TXT atau .VCF sekarang. Ketik /done jika sudah selesai.",
+            text="Kirim file <b>.TXT</b> atau <b>.VCF</b> sekarang. Ketik /done jika sudah.",
             reply_markup=ReplyKeyboardRemove()
         )
     _status_msg[user_id] = msg

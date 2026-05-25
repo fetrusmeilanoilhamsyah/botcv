@@ -47,7 +47,7 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Nomor ADMIN (satu per baris):",
+        "Nomor <b>ADMIN</b> (satu per baris):",
         reply_markup=ReplyKeyboardRemove(),
         update=update
     )
@@ -66,34 +66,34 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if state == STATES["WAIT_ADMIN_NUMBERS"]:
             numbers = [n.strip() for n in text.splitlines() if n.strip()]
             if not numbers:
-                await update.message.reply_text("Nomor tidak boleh kosong. Kirim minimal 1 nomor ADMIN:")
+                await update.message.reply_text("Kirim minimal 1 nomor <b>ADMIN</b>:")
                 return
             data["admin_numbers"] = numbers
             db.set_session(user_id, STATES["WAIT_NAVY_NUMBERS"], data)
             from handlers.start import get_start_keyboard
-            await update.message.reply_text("Nomor NAVY (satu per baris):", reply_markup=ReplyKeyboardRemove())
+            await update.message.reply_text("Nomor <b>NAVY</b> (satu per baris):", reply_markup=ReplyKeyboardRemove())
 
         elif state == STATES["WAIT_NAVY_NUMBERS"]:
             numbers = [n.strip() for n in text.splitlines() if n.strip()]
             if not numbers:
-                await update.message.reply_text("Nomor tidak boleh kosong. Kirim minimal 1 nomor NAVY:")
+                await update.message.reply_text("Kirim minimal 1 nomor <b>NAVY</b>:")
                 return
             data["navy_numbers"] = numbers
             db.set_session(user_id, STATES["WAIT_ADMIN_NAME"], data)
             from handlers.start import get_start_keyboard
-            await update.message.reply_text("Label ADMIN:", reply_markup=ReplyKeyboardRemove())
+            await update.message.reply_text("Label <b>ADMIN</b>:", reply_markup=ReplyKeyboardRemove())
 
         elif state == STATES["WAIT_ADMIN_NAME"]:
             data["admin_name"] = text
             db.set_session(user_id, STATES["WAIT_NAVY_NAME"], data)
             from handlers.start import get_start_keyboard
-            await update.message.reply_text("Label NAVY:", reply_markup=ReplyKeyboardRemove())
+            await update.message.reply_text("Label <b>NAVY</b>:", reply_markup=ReplyKeyboardRemove())
 
         elif state == STATES["WAIT_NAVY_NAME"]:
             data["navy_name"] = text
             db.set_session(user_id, STATES["WAIT_FILE_NAME"], data)
             from handlers.start import get_start_keyboard
-            await update.message.reply_text("Nama file:", reply_markup=ReplyKeyboardRemove())
+            await update.message.reply_text("Nama file hasil? Contoh: <b>FEE</b>", reply_markup=ReplyKeyboardRemove())
 
         elif state == STATES["WAIT_FILE_NAME"]:
             data["file_name"] = sanitize_filename(text)
@@ -129,7 +129,7 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
             keyboard = InlineKeyboardMarkup([
                 [
                     InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_admin_help", style="success"),
-                    InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
+                    InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
                 ]
             ])
             from handlers.start import clear_welcome_messages
@@ -152,7 +152,7 @@ async def handle_show_admin_help_callback(update: Update, context: ContextTypes.
     # Edit the message in-place instead of deleting it to provide a smooth morphing transition
     try:
         await query.message.edit_text(
-            text="Nomor ADMIN (satu per baris):"
+            text="Nomor <b>ADMIN</b> (satu per baris):"
         )
     except Exception:
         # Fallback if editing fails
@@ -162,6 +162,6 @@ async def handle_show_admin_help_callback(update: Update, context: ContextTypes.
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Nomor ADMIN (satu per baris):",
+            text="Nomor <b>ADMIN</b> (satu per baris):",
             reply_markup=ReplyKeyboardRemove()
         )

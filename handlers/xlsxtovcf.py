@@ -1,9 +1,13 @@
 """
-txttovcf.py — Disk-based, terima paralel, sort by message_id, tampilkan daftar file dulu, lalu kirim semua.
+xlsxtovcf.py — Disk-based, terima paralel, sort by message_id, tampilkan daftar file dulu, lalu kirim semua.
+Sama persis konsepnya dengan txttovcf.py, namun untuk file Excel (.xlsx) dan CSV (.csv).
 """
 import os
+import re
+import csv
 import shutil
 import asyncio
+import logging
 from telegram import Update, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from database import db
@@ -13,12 +17,14 @@ from middleware.session import get_user_dir
 from core.vcf_parser import add_plus, contacts_to_vcf
 from core.utils import sanitize_filename
 
-S0 = "TTV_WAIT_FILE"
-S1 = "TTV_CONTACT_NAME"
-S2 = "TTV_PER_FILE"
-S3 = "TTV_FILE_NAME"
-S4 = "TTV_AWALAN"
-S5 = "TTV_COLLECTING"
+logger = logging.getLogger(__name__)
+
+S0 = "XTV_WAIT_FILE"
+S1 = "XTV_CONTACT_NAME"
+S2 = "XTV_PER_FILE"
+S3 = "XTV_FILE_NAME"
+S4 = "XTV_AWALAN"
+S5 = "XTV_COLLECTING"
 
 from config import (
     MAX_FILES_PER_SESSION as MAX_FILES,
@@ -29,6 +35,8 @@ from config import (
 
 _user_locks: dict = {}
 _user_timers: dict = {}
+
+PHONE_REGEX = re.compile(r'\+?(?:\d[\s\-\(\)\.]*){8,16}')
 
 
 def get_user_lock(user_id: int) -> asyncio.Lock:
@@ -57,13 +65,12 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 jumlah = sess["data"]["count"]
                 await context.bot.send_message(
                     chat_id=chat_id,
-                    text=f"{jumlah} file TXT diterima. Ketik /done jika sudah."
+                    text=f"{jumlah} file Excel/CSV diterima. Ketik <b>/done</b> jika sudah."
                 )
     except asyncio.CancelledError:
         pass
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).error("Debounce notify error in txttovcf: %s", e)
+        logger.error("Debounce notify error in xlsxtovcf: %s", e)
 
 
 def _reset_timer(user_id, context, chat_id):
@@ -83,11 +90,57 @@ def _cancel_timer(user_id):
 
 def _clear_buffers(user_id: int):
     user_dir = get_user_dir(user_id)
-    ttv_dir = os.path.join(user_dir, "txttovcf")
-    shutil.rmtree(ttv_dir, ignore_errors=True)
+    xtv_dir = os.path.join(user_dir, "xlsxtovcf")
+    shutil.rmtree(xtv_dir, ignore_errors=True)
 
 
-async def cmd_txttovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def _extract_numbers_sync(filepath: str, ext: str) -> list:
+    numbers = []
+    seen = set()
+    try:
+        def process_cell(cell_value):
+            if not cell_value:
+                return
+            text = str(cell_value).strip()
+            for m in PHONE_REGEX.findall(text):
+                has_plus = m.startswith("+")
+                clean = re.sub(r'[^0-9]', '', m)
+                if not clean:
+                    continue
+                if has_plus:
+                    clean = "+" + clean
+                
+                # Gunakan add_plus bawaan
+                formatted = add_plus(clean)
+                
+                # Bersihkan extra jika nomor dimulai dengan +8 (Indonesian number input missing 0 or 62)
+                if formatted.startswith("+8") and 11 <= len(formatted) <= 14:
+                    formatted = "+62" + formatted[2:]
+                
+                digits_only = re.sub(r'[^\d]', '', formatted)
+                if 8 <= len(digits_only) <= 15 and formatted not in seen:
+                    seen.add(formatted)
+                    numbers.append(formatted)
+
+        if ext == ".csv":
+            with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
+                for row in csv.reader(f):
+                    for cell in row:
+                        process_cell(cell)
+        else:
+            import openpyxl
+            wb = openpyxl.load_workbook(filepath, data_only=True, read_only=True)
+            for sheet in wb.sheetnames:
+                for row in wb[sheet].iter_rows(values_only=True):
+                    for cell in row:
+                        process_cell(cell)
+            wb.close()
+    except Exception as e:
+        logger.error("Error ekstrak %s: %s", filepath, e)
+    return numbers
+
+
+async def cmd_xlsxtovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_member(update, context):
         return
     user_id = update.effective_user.id
@@ -101,14 +154,13 @@ async def cmd_txttovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Kirim file <b>.TXT</b> sekarang. Ketik /done jika sudah.",
+        "Kirim file <b>.xlsx</b> atau <b>.csv</b> sekarang. Ketik <b>/done</b> jika sudah.",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
 
 
-
-async def handle_ttv_contact_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_xtv_contact_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
     if sess["state"] != S1:
@@ -116,11 +168,10 @@ async def handle_ttv_contact_name(update: Update, context: ContextTypes.DEFAULT_
     data = sess["data"]
     data["contact_name"] = update.message.text.strip()
     db.set_session(user_id, S2, data)
-    from handlers.start import get_start_keyboard
     await update.message.reply_text("Berapa kontak per file? Contoh: <b>100</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]))
 
 
-async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_xtv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
     if sess["state"] != S2:
@@ -138,11 +189,10 @@ async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE
     data = sess["data"]
     data["per_file"] = per_file
     db.set_session(user_id, S3, data)
-    from handlers.start import get_start_keyboard
     await update.message.reply_text("Nama file? Contoh: <b>FEE</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]))
 
 
-async def handle_ttv_file_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_xtv_file_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
     if sess["state"] != S3:
@@ -150,11 +200,10 @@ async def handle_ttv_file_name(update: Update, context: ContextTypes.DEFAULT_TYP
     data = sess["data"]
     data["file_name"] = sanitize_filename(update.message.text.strip())
     db.set_session(user_id, S4, data)
-    from handlers.start import get_start_keyboard
     await update.message.reply_text("Nomor urut awal? Contoh: <b>1</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]))
 
 
-async def handle_ttv_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_xtv_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
     if sess["state"] != S4:
@@ -166,14 +215,11 @@ async def handle_ttv_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = sess["data"]
     data["awalan"] = int(text)
     
-    # CRITICAL FIX: Save session sebelum call handle_ttv_process
     db.set_session(user_id, S5, data)
-    
-    # Trigger processing immediately
-    await handle_ttv_process(update, context)
+    await handle_xtv_process(update, context)
 
 
-async def handle_ttv_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_xtv_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     sess = db.get_session(user_id)
@@ -181,17 +227,21 @@ async def handle_ttv_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     doc = update.message.document
-    if not doc or not doc.file_name or not doc.file_name.lower().endswith(".txt"):
-        await update.message.reply_text("Kirim file dengan ekstensi .txt.")
+    if not doc or not doc.file_name:
+        return
+    
+    ext = os.path.splitext(doc.file_name)[1].lower()
+    if ext not in (".xlsx", ".csv"):
+        await update.message.reply_text("Kirim file dengan ekstensi .xlsx atau .csv.")
         return
         
     msg_id = update.message.message_id
 
     # Download ke disk
     file_obj = await context.bot.get_file(doc.file_id)
-    ttv_dir = os.path.join(get_user_dir(user_id), "txttovcf")
-    os.makedirs(ttv_dir, exist_ok=True)
-    out_path = os.path.join(ttv_dir, f"{msg_id}.txt")
+    xtv_dir = os.path.join(get_user_dir(user_id), "xlsxtovcf")
+    os.makedirs(xtv_dir, exist_ok=True)
+    out_path = os.path.join(xtv_dir, f"{msg_id}{ext}")
     
     try:
         await file_obj.download_to_drive(out_path)
@@ -199,7 +249,6 @@ async def handle_ttv_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         async with get_user_lock(user_id):
             sess = db.get_session(user_id)
             if sess["state"] not in [S0, S5]:
-                # State berubah saat download — hapus file
                 try:
                     if os.path.exists(out_path):
                         os.remove(out_path)
@@ -234,34 +283,19 @@ async def handle_ttv_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     pass
                 return
 
-            # Hitung jumlah kontak di file ini — validasi nomor HP lebih ketat
-            lines = 0
-            try:
-                import re as _re
-                # Regex lebih strict: minimal 8 digit, maksimal 15 digit, bisa ada + di depan
-                _phone_re = _re.compile(r'^(\+?\d{1,3})?[\s\-\.]?\(?\d{2,4}\)?[\s\-\.]?\d{3,4}[\s\-\.]?\d{4,}$')
-                with open(out_path, "r", encoding="utf-8", errors="ignore") as f:
-                    for line in f:
-                        stripped = line.strip()
-                        # Check: minimal 8 karakter, match regex, minimal 8 digit
-                        if stripped and len(stripped) >= 8 and _phone_re.match(stripped):
-                            # Extra check: hitung digit (tanpa spasi/dash)
-                            digit_only = _re.sub(r'[^\d]', '', stripped)
-                            if 8 <= len(digit_only) <= 15:
-                                lines += 1
-            except Exception:
-                pass
+            # Ekstrak nomor dari file ini
+            loop = asyncio.get_running_loop()
+            found_numbers = await loop.run_in_executor(None, _extract_numbers_sync, out_path, ext)
 
             data["count"] += 1
             data["total_size"] += doc.file_size
-            data["total_contacts"] = data.get("total_contacts", 0) + lines
+            data["total_contacts"] = data.get("total_contacts", 0) + len(found_numbers)
             db.set_session(user_id, sess["state"], data)
 
         _reset_timer(user_id, context, chat_id)
         
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).error("Download failed in txttovcf: %s", e)
+        logger.error("Download failed in xlsxtovcf: %s", e)
         if os.path.exists(out_path):
             try:
                 os.remove(out_path)
@@ -270,7 +304,7 @@ async def handle_ttv_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         raise
 
 
-async def handle_ttv_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_xtv_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     _cancel_timer(user_id)
 
@@ -282,7 +316,6 @@ async def handle_ttv_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         db.set_session(user_id, S1, data)
-        from handlers.start import get_start_keyboard
         await update.message.reply_text(
             f"{data.get('total_contacts', 0)} kontak terdeteksi. Nama kontak? Contoh: <b>FEE</b>",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
@@ -301,15 +334,14 @@ async def handle_ttv_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     data["is_processing"] = True
     db.set_session(user_id, sess["state"], data)
-    await handle_ttv_process(update, context)
+    await handle_xtv_process(update, context)
 
 
-async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
     data = sess["data"]
     
-    # Check if already processing
     if data.get("is_processing_final"):
         return
     data["is_processing_final"] = True
@@ -318,12 +350,14 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await update.message.reply_text("Memproses...")
 
     user_dir = get_user_dir(user_id)
-    ttv_dir = os.path.join(user_dir, "txttovcf")
+    xtv_dir = os.path.join(user_dir, "xlsxtovcf")
     
     files = []
-    if os.path.exists(ttv_dir):
-        files = [f for f in os.listdir(ttv_dir) if f.endswith('.txt')]
-        files.sort(key=lambda x: int(x.split('.')[0]))
+    if os.path.exists(xtv_dir):
+        # Ambil semua file xlsx dan csv
+        files = [f for f in os.listdir(xtv_dir) if f.endswith(('.xlsx', '.csv'))]
+        # Urutkan berdasarkan ID pesan di nama file
+        files.sort(key=lambda x: int(os.path.splitext(x)[0]))
 
     contact_name = data["contact_name"]
     file_name    = data["file_name"]
@@ -334,14 +368,16 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     def do_build():
         all_numbers = []
+        seen_global = set()
         for f in files:
-            path = os.path.join(ttv_dir, f)
+            path = os.path.join(xtv_dir, f)
+            ext = os.path.splitext(f)[1].lower()
             try:
-                with open(path, "r", encoding="utf-8", errors="ignore") as file_in:
-                    for line in file_in:
-                        num = line.strip()
-                        if num:
-                            all_numbers.append(add_plus(num))
+                found = _extract_numbers_sync(path, ext)
+                for num in found:
+                    if num not in seen_global:
+                        seen_global.add(num)
+                        all_numbers.append(num)
             except Exception:
                 pass
 
@@ -349,7 +385,6 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
         contact_counter = 1
         file_counter = awalan
         
-        # Simpan ke memori (bytes) — hindari race condition disk
         for i in range(0, len(all_numbers), per_file):
             chunk = all_numbers[i:i + per_file]
             contacts = [
@@ -369,8 +404,6 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
     import io
     from telegram import InputMediaDocument
     from telegram.error import RetryAfter
-    import logging as _log
-    _logger = _log.getLogger(__name__)
 
     try:
         if not results:
@@ -379,7 +412,6 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         total_files = len(results)
 
-        # ── Tampilkan ringkasan nama file dulu ───────────────────────────────
         header_text = f"{len(all_numbers)} kontak -> {total_files} file\n"
         lines = [f"{file_name} {awalan + i}.vcf" for i in range(total_files)]
 
@@ -390,7 +422,6 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         send_status = await update.message.reply_text(f"Menyiapkan {total_files} file...")
 
-        # ── KIRIM via BytesIO — tidak ada ketergantungan disk ──
         chunk_size = 10
         for i in range(0, len(results), chunk_size):
             chunk_results = results[i:i + chunk_size]
@@ -423,20 +454,19 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
             for attempt in range(max_retries):
                 try:
                     await _send_chunk()
-                    break  # Success, exit retry loop
+                    break
                 except RetryAfter as e:
                     if attempt == max_retries - 1:
-                        _logger.error(f"Max retries reached for chunk {i//chunk_size + 1}")
+                        logger.error(f"Max retries reached for chunk {i//chunk_size + 1}")
                         raise
-                    # Exponential backoff: attempt 0->2s, attempt 1->4s, attempt 2->6s
                     wait_secs = int(e.retry_after) * (attempt + 1) + 2
-                    _logger.warning(f"Flood limit! Retry {attempt+1}/{max_retries} after {wait_secs}s...")
+                    logger.warning(f"Flood limit! Retry {attempt+1}/{max_retries} after {wait_secs}s...")
                     await asyncio.sleep(wait_secs)
                 except Exception as e:
-                    _logger.error(f"Gagal kirim chunk {i//chunk_size + 1}: {e}")
+                    logger.error(f"Gagal kirim chunk {i//chunk_size + 1}: {e}")
                     if attempt == max_retries - 1:
                         raise
-                    await asyncio.sleep(2)  # Short wait before retry on generic error
+                    await asyncio.sleep(2)
 
             if i + chunk_size < len(results):
                 await asyncio.sleep(0.5)
@@ -452,7 +482,7 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
             clear_welcome_messages(user_id)
             keyboard = InlineKeyboardMarkup([
                 [
-                    InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_txttovcf_help", style="success"),
+                    InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_xlsxtovcf_help", style="success"),
                     InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
                 ]
             ])
@@ -470,8 +500,8 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
         _clear_buffers(user_id)
 
 
-async def handle_show_txttovcf_help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Callback untuk tombol PROSES FILE LAIN (TXT to VCF)"""
+async def handle_show_xlsxtovcf_help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Callback untuk tombol PROSES FILE LAIN (Excel/CSV to VCF)"""
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
@@ -479,11 +509,10 @@ async def handle_show_txttovcf_help_callback(update: Update, context: ContextTyp
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     db.set_session(user_id, S0, {"count": 0, "total_size": 0, "total_contacts": 0})
-    from handlers.start import get_start_keyboard
 
     try:
         await query.message.edit_text(
-            text="Kirim file <b>.TXT</b> sekarang. Ketik /done jika sudah."
+            text="Kirim file <b>.xlsx</b> atau <b>.csv</b> sekarang. Ketik <b>/done</b> jika sudah."
         )
     except Exception:
         try:
@@ -492,6 +521,6 @@ async def handle_show_txttovcf_help_callback(update: Update, context: ContextTyp
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Kirim file <b>.TXT</b> sekarang. Ketik /done jika sudah.",
+            text="Kirim file <b>.xlsx</b> atau <b>.csv</b> sekarang. Ketik <b>/done</b> jika sudah.",
             reply_markup=ReplyKeyboardRemove()
         )

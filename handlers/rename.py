@@ -51,8 +51,8 @@ async def cmd_rename(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Nama kontak baru? Contoh: FEE",
-        reply_markup=ReplyKeyboardRemove(),
+        "Nama kontak baru? Contoh: <b>FEE</b>",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
 
@@ -72,8 +72,8 @@ async def handle_rename_name(update: Update, context: ContextTypes.DEFAULT_TYPE)
     db.set_session(user_id, STATE_FILE, {"base_name": base_name, "counter": 0})
     from handlers.start import get_start_keyboard
     await update.message.reply_text(
-        f"Nama: {base_name}. Kirim file .VCF sekarang.",
-        reply_markup=ReplyKeyboardRemove()
+        f"Nama: {base_name}. Kirim file <b>.VCF</b> sekarang.",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
     )
 
 
@@ -173,7 +173,7 @@ async def handle_rename_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 keyboard = InlineKeyboardMarkup([
                     [
                         InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_rename_help", style="success"),
-                        InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
+                        InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
                     ]
                 ])
 
@@ -182,12 +182,10 @@ async def handle_rename_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 await bot.send_message(
                     chat_id=chat_id,
                     text=(
-                        f"✅ <b>Rename selesai!</b>\n"
-                        f"{'─' * 20}\n"
-                        f"📁 Total file  : <b>{count} file</b>\n"
-                        f"✏️ Total kontak : <b>{t_renamed:,} nama diubah</b>\n"
-                        f"🏷️ Label baru   : <b>{base} {start_cnt + 1} - {base} {end_counter}</b>\n"
-                        f"{'─' * 20}"
+                        f"Rename selesai!\n\n"
+                        f"Total file: <b>{count}</b>\n"
+                        f"Total kontak: <b>{t_renamed:,} nama diubah</b>\n"
+                        f"Label baru: <b>{base} {start_cnt + 1} - {base} {end_counter}</b>"
                     ),
                     parse_mode="HTML",
                     reply_markup=keyboard
@@ -210,7 +208,7 @@ async def handle_show_rename_help_callback(update: Update, context: ContextTypes
     # Edit message in-place instead of deleting it to provide a smooth morphing transition
     try:
         await query.message.edit_text(
-            text="Silakan masukkan nama kontak baru yang Anda inginkan (Contoh: Admin, Klien, atau FEE):"
+            text="Nama kontak baru? Contoh: <b>FEE</b>"
         )
     except Exception:
         # Fallback if editing fails
@@ -220,6 +218,6 @@ async def handle_show_rename_help_callback(update: Update, context: ContextTypes
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Silakan masukkan nama kontak baru yang Anda inginkan (Contoh: Admin, Klien, atau FEE):",
+            text="Nama kontak baru? Contoh: <b>FEE</b>",
             reply_markup=ReplyKeyboardRemove()
         )

@@ -95,6 +95,7 @@ def build_menu_text(first_name: str, user_id: int) -> str:
     fitur = (
         "<b>FITUR UTAMA</b>\n"
         "├ /txttovcf — Konversi TXT ke VCF\n"
+        "├ /xlsxtovcf — Konversi Excel ke VCF\n"
         "├ /vcftotxt — Konversi VCF ke TXT\n"
         "├ /xlsxtotxt — Ekstrak Excel/CSV\n"
         "├ /admin — Buat file Admin VCF\n"
@@ -103,6 +104,9 @@ def build_menu_text(first_name: str, user_id: int) -> str:
         "├ /pecahtxt — Pecah file TXT\n"
         "├ /rename — Ganti nama VCF\n"
         "├ /duplikat — Bersihkan duplikat\n"
+        "├ /cleanup — Standarisasi nomor\n"
+        "├ /walink — Link WA Excel\n"
+        "├ /walinkweb — Link WA HTML\n"
         "└ /count — Hitung kontak\n\n"
         "<b>LAINNYA</b>\n"
         "├ /vip — Paket VIP\n"
@@ -166,10 +170,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await context.bot.send_message(
                         chat_id=user.id,
                         text=(
-                            "🎁 <b>HADIAH PENGGUNA BARU!</b>\n\n"
-                            "Selamat! Karena Anda baru pertama kali menggunakan bot ini, "
-                            "Anda mendapatkan <b>Akses VIP 14 Hari GRATIS</b> secara otomatis!\n\n"
-                            "Silakan nikmati semua fitur premium konversi kontak kami sepuasnya."
+                            "<b>Hadiah Pengguna Baru!</b>\n\n"
+                            "Selamat! Kamu otomatis mendapatkan akses <b>VIP 14 Hari GRATIS</b>.\n"
+                            "Nikmati semua fitur premium konversi kontak sepuasnya."
                         ),
                         parse_mode="HTML"
                     )
@@ -222,6 +225,16 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
     user = query.from_user
     chat_id = query.message.chat_id
     first_name = user.first_name or "Kawan"
+
+    # Bersihkan sesi lama secara menyeluruh
+    db.clear_session(user.id)
+    try:
+        from middleware.session import clear_user_dir
+        from handlers.cancel_helper import cancel_all
+        cancel_all(user.id)
+        clear_user_dir(user.id)
+    except Exception:
+        pass
 
     menu_text = build_menu_text(first_name, user.id)
 

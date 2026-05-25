@@ -62,7 +62,7 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 jumlah = sess["data"]["count"]
                 await context.bot.send_message(
                     chat_id=chat_id,
-                    text=f"{jumlah} file diterima. Ketik /done jika sudah selesai."
+                    text=f"{jumlah} file diterima. Ketik /done jika sudah."
                 )
     except asyncio.CancelledError:
         pass
@@ -95,8 +95,8 @@ async def cmd_pecahtxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Berapa nomor per file? Contoh: 100",
-        reply_markup=ReplyKeyboardRemove(),
+        "Berapa nomor per file? Contoh: <b>100</b>",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
 
@@ -111,7 +111,7 @@ async def handle_pecahtxt_per_file(update: Update, context: ContextTypes.DEFAULT
 
     text = update.message.text.strip()
     if not text.isdigit():
-        await update.message.reply_text("Masukkan angka. Contoh: 100")
+        await update.message.reply_text("Masukkan angka. Contoh: <b>100</b>")
         return
 
     per_file = int(text)
@@ -122,8 +122,8 @@ async def handle_pecahtxt_per_file(update: Update, context: ContextTypes.DEFAULT
     db.set_session(user_id, STATE_COLLECTING, {"per_file": per_file, "count": 0, "total_size": 0})
     from handlers.start import get_start_keyboard
     await update.message.reply_text(
-        f"Oke, {per_file} nomor per file. Kirim file .TXT sekarang. Ketik /done jika sudah selesai.",
-        reply_markup=ReplyKeyboardRemove()
+        f"Oke, {per_file} nomor per file. Kirim file <b>.TXT</b> sekarang. Ketik /done jika sudah.",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
     )
 
 
@@ -162,7 +162,7 @@ async def handle_pecahtxt_file(update: Update, context: ContextTypes.DEFAULT_TYP
 
             data = sess["data"]
             if data["count"] >= MAX_FILES:
-                await update.message.reply_text(f"Batas {MAX_FILES} file. Ketik /done.")
+                await update.message.reply_text(f"Batas <b>{MAX_FILES}</b> file. Ketik /done.")
                 try:
                     os.remove(out_path)
                 except Exception:
@@ -170,7 +170,7 @@ async def handle_pecahtxt_file(update: Update, context: ContextTypes.DEFAULT_TYP
                 return
 
             if (data["total_size"] + doc.file_size) / (1024 * 1024) > MAX_SIZE_MB:
-                await update.message.reply_text(f"Batas {MAX_SIZE_MB}MB. Ketik /done.")
+                await update.message.reply_text(f"Batas <b>{MAX_SIZE_MB}MB</b>. Ketik /done.")
                 try:
                     os.remove(out_path)
                 except Exception:
@@ -303,13 +303,13 @@ async def handle_pecahtxt_done(update: Update, context: ContextTypes.DEFAULT_TYP
         keyboard = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_pecahtxt_help", style="success"),
-                InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
+                InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
             ]
         ])
         await update.message.reply_text(
-            f"Total nomor   : {total_nomor:,}\n"
-            f"Nomor/file    : {per_file}\n"
-            f"File dihasilkan: {total_parts}",
+            f"Total nomor: <b>{total_nomor:,}</b>\n"
+            f"Nomor per file: <b>{per_file}</b>\n"
+            f"File dihasilkan: <b>{total_parts}</b>",
             reply_markup=keyboard,
         )
 
@@ -336,14 +336,14 @@ async def handle_show_pecahtxt_help_callback(update: Update, context: ContextTyp
     from handlers.start import get_start_keyboard
 
     try:
-        await query.message.edit_text(text="Berapa nomor per file? Contoh: 100")
+        await query.message.edit_text(text="Berapa nomor per file? Contoh: <b>100</b>")
     except Exception:
         try:
-            await query.message.delete()
+            await query.message.edit_text(text="Berapa nomor per file? Contoh: <b>100</b>")
         except Exception:
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Berapa nomor per file? Contoh: 100",
+            text="Berapa nomor per file? Contoh: <b>100</b>",
             reply_markup=ReplyKeyboardRemove()
         )

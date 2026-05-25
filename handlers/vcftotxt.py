@@ -4,7 +4,7 @@ vcftotxt.py — Disk-based approach to prevent OOM.
 import os
 import shutil
 import asyncio
-from telegram import Update, ReplyKeyboardRemove
+from telegram import Update, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from database import db
 from database.db_async import adb
@@ -97,8 +97,8 @@ async def cmd_vcftotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Kirim file .VCF sekarang. Ketik /done jika sudah selesai.",
-        reply_markup=ReplyKeyboardRemove(),
+        "Kirim file <b>.VCF</b> sekarang. Ketik /done jika sudah.",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
 
@@ -153,7 +153,7 @@ async def handle_vcftotxt_file(update: Update, context: ContextTypes.DEFAULT_TYP
                 return
 
             if data["count"] >= MAX_FILES:
-                await update.message.reply_text(f"Batas {MAX_FILES} file. Ketik /done.")
+                await update.message.reply_text(f"Batas <b>{MAX_FILES}</b> file. Ketik /done.")
                 try:
                     if os.path.exists(out_path):
                         os.remove(out_path)
@@ -162,7 +162,7 @@ async def handle_vcftotxt_file(update: Update, context: ContextTypes.DEFAULT_TYP
                 return
 
             if (data.get("total_size", 0) + doc.file_size) / (1024 * 1024) > MAX_SIZE_MB:
-                await update.message.reply_text(f"Batas {MAX_SIZE_MB}MB. Ketik /done.")
+                await update.message.reply_text(f"Batas <b>{MAX_SIZE_MB}MB</b>. Ketik /done.")
                 try:
                     if os.path.exists(out_path):
                         os.remove(out_path)
@@ -213,7 +213,7 @@ async def handle_vcftotxt_done(update: Update, context: ContextTypes.DEFAULT_TYP
     db.set_session(user_id, STATE_NAMING, sess["data"])
     from handlers.start import get_start_keyboard
     await update.message.reply_text(
-        f"{sess['data']['count']} file, {sess['data'].get('total_contacts', 0)} kontak. Nama file TXT? Contoh: FEE",
+        f"{sess['data']['count']} file ({sess['data'].get('total_contacts', 0)} kontak). Nama file TXT? Contoh: <b>FEE</b>",
         reply_markup=ReplyKeyboardRemove()
     )
 
@@ -376,14 +376,13 @@ async def handle_vcftotxt_naming(update: Update, context: ContextTypes.DEFAULT_T
         keyboard = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_vcftotxt_help", style="success"),
-                InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
+                InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
             ]
         ])
         await update.message.reply_text(
             f"Proses selesai.\n"
-            f"Total file VCF  : {total_files}\n"
-            f"Total file TXT  : {total_created}\n"
-            f"File dikirim    : {total_created} file",
+            f"Total VCF: <b>{total_files}</b>\n"
+            f"Total TXT: <b>{total_created}</b>",
             reply_markup=keyboard
         )
 
@@ -405,7 +404,7 @@ async def handle_show_vcftotxt_help_callback(update: Update, context: ContextTyp
 
     try:
         await query.message.edit_text(
-            text="Kirim file .VCF sekarang. Ketik /done jika sudah selesai."
+            text="Kirim file <b>.VCF</b> sekarang. Ketik /done jika sudah."
         )
     except Exception:
         try:
@@ -414,6 +413,6 @@ async def handle_show_vcftotxt_help_callback(update: Update, context: ContextTyp
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Kirim file .VCF sekarang. Ketik /done jika sudah selesai.",
+            text="Kirim file <b>.VCF</b> sekarang. Ketik /done jika sudah.",
             reply_markup=ReplyKeyboardRemove()
         )

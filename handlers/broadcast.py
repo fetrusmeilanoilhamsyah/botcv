@@ -35,7 +35,7 @@ async def handle_broadcast_msg(update: Update, context: ContextTypes.DEFAULT_TYP
     # Guard: cegah double broadcast jika admin kirim pesan dua kali
     data = dict(sess.get("data", {}))
     if data.get("is_processing"):
-        await update.message.reply_text("⏳ Broadcast masih berjalan, harap tunggu...")
+        await update.message.reply_text("<b>Broadcast masih berjalan, harap tunggu...</b>", parse_mode="HTML")
         return
     data["is_processing"] = True
     db.set_session(user_id, STATE, data)
@@ -46,7 +46,7 @@ async def handle_broadcast_msg(update: Update, context: ContextTypes.DEFAULT_TYP
     fail    = 0
     total   = len(all_ids)
 
-    await update.message.reply_text(f"📤 Mengirim ke {total} user...")
+    await update.message.reply_text(f"Mengirim ke {total} user...")
 
     for i, uid in enumerate(all_ids):
         try:
@@ -71,7 +71,8 @@ async def handle_broadcast_msg(update: Update, context: ContextTypes.DEFAULT_TYP
         if (i + 1) % 100 == 0:
             try:
                 await update.message.reply_text(
-                    f"⏳ Progress: {i+1}/{total} (berhasil: {success}, gagal: {fail})"
+                    f"Progress: {i+1}/{total} (berhasil: <b>{success}</b>, gagal: <b>{fail}</b>)",
+                    parse_mode="HTML"
                 )
             except Exception:
                 pass
@@ -80,7 +81,8 @@ async def handle_broadcast_msg(update: Update, context: ContextTypes.DEFAULT_TYP
     db.clear_session(user_id)
 
     await update.message.reply_text(
-        f"✅ Broadcast selesai.\n"
-        f"Berhasil: {success}\n"
-        f"Gagal: {fail}"
+        f"<b>Broadcast selesai.</b>\n"
+        f"Berhasil: <b>{success}</b>\n"
+        f"Gagal: <b>{fail}</b>",
+        parse_mode="HTML"
     )

@@ -4,7 +4,7 @@ import csv
 import logging
 import asyncio
 from io import BytesIO
-from telegram import Update, ReplyKeyboardRemove
+from telegram import Update, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from database import db
 from database.db_async import adb
@@ -75,10 +75,10 @@ def _extract_numbers_sync(filepath: str, ext: str) -> list:
 
 def _status_text(total_file: int, total_kontak: int) -> str:
     return (
-        f"📊 <b>Sedang mengumpulkan...</b>\n\n"
-        f"├ File diterima : <b>{total_file}</b>\n"
-        f"└ Nomor unik    : <b>{total_kontak:,}</b>\n\n"
-        f"<i>Ketik /done jika sudah selesai.</i>"
+        f"<b>Sedang mengumpulkan...</b>\n\n"
+        f"File diterima: <b>{total_file}</b>\n"
+        f"Nomor unik: <b>{total_kontak:,}</b>\n\n"
+        f"Ketik /done jika sudah selesai."
     )
 
 
@@ -135,8 +135,8 @@ async def cmd_xlsxtotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Kirim file .xlsx atau .csv sekarang. Ketik /done jika sudah selesai.",
-        reply_markup=ReplyKeyboardRemove(),
+        "Kirim file <b>.xlsx</b> atau <b>.csv</b> sekarang. Ketik /done jika sudah selesai.",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
 
@@ -237,7 +237,7 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
         keyboard = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_xlsxtotxt_help", style="success"),
-                InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
+                InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
             ]
         ])
         from handlers.start import clear_welcome_messages
@@ -256,7 +256,7 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
         keyboard = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_xlsxtotxt_help", style="success"),
-                InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
+                InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
             ]
         ])
         with open(master_txt, 'rb') as f:
@@ -267,11 +267,9 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_document(
             document=buffer,
             caption=(
-                f"✅ <b>Ekstraksi selesai!</b>\n"
-                f"{'─' * 20}\n"
-                f"📁 File diproses  : <b>{total_file}</b>\n"
-                f"📞 Nomor unik     : <b>{total:,}</b>\n"
-                f"{'─' * 20}"
+                f"Ekstraksi selesai!\n\n"
+                f"File diproses: <b>{total_file}</b>\n"
+                f"Nomor unik: <b>{total:,}</b>"
             ),
             parse_mode="HTML",
         )
@@ -311,11 +309,7 @@ async def handle_show_xlsxtotxt_help_callback(update: Update, context: ContextTy
     # Edit the message in-place instead of deleting it to provide a smooth morphing transition
     try:
         await query.message.edit_text(
-            text=(
-                "📊 <b>Kirim file Excel atau CSV</b>\n\n"
-                "Bisa kirim banyak sekaligus (.xlsx / .csv).\n"
-                "Ketik /done jika sudah selesai."
-            ),
+            text="Kirim file <b>.xlsx</b> atau <b>.csv</b> sekarang. Ketik /done jika sudah selesai.",
             parse_mode="HTML"
         )
     except Exception:
@@ -326,11 +320,7 @@ async def handle_show_xlsxtotxt_help_callback(update: Update, context: ContextTy
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text=(
-                "📊 <b>Kirim file Excel atau CSV</b>\n\n"
-                "Bisa kirim banyak sekaligus (.xlsx / .csv).\n"
-                "Ketik /done jika sudah selesai."
-            ),
+            text="Kirim file <b>.xlsx</b> atau <b>.csv</b> sekarang. Ketik /done jika sudah selesai.",
             parse_mode="HTML",
             reply_markup=ReplyKeyboardRemove()
         )
