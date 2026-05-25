@@ -48,8 +48,10 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id,
         update.effective_chat.id,
         "Nomor ADMIN (satu per baris):",
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=ReplyKeyboardRemove(),
+        update=update
     )
+
 
 
 async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):

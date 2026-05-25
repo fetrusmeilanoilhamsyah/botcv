@@ -102,8 +102,10 @@ async def cmd_txttovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id,
         update.effective_chat.id,
         "Silakan kirim file TXT.\nKetik /done jika sudah selesai mengirim semua file.",
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=ReplyKeyboardRemove(),
+        update=update
     )
+
 
 
 async def handle_ttv_contact_name(update: Update, context: ContextTypes.DEFAULT_TYPE):

@@ -51,8 +51,10 @@ async def cmd_duplikat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id,
         update.effective_chat.id,
         "KIRIM FILE KONTAK (VCF ATAU TXT)\n\nSilakan kirim file VCF atau TXT berupa dokumen yang ingin Anda bersihkan dari nomor kontak duplikat.",
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=ReplyKeyboardRemove(),
+        update=update
     )
+
 
 
 async def handle_duplikat_file(update: Update, context: ContextTypes.DEFAULT_TYPE):

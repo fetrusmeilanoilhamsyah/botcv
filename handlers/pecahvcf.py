@@ -53,8 +53,10 @@ async def cmd_pecahvcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id,
         update.effective_chat.id,
         "✂️ <b>Pecah VCF</b>\n\nBerapa kontak per file?\n<i>Contoh: 50</i>",
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=ReplyKeyboardRemove(),
+        update=update
     )
+
 
 
 async def handle_pecah_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE):

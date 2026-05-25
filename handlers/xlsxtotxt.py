@@ -139,8 +139,10 @@ async def cmd_xlsxtotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 Bisa kirim banyak sekaligus (.xlsx / .csv).
 Ketik /done jika sudah selesai.""",
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=ReplyKeyboardRemove(),
+        update=update
     )
+
     _status_msg[user_id] = msg
 
 

@@ -119,8 +119,10 @@ async def cmd_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id,
         update.effective_chat.id,
         "📂 <b>Kirim file TXT atau VCF</b>\n\nBisa kirim banyak sekaligus.\nKetik /done jika sudah selesai.",
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=ReplyKeyboardRemove(),
+        update=update
     )
+
     _status_msg[user_id] = msg
 
 

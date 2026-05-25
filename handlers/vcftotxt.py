@@ -98,8 +98,10 @@ async def cmd_vcftotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id,
         update.effective_chat.id,
         "Kirim file VCF.\nKetik /done jika selesai.",
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=ReplyKeyboardRemove(),
+        update=update
     )
+
 
 
 async def handle_vcftotxt_file(update: Update, context: ContextTypes.DEFAULT_TYPE):

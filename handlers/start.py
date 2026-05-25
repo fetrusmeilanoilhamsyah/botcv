@@ -22,18 +22,49 @@ async def delete_welcome_messages(bot, user_id: int, chat_id: int):
                 pass
         await asyncio.gather(*(safe_delete(msg_id) for msg_id in msg_ids))
 
-async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, reply_markup=None):
-    # Hapus welcome messages di atas secara paralel (sinkron/barengan) agar tidak lelet
+async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, reply_markup=None, update: Update = None):
+    # 1. Hapus command user jika update dikirim agar chat bersih dan smooth
+    if update and update.message:
+        try:
+            await update.message.delete()
+        except Exception:
+            pass
+
+    # Ambil pesan welcome yang sedang aktif
     msg_ids = _welcome_messages.pop(user_id, [])
     if msg_ids:
-        async def safe_delete(msg_id):
-            try:
-                await bot.delete_message(chat_id=chat_id, message_id=msg_id)
-            except Exception:
-                pass
-        await asyncio.gather(*(safe_delete(msg_id) for msg_id in msg_ids))
+        # Pesan pertama (msg1) adalah pesan bot yang panjang (menu utama). JANGAN DIHAPUS.
+        long_menu_id = msg_ids[0]
+        
+        # Pesan terakhir (msg2 atau restore_msg) yang akan diedit menjadi prompt handler
+        edit_msg_id = msg_ids[-1]
+        
+        # Pesan di antara (misal tutorial msg2 jika ada restore_msg) dihapus agar bersih
+        delete_ids = msg_ids[1:-1]
+        if delete_ids:
+            async def safe_delete(msg_id):
+                try:
+                    await bot.delete_message(chat_id=chat_id, message_id=msg_id)
+                except Exception:
+                    pass
+            await asyncio.gather(*(safe_delete(msg_id) for msg_id in delete_ids))
 
-    # Balas/kirim pesan baru di bawah agar user langsung melihat responnya
+        try:
+            # Edit pesan terakhir menjadi prompt handler baru
+            msg = await bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=edit_msg_id,
+                text=text,
+                parse_mode="HTML",
+                reply_markup=reply_markup
+            )
+            # Daftarkan kembali menu panjang dan pesan prompt baru ini sebagai welcome messages
+            register_welcome_messages(user_id, [long_menu_id, edit_msg_id])
+            return msg
+        except Exception:
+            pass
+
+    # Fallback: Kirim pesan baru jika edit gagal / tidak ada welcome messages
     msg = await bot.send_message(
         chat_id=chat_id,
         text=text,
@@ -41,6 +72,7 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
         reply_markup=reply_markup
     )
     return msg
+
 
 
 def get_start_keyboard() -> ReplyKeyboardMarkup:

@@ -52,8 +52,10 @@ async def cmd_rename(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id,
         update.effective_chat.id,
         "Ketik nama kontak baru.\nContoh: FEE",
-        reply_markup=ReplyKeyboardRemove()
+        reply_markup=ReplyKeyboardRemove(),
+        update=update
     )
+
 
 
 async def handle_rename_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
