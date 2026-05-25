@@ -124,7 +124,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "└ /resetdatabase — Bersihkan cache"
         )
 
-    # ── Kirim msg1 (Welcome menu) dengan custom keyboard bawah ──
+    # ── Kirim msg1 (Welcome menu) dengan tombol inline hijau premium ──
     msg1 = await update.message.reply_text(
         text=(
             f"<b>Halo {first_name}!</b> Selamat datang di bot konversi kontak.\n\n"
@@ -133,15 +133,15 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"<b>Owner:</b> {ADMIN_CONTACT}"
         ),
         parse_mode="HTML",
-        reply_markup=get_start_keyboard(),
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK)]]),
         disable_web_page_preview=True,
     )
 
-    # ── Kirim msg2 (Tutorial) dengan tombol inline hijau premium ──
+    # ── Kirim msg2 (Keyboard helper) pembawa custom keyboard bawah ──
     msg2 = await update.message.reply_text(
-        text="<b>Butuh panduan?</b> Klik tombol di bawah:",
+        text="⚡ <b>Silakan pilih menu di bawah:</b>",
         parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK)]]),
+        reply_markup=get_start_keyboard(),
     )
 
     register_welcome_messages(user.id, [msg1.message_id, msg2.message_id])
@@ -260,21 +260,21 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
     except Exception:
         pass
 
-    # Kirim ulang msg1 (Welcome menu) dengan custom keyboard bawah
+    # Kirim ulang msg1 (Welcome menu) dengan tombol inline hijau premium
     msg1 = await context.bot.send_message(
         chat_id=chat_id,
         text=menu_text,
         parse_mode="HTML",
-        reply_markup=get_start_keyboard(),
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK)]]),
         disable_web_page_preview=True,
     )
 
-    # Kirim ulang msg2 (Tutorial) dengan tombol inline hijau premium
+    # Kirim ulang msg2 (Keyboard helper) pembawa custom keyboard bawah
     msg2 = await context.bot.send_message(
         chat_id=chat_id,
-        text="<b>Butuh panduan?</b> Klik tombol di bawah:",
+        text="⚡ <b>Silakan pilih menu di bawah:</b>",
         parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK)]]),
+        reply_markup=get_start_keyboard(),
     )
 
     register_welcome_messages(user.id, [msg1.message_id, msg2.message_id])
