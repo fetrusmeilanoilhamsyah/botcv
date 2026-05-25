@@ -102,10 +102,10 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
             status_line = "Status: Member Permanen\n\n"
 
     # Paket
-    paket_lines = "PAKET VIP\n" + ("─" * 24) + "\n"
+    paket_lines = "PAKET VIP:\n"
     for p in PAKET:
-        paket_lines += f"{p['label']:<8} : {_fmt_price(p['price'])}\n"
-    paket_lines += "─" * 24 + "\n"
+        paket_lines += f"• {p['label']:<8} : {_fmt_price(p['price'])}\n"
+    paket_lines += "\n"
 
     # Info pembayaran
     if QRIS_ENABLED:
@@ -246,14 +246,12 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     fee = payment.get("fee", 0)
     caption = (
         f"QRIS PEMBAYARAN\n"
-        f"{'─'*24}\n"
-        f"{'Paket':<5} : {package['label']}\n"
-        f"{'Harga':<5} : {_fmt_price(original_amount)}\n"
-        f"{'Fee':<5} : {_fmt_price(fee)}\n"
-        f"{'Total':<5} : {_fmt_price(total_payment)}\n"
-        f"{'Limit':<5} : {exp_text}\n"
-        f"{'Order':<5} : {order_id}\n"
-        f"{'─'*24}\n"
+        f"• {'Paket':<5} : {package['label']}\n"
+        f"• {'Harga':<5} : {_fmt_price(original_amount)}\n"
+        f"• {'Fee':<5} : {_fmt_price(fee)}\n"
+        f"• {'Total':<5} : {_fmt_price(total_payment)}\n"
+        f"• {'Limit':<5} : {exp_text}\n"
+        f"• {'Order':<5} : {order_id}\n\n"
         f"Scan QR di atas untuk mengaktifkan VIP otomatis."
     )
 
