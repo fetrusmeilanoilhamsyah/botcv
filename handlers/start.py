@@ -1,5 +1,5 @@
 import asyncio
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup, KeyboardButton
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import ContextTypes
 from database.db_async import adb
 from database import db
@@ -80,16 +80,6 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
     return msg
 
 
-def get_start_keyboard() -> ReplyKeyboardMarkup:
-    keyboard_buttons = [
-        [KeyboardButton("/txttovcf"), KeyboardButton("/vcftotxt"), KeyboardButton("/xlsxtotxt"), KeyboardButton("/admin")],
-        [KeyboardButton("/merge"),    KeyboardButton("/pecahvcf"), KeyboardButton("/rename"),    KeyboardButton("/duplikat")],
-        [KeyboardButton("/count"),    KeyboardButton("/vip"),      KeyboardButton("/referal"),  KeyboardButton("/akun")],
-        [KeyboardButton("/reset"),    KeyboardButton("/done"),     KeyboardButton("/start")],
-    ]
-    # Menggunakan one_time_keyboard=True agar keyboard bawah otomatis sembunyi begitu diklik!
-    return ReplyKeyboardMarkup(keyboard_buttons, resize_keyboard=True, one_time_keyboard=True)
-
 
 def build_menu_text(first_name: str, user_id: int) -> str:
     fitur = (
@@ -140,15 +130,8 @@ async def send_fresh_start_menu(bot, user_id: int, chat_id: int, first_name: str
         disable_web_page_preview=True,
     )
 
-    msg2 = await bot.send_message(
-        chat_id=chat_id,
-        text="<b>Silakan pilih menu di bawah:</b>",
-        parse_mode="HTML",
-        reply_markup=get_start_keyboard(),
-    )
-
-    register_welcome_messages(user_id, [msg1.message_id, msg2.message_id])
-    return msg1, msg2
+    register_welcome_messages(user_id, [msg1.message_id])
+    return msg1
 
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -261,18 +244,8 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
         )
         welcome_msg_id = msg1.message_id
 
-    # Untuk msg2 (helper keyboard bawah), kita kirim pesan baru di bawahnya agar custom keyboard muncul.
-    # Sebelumnya pastikan pop daftar welcome messages lama agar tidak menumpuk
     _welcome_messages.pop(user.id, None)
-
-    msg2 = await context.bot.send_message(
-        chat_id=chat_id,
-        text="<b>Silakan pilih menu di bawah:</b>",
-        parse_mode="HTML",
-        reply_markup=get_start_keyboard(),
-    )
-
-    register_welcome_messages(user.id, [welcome_msg_id, msg2.message_id])
+    register_welcome_messages(user.id, [welcome_msg_id])
 
 
 
