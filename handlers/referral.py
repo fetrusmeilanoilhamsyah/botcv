@@ -32,11 +32,18 @@ async def cmd_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• Kurang {remains} orang lagi untuk dapat Bonus 7 Hari VIP!"
     )
     
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
+    ])
+    
     await transition_to_handler(
         context.bot,
         user.id,
         update.effective_chat.id,
         text,
+        reply_markup=keyboard,
         update=update
     )
 
