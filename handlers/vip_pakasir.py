@@ -84,8 +84,7 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     await adb.upsert_user(user.id, user.username or "", user.full_name or "")
 
-    from handlers.start import delete_welcome_messages
-    await delete_welcome_messages(context.bot, user.id, update.effective_chat.id)
+    from handlers.start import transition_to_handler
 
     # Status VIP
     status_line = ""
@@ -132,7 +131,15 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )]]
 
     text = f"{status_line}{paket_lines}{info}"
-    await update.message.reply_text(text, reply_markup=InlineKeyboardMarkup(rows))
+    await transition_to_handler(
+        context.bot,
+        user.id,
+        update.effective_chat.id,
+        text,
+        reply_markup=InlineKeyboardMarkup(rows),
+        update=update
+    )
+
 
 
 # ──────────────────────────────────────────────────────────────────────────────
