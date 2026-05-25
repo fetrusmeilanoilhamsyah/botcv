@@ -95,23 +95,24 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
             exp = datetime.fromisoformat(expired_at)
             sisa = (exp - datetime.now()).days
             status_line = (
-                f"Status VIP    : Aktif\n"
-                f"Berakhir      : {exp.strftime('%d/%m/%Y')} ({sisa} hari lagi)\n\n"
+                f"Status: VIP Aktif\n"
+                f"Limit : {exp.strftime('%d/%m/%Y')} ({sisa} hari lagi)\n\n"
             )
         else:
-            status_line = "Status        : Member Permanen\n\n"
+            status_line = "Status: Member Permanen\n\n"
 
     # Paket
-    paket_lines = "PAKET VIP\n" + ("-" * 28) + "\n"
+    paket_lines = "PAKET VIP\n" + ("─" * 24) + "\n"
     for p in PAKET:
-        paket_lines += f"  {p['label']:<12}  {_fmt_price(p['price'])}\n"
+        paket_lines += f"{p['label']:<8} : {_fmt_price(p['price'])}\n"
+    paket_lines += "─" * 24 + "\n"
 
     # Info pembayaran
     if QRIS_ENABLED:
         mode = "SANDBOX" if PAKASIR_SANDBOX else "QRIS Otomatis"
-        info = f"\nPembayaran: {mode}\nPilih paket, bayar QRIS, VIP aktif otomatis."
+        info = f"Metode: {mode}\nPilih paket di bawah untuk mengaktifkan VIP."
     else:
-        info = f"\nPembayaran: Manual\nHubungi {ADMIN_CONTACT} untuk aktivasi."
+        info = f"Metode: Manual\nHubungi {ADMIN_CONTACT} untuk aktivasi."
 
     # Keyboard
     if QRIS_ENABLED:
@@ -246,14 +247,14 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     caption = (
         f"QRIS PEMBAYARAN\n"
         f"{'─'*24}\n"
-        f"Paket      : {package['label']}\n"
-        f"Harga      : {_fmt_price(original_amount)}\n"
-        f"Fee        : {_fmt_price(fee)}\n"
-        f"Total Bayar: {_fmt_price(total_payment)}\n"
-        f"Berlaku    : {exp_text}\n"
-        f"Order ID   : {order_id}\n"
+        f"{'Paket':<5} : {package['label']}\n"
+        f"{'Harga':<5} : {_fmt_price(original_amount)}\n"
+        f"{'Fee':<5} : {_fmt_price(fee)}\n"
+        f"{'Total':<5} : {_fmt_price(total_payment)}\n"
+        f"{'Limit':<5} : {exp_text}\n"
+        f"{'Order':<5} : {order_id}\n"
         f"{'─'*24}\n"
-        f"Scan QR di atas. VIP aktif otomatis setelah bayar."
+        f"Scan QR di atas untuk mengaktifkan VIP otomatis."
     )
 
     kb = InlineKeyboardMarkup([
