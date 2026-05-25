@@ -55,6 +55,7 @@ QRIS_ENABLED = (
 
 # --- Paket ---
 PAKET = [
+    {"label": "2 Hari",    "days":  2, "price":  2_000},
     {"label": "1 Minggu",  "days":  7, "price":  5_000},
     {"label": "2 Minggu",  "days": 14, "price": 10_000},
     {"label": "3 Minggu",  "days": 21, "price": 15_000},

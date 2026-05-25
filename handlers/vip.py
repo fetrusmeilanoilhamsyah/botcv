@@ -10,6 +10,7 @@ from config import ADMIN_CONTACT
 
 
 PAKET = [
+    {"label": "2 Hari",    "days": 2,  "harga": "Rp 2.000"},
     {"label": "1 Minggu",  "days": 7,  "harga": "Rp 5.000"},
     {"label": "2 Minggu",  "days": 14, "harga": "Rp 10.000"},
     {"label": "3 Minggu",  "days": 21, "harga": "Rp 15.000"},
