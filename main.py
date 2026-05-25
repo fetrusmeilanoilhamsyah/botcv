@@ -69,6 +69,11 @@ from handlers.pecahvcf import (
     handle_show_pecahvcf_help_callback,
     STATE_PER_FILE as PECAH_S1, STATE_WAIT_VCF as PECAH_S2,
 )
+from handlers.pecahtxt import (
+    cmd_pecahtxt, handle_pecahtxt_per_file, handle_pecahtxt_file,
+    handle_show_pecahtxt_help_callback,
+    STATE_PER_FILE as PECAHTXT_S1, STATE_WAIT_TXT as PECAHTXT_S2,
+)
 from handlers.rename import (
     cmd_rename, handle_rename_name, handle_rename_file,
     handle_show_rename_help_callback,
@@ -194,6 +199,7 @@ async def text_router(update: Update, context):
         MERGE_NAMING:     handle_merge_naming,
         VCF2TXT_NAMING:   handle_vcftotxt_naming,
         PECAH_S1:         handle_pecah_per_file,
+        PECAHTXT_S1:      handle_pecahtxt_per_file,
         RENAME_S1:        handle_rename_name,
         S1:               handle_ttv_contact_name,
         S2:               handle_ttv_per_file,
@@ -222,6 +228,7 @@ async def file_router(update: Update, context):
         MERGE_STATE:    (handle_merge_file,       "file VCF atau TXT berupa DOKUMEN"),
         VCF2TXT_STATE:  (handle_vcftotxt_file,    "file VCF berupa DOKUMEN"),
         PECAH_S2:       (handle_pecah_vcf_file,   "file VCF berupa DOKUMEN"),
+        PECAHTXT_S2:    (handle_pecahtxt_file,    "file TXT berupa DOKUMEN"),
         RENAME_S2:      (handle_rename_file,      "file VCF berupa DOKUMEN"),
         S0:             (handle_ttv_file,         "file TXT berupa DOKUMEN"),
         S5:             (handle_ttv_file,         "file TXT berupa DOKUMEN"),
@@ -468,6 +475,7 @@ def main():
     app.add_handler(CommandHandler("merge",                             rate_limiter(cmd_merge)))
     app.add_handler(CommandHandler("vcftotxt",                          rate_limiter(cmd_vcftotxt)))
     app.add_handler(CommandHandler("pecahvcf",                          rate_limiter(cmd_pecahvcf)))
+    app.add_handler(CommandHandler("pecahtxt",                          rate_limiter(cmd_pecahtxt)))
     app.add_handler(CommandHandler("rename",                            rate_limiter(cmd_rename)))
     app.add_handler(CommandHandler("count",                             rate_limiter(cmd_count)))
     app.add_handler(CommandHandler("duplikat",                          rate_limiter(cmd_duplikat)))
@@ -494,6 +502,7 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_show_xlsxtotxt_help_callback, pattern="^show_xlsxtotxt_help$"))
     app.add_handler(CallbackQueryHandler(handle_show_merge_help_callback, pattern="^show_merge_help$"))
     app.add_handler(CallbackQueryHandler(handle_show_pecahvcf_help_callback, pattern="^show_pecahvcf_help$"))
+    app.add_handler(CallbackQueryHandler(handle_show_pecahtxt_help_callback, pattern="^show_pecahtxt_help$"))
     app.add_handler(CallbackQueryHandler(handle_show_rename_help_callback, pattern="^show_rename_help$"))
     app.add_handler(CallbackQueryHandler(handle_show_admin_help_callback, pattern="^show_admin_help$"))
     app.add_handler(CallbackQueryHandler(handle_reset_callback,  pattern="^admin_db_reset"))
