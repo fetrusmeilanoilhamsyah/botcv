@@ -51,7 +51,7 @@ async def cmd_rename(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Silakan masukkan nama kontak baru yang Anda inginkan (Contoh: Admin, Klien, atau FEE):",
+        "Nama kontak baru? Contoh: FEE",
         reply_markup=ReplyKeyboardRemove(),
         update=update
     )
@@ -72,9 +72,7 @@ async def handle_rename_name(update: Update, context: ContextTypes.DEFAULT_TYPE)
     db.set_session(user_id, STATE_FILE, {"base_name": base_name, "counter": 0})
     from handlers.start import get_start_keyboard
     await update.message.reply_text(
-        f"Nama kontak berhasil diatur ke: <b>{base_name}</b>\n\n"
-        f"Silakan kirimkan satu atau beberapa file .VCF Anda sekarang. Nama kontak di dalam file tersebut akan diubah secara berurutan.",
-        parse_mode="HTML",
+        f"Nama: {base_name}. Kirim file .VCF sekarang.",
         reply_markup=ReplyKeyboardRemove()
     )
 

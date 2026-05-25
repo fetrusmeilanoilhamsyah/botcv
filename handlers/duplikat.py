@@ -50,7 +50,7 @@ async def cmd_duplikat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Silakan kirimkan file .VCF atau .TXT Anda sekarang. Bot akan otomatis membersihkan nomor kontak duplikat dan memberikan file hasil perbaikannya.",
+        "Kirim file .VCF atau .TXT. Duplikat akan dibersihkan otomatis.",
         reply_markup=ReplyKeyboardRemove(),
         update=update
     )

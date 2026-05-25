@@ -52,7 +52,7 @@ async def cmd_pecahvcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Silakan tentukan jumlah kontak maksimal untuk setiap file pecahan Anda (Contoh: 50, 100, atau 500):",
+        "Berapa kontak per file? Contoh: 100",
         reply_markup=ReplyKeyboardRemove(),
         update=update
     )
@@ -80,9 +80,7 @@ async def handle_pecah_per_file(update: Update, context: ContextTypes.DEFAULT_TY
     db.set_session(user_id, STATE_WAIT_VCF, {"per_file": per_file})
     from handlers.start import get_start_keyboard
     await update.message.reply_text(
-        f"Pengaturan berhasil: maksimal <b>{per_file}</b> kontak per file.\n\n"
-        f"Sekarang silakan kirimkan file .VCF yang ingin Anda pecah (satu file per sesi):",
-        parse_mode="HTML",
+        f"Oke, {per_file} kontak per file. Kirim file .VCF sekarang.",
         reply_markup=ReplyKeyboardRemove()
     )
 

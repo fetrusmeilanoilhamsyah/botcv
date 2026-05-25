@@ -97,7 +97,7 @@ async def cmd_vcftotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Silakan kirimkan satu atau beberapa file VCF Anda sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk melanjutkan.",
+        "Kirim file .VCF sekarang. Ketik /done jika sudah selesai.",
         reply_markup=ReplyKeyboardRemove(),
         update=update
     )

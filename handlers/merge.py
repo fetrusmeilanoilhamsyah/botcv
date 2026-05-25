@@ -97,7 +97,7 @@ async def cmd_merge(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Silakan kirimkan file-file .VCF atau .TXT yang ingin Anda gabungkan sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk memproses.",
+        "Kirim file .VCF atau .TXT yang ingin digabung. Ketik /done jika sudah selesai.",
         reply_markup=ReplyKeyboardRemove(),
         update=update
     )

@@ -135,10 +135,7 @@ async def cmd_xlsxtotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        """📊 <b>Kirim file Excel atau CSV</b>
-
-Bisa kirim banyak sekaligus (.xlsx / .csv).
-Ketik /done jika sudah selesai.""",
+        "Kirim file .xlsx atau .csv sekarang. Ketik /done jika sudah selesai.",
         reply_markup=ReplyKeyboardRemove(),
         update=update
     )

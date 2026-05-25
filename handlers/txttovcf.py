@@ -101,7 +101,7 @@ async def cmd_txttovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Silakan kirimkan file .TXT Anda sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk melanjutkan ke langkah berikutnya.",
+        "Kirim file .TXT sekarang. Ketik /done jika sudah selesai.",
         reply_markup=ReplyKeyboardRemove(),
         update=update
     )
@@ -117,7 +117,7 @@ async def handle_ttv_contact_name(update: Update, context: ContextTypes.DEFAULT_
     data["contact_name"] = update.message.text.strip()
     db.set_session(user_id, S2, data)
     from handlers.start import get_start_keyboard
-    await update.message.reply_text("Silakan tentukan jumlah kontak maksimal untuk setiap file VCF (Contoh: 50, 100, atau 500):", reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text("Berapa kontak per file? Contoh: 100", reply_markup=ReplyKeyboardRemove())
 
 
 async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -127,7 +127,7 @@ async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
     text = update.message.text.strip()
     if not text.isdigit():
-        await update.message.reply_text("Input tidak valid. Harap masukkan angka yang benar (Contoh: 50).")
+        await update.message.reply_text("Masukkan angka. Contoh: 100")
         return
     
     per_file = int(text)
@@ -139,7 +139,7 @@ async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE
     data["per_file"] = per_file
     db.set_session(user_id, S3, data)
     from handlers.start import get_start_keyboard
-    await update.message.reply_text("Silakan masukkan nama dasar untuk file hasil konversi Anda (Contoh: Kontak_Hari_Ini, atau FEE):", reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text("Nama file? Contoh: FEE", reply_markup=ReplyKeyboardRemove())
 
 
 async def handle_ttv_file_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -151,7 +151,7 @@ async def handle_ttv_file_name(update: Update, context: ContextTypes.DEFAULT_TYP
     data["file_name"] = sanitize_filename(update.message.text.strip())
     db.set_session(user_id, S4, data)
     from handlers.start import get_start_keyboard
-    await update.message.reply_text("Silakan tentukan nomor urut awal untuk file pertama Anda (Contoh: 1, atau 100):", reply_markup=ReplyKeyboardRemove())
+    await update.message.reply_text("Nomor urut awal? Contoh: 1", reply_markup=ReplyKeyboardRemove())
 
 
 async def handle_ttv_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -284,7 +284,7 @@ async def handle_ttv_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.set_session(user_id, S1, data)
         from handlers.start import get_start_keyboard
         await update.message.reply_text(
-            f"Berhasil mendeteksi total {data.get('total_contacts', 0)} kontak.\n\nSilakan masukkan nama kontak yang diinginkan (Contoh: Klien Baru, Admin, atau FEE):",
+            f"{data.get('total_contacts', 0)} kontak terdeteksi. Nama kontak? Contoh: FEE",
             reply_markup=ReplyKeyboardRemove()
         )
         return
@@ -480,19 +480,17 @@ async def handle_show_txttovcf_help_callback(update: Update, context: ContextTyp
     db.set_session(user_id, S0, {"count": 0, "total_size": 0, "total_contacts": 0})
     from handlers.start import get_start_keyboard
 
-    # Edit the message in-place instead of deleting it to provide a smooth morphing transition
     try:
         await query.message.edit_text(
-            text="Silakan kirimkan file .TXT Anda sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk melanjutkan ke langkah berikutnya."
+            text="Kirim file .TXT sekarang. Ketik /done jika sudah selesai."
         )
     except Exception:
-        # Fallback if editing fails
         try:
             await query.message.delete()
         except Exception:
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Silakan kirimkan file .TXT Anda sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk melanjutkan ke langkah berikutnya.",
+            text="Kirim file .TXT sekarang. Ketik /done jika sudah selesai.",
             reply_markup=ReplyKeyboardRemove()
         )
