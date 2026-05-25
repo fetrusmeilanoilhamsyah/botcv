@@ -132,6 +132,8 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
                 ]
             ])
+            from handlers.start import clear_welcome_messages
+            clear_welcome_messages(user_id)
             await update.message.reply_text(
                 "Proses pembuatan Admin VCF selesai.",
                 reply_markup=keyboard

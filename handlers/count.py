@@ -208,6 +208,8 @@ async def handle_count_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("HITUNG FILE LAIN", callback_data="show_count_help", style="success")]
     ])
 
+    from handlers.start import clear_welcome_messages
+    clear_welcome_messages(user_id)
     await update.message.reply_text(
         f"Total file   : {total_file}\n"
         f"Total kontak : {total_kontak:,}\n"

@@ -12,6 +12,12 @@ _welcome_messages = {}
 def register_welcome_messages(user_id: int, message_ids: list[int]):
     _welcome_messages[user_id] = message_ids
 
+def clear_welcome_messages(user_id: int):
+    """Hapus tracking welcome message setelah proses selesai.
+    Wajib dipanggil di akhir setiap handler agar command berikutnya
+    tidak mengedit pesan lama yang sudah jauh ke atas."""
+    _welcome_messages.pop(user_id, None)
+
 async def delete_welcome_messages(bot, user_id: int, chat_id: int):
     msg_ids = _welcome_messages.pop(user_id, [])
     if msg_ids:

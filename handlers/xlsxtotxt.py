@@ -240,6 +240,8 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
                 InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
             ]
         ])
+        from handlers.start import clear_welcome_messages
+        clear_welcome_messages(user_id)
         await update.message.reply_text("Tidak ada nomor yang ditemukan dari file yang dikirim.", reply_markup=keyboard)
         db.clear_session(user_id)
         import shutil
@@ -273,6 +275,8 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
             ),
             parse_mode="HTML",
         )
+        from handlers.start import clear_welcome_messages
+        clear_welcome_messages(user_id)
         await update.message.reply_text(
             "Proses selesai. Silakan unduh file hasil ekstraksi di atas.",
             reply_markup=keyboard

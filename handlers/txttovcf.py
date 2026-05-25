@@ -448,6 +448,8 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 pass
 
             from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+            from handlers.start import clear_welcome_messages
+            clear_welcome_messages(user_id)
             keyboard = InlineKeyboardMarkup([
                 [
                     InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_txttovcf_help", style="success"),

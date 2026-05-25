@@ -371,6 +371,8 @@ async def handle_vcftotxt_naming(update: Update, context: ContextTypes.DEFAULT_T
             pass
 
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        from handlers.start import clear_welcome_messages
+        clear_welcome_messages(user_id)
         keyboard = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_vcftotxt_help", style="success"),

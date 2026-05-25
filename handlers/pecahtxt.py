@@ -298,6 +298,8 @@ async def handle_pecahtxt_done(update: Update, context: ContextTypes.DEFAULT_TYP
         except Exception:
             pass
 
+        from handlers.start import clear_welcome_messages
+        clear_welcome_messages(user_id)
         keyboard = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_pecahtxt_help", style="success"),

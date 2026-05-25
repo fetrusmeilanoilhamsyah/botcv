@@ -195,6 +195,8 @@ async def handle_pecah_vcf_file(update: Update, context: ContextTypes.DEFAULT_TY
             pass
 
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        from handlers.start import clear_welcome_messages
+        clear_welcome_messages(user_id)
         keyboard = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_pecahvcf_help", style="success"),
@@ -202,13 +204,9 @@ async def handle_pecah_vcf_file(update: Update, context: ContextTypes.DEFAULT_TY
             ]
         ])
         await update.message.reply_text(
-            f"✅ <b>Selesai dipecah!</b>\n"
-            f"{'─' * 20}\n"
-            f"📋 Total kontak  : <b>{total_contacts:,}</b>\n"
-            f"✂️  Kontak/file   : <b>{per_file}</b>\n"
-            f"📁 File dihasilkan: <b>{total_parts}</b>\n"
-            f"{'─' * 20}",
-            parse_mode="HTML",
+            f"Total kontak  : {total_contacts:,}\n"
+            f"Kontak/file   : {per_file}\n"
+            f"File dihasilkan: {total_parts}",
             reply_markup=keyboard,
         )
 

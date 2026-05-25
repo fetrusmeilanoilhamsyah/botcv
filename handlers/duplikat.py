@@ -227,6 +227,8 @@ async def handle_duplikat_file(update: Update, context: ContextTypes.DEFAULT_TYP
                     ]
                 ])
 
+                from handlers.start import clear_welcome_messages
+                clear_welcome_messages(uid)
                 await bot.send_message(
                     chat_id=chat_id,
                     text=(

@@ -357,6 +357,8 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                     InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
                 ]
             ])
+            from handlers.start import clear_welcome_messages
+            clear_welcome_messages(user_id)
             await update.message.reply_text(
                 f"Proses selesai.\n"
                 f"Total file input : {total_files} VCF\n"
@@ -418,6 +420,8 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                     InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="primary")
                 ]
             ])
+            from handlers.start import clear_welcome_messages
+            clear_welcome_messages(user_id)
             await update.message.reply_text(
                 f"Proses selesai.\n"
                 f"Total file input : {total_files} TXT\n"
