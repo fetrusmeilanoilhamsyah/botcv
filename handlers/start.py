@@ -80,6 +80,10 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
     return msg
 
 
+def get_start_keyboard():
+    """Stub: keyboard dihapus, semua handler tetap bisa import tanpa crash."""
+    return None
+
 
 def build_menu_text(first_name: str, user_id: int) -> str:
     fitur = (
