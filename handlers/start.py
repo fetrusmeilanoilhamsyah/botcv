@@ -27,8 +27,10 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
     if update and update.message:
         try:
             await update.message.delete()
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Gagal menghapus pesan user: %s", e)
+
 
     # Ambil pesan welcome yang sedang aktif
     msg_ids = _welcome_messages.pop(user_id, [])
@@ -59,8 +61,10 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
             # Daftarkan kembali pesan yang diedit ini sebagai welcome message aktif
             register_welcome_messages(user_id, [edit_msg_id])
             return msg
-        except Exception:
-            pass
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Gagal mengedit pesan welcome: %s", e)
+
 
     # Fallback: Kirim pesan baru jika edit gagal / tidak ada welcome messages
     msg = await bot.send_message(
