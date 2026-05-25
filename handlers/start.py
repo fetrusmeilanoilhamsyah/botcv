@@ -31,23 +31,6 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
             import logging
             logging.getLogger(__name__).warning("Gagal menghapus pesan user: %s", e)
 
-    # 2. Tangani ReplyKeyboardRemove jika ada
-    from telegram import ReplyKeyboardRemove
-    actual_reply_markup = reply_markup
-    if isinstance(reply_markup, ReplyKeyboardRemove):
-        # Kirim pesan dummy untuk menyembunyikan keyboard bawah, lalu hapus seketika
-        try:
-            dummy = await bot.send_message(
-                chat_id=chat_id,
-                text=".",
-                reply_markup=ReplyKeyboardRemove()
-            )
-            await bot.delete_message(chat_id=chat_id, message_id=dummy.message_id)
-        except Exception:
-            pass
-        actual_reply_markup = None
-
-
     # Ambil pesan welcome yang sedang aktif
     msg_ids = _welcome_messages.pop(user_id, [])
     if msg_ids:
@@ -55,7 +38,7 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
         # Kita EDIT pesan panjang ini langsung menjadi prompt baru agar tidak menumpuk!
         edit_msg_id = msg_ids[0]
         
-        # Pesan-pesan lain di bawahnya (seperti tutorial msg2 atau restore_msg) kita hapus semuanya
+        # Pesan-pesan lain di bawahnya kita hapus semuanya
         delete_ids = msg_ids[1:]
         if delete_ids:
             async def safe_delete(msg_id):
@@ -66,13 +49,17 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
             await asyncio.gather(*(safe_delete(msg_id) for msg_id in delete_ids))
 
         try:
-            # Edit pesan welcome panjang secara langsung (tanpa memodifikasi ReplyKeyboardRemove)
+            # Edit pesan welcome panjang secara langsung (lewati ReplyKeyboardRemove karena Telegram
+            # tidak mengizinkan pengubahan reply_markup menjadi ReplyKeyboardRemove secara edit)
+            from telegram import ReplyKeyboardRemove
+            actual_markup = reply_markup if not isinstance(reply_markup, ReplyKeyboardRemove) else None
+            
             msg = await bot.edit_message_text(
                 chat_id=chat_id,
                 message_id=edit_msg_id,
                 text=text,
                 parse_mode="HTML",
-                reply_markup=actual_reply_markup,
+                reply_markup=actual_markup,
                 disable_web_page_preview=True
             )
             # Daftarkan kembali pesan yang diedit ini sebagai welcome message aktif
@@ -81,7 +68,6 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
         except Exception as e:
             import logging
             logging.getLogger(__name__).warning("Gagal mengedit pesan welcome: %s", e)
-
 
     # Fallback: Kirim pesan baru jika edit gagal / tidak ada welcome messages
     msg = await bot.send_message(
@@ -94,8 +80,6 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
     return msg
 
 
-
-
 def get_start_keyboard() -> ReplyKeyboardMarkup:
     keyboard_buttons = [
         [KeyboardButton("/txttovcf"), KeyboardButton("/vcftotxt"), KeyboardButton("/xlsxtotxt"), KeyboardButton("/admin")],
@@ -103,7 +87,9 @@ def get_start_keyboard() -> ReplyKeyboardMarkup:
         [KeyboardButton("/count"),    KeyboardButton("/vip"),      KeyboardButton("/referal"),  KeyboardButton("/akun")],
         [KeyboardButton("/reset"),    KeyboardButton("/done"),     KeyboardButton("/start")],
     ]
-    return ReplyKeyboardMarkup(keyboard_buttons, resize_keyboard=True)
+    # Menggunakan one_time_keyboard=True agar keyboard bawah otomatis sembunyi begitu diklik!
+    return ReplyKeyboardMarkup(keyboard_buttons, resize_keyboard=True, one_time_keyboard=True)
+
 
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -138,25 +124,23 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "└ /resetdatabase — Bersihkan cache"
         )
 
-    # ── Reply LANGSUNG — tidak tunggu DB ──────────────────────────────────────
-    msg1 = await update.message.reply_text(
+    # ── Reply LANGSUNG — tidak tunggu DB (Gabungkan tutorial sebagai link HTML bersih agar 100% rapi) ──
+    menu_text = (
         f"<b>Halo {first_name}!</b> Selamat datang di bot konversi kontak.\n\n"
         f"{fitur}\n"
         f"━━━━━━━━━━━━━━━━━\n"
-        f"<b>Owner:</b> {ADMIN_CONTACT}",
+        f"📖 <a href=\"{TUTORIAL_LINK}\"><b>TUTORIAL LENGKAP (PANDUAN BOT)</b></a>\n"
+        f"━━━━━━━━━━━━━━━━━\n"
+        f"<b>Owner:</b> {ADMIN_CONTACT}"
+    )
+
+    msg1 = await update.message.reply_text(
+        text=menu_text,
         parse_mode="HTML",
+        reply_markup=get_start_keyboard(),
         disable_web_page_preview=True,
     )
-    msg2 = await update.message.reply_text(
-        "<b>Butuh panduan?</b> Klik tombol di bawah:",
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK, style="success")]]),
-    )
-    restore_msg = await update.message.reply_text(
-        "Ketuk perintah di bawah untuk mulai:",
-        reply_markup=get_start_keyboard(),
-    )
-    register_welcome_messages(user.id, [msg1.message_id, msg2.message_id, restore_msg.message_id])
+    register_welcome_messages(user.id, [msg1.message_id])
 
 
     # ── Semua DB + cleanup di background ──────────────────────────────────────
@@ -263,52 +247,26 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
         f"<b>Halo {first_name}!</b> Selamat datang di bot konversi kontak.\n\n"
         f"{fitur}\n"
         f"━━━━━━━━━━━━━━━━━\n"
+        f"📖 <a href=\"{TUTORIAL_LINK}\"><b>TUTORIAL LENGKAP (PANDUAN BOT)</b></a>\n"
+        f"━━━━━━━━━━━━━━━━━\n"
         f"<b>Owner:</b> {ADMIN_CONTACT}"
     )
 
-    # Edit the inline button message in-place to become the menu text
-    edited = False
+    # Selalu hapus pesan lama (tombol proses selesai) agar chat bersih
     try:
-        msg1 = await query.message.edit_text(
-            text=menu_text,
-            parse_mode="HTML",
-            disable_web_page_preview=True,
-        )
-        edited = True
+        await query.message.delete()
     except Exception:
         pass
 
-    if not edited:
-        try:
-            await query.message.delete()
-        except Exception:
-            pass
-        msg1 = await context.bot.send_message(
-            chat_id=chat_id,
-            text=menu_text,
-            parse_mode="HTML",
-            disable_web_page_preview=True,
-        )
-
-    # Selalu kirim tutorial message dengan get_start_keyboard()
-    # agar keyboard bawah muncul kembali setelah proses selesai
-    msg2 = await context.bot.send_message(
+    # Kirim ulang 1 pesan welcome tunggal pembawa keyboard
+    msg1 = await context.bot.send_message(
         chat_id=chat_id,
-        text="<b>Butuh panduan?</b> Klik tombol di bawah:",
+        text=menu_text,
         parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK, style="success")]]),
-    )
-
-    # Kirim pesan dengan keyboard bawah agar muncul kembali.
-    # JANGAN dihapus — keyboard terikat ke pesan ini.
-    # Pesan ini akan dihapus bersama msg1 & msg2 saat user klik command berikutnya.
-    restore_msg = await context.bot.send_message(
-        chat_id=chat_id,
-        text="Ketuk perintah di bawah untuk mulai:",
         reply_markup=get_start_keyboard(),
+        disable_web_page_preview=True,
     )
-
-    register_welcome_messages(user.id, [msg1.message_id, msg2.message_id, restore_msg.message_id])
+    register_welcome_messages(user.id, [msg1.message_id])
 
 
 
