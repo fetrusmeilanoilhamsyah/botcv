@@ -53,7 +53,7 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 jumlah_kontak = sess["data"].get("total_contacts", 0)
                 await context.bot.send_message(
                     chat_id=chat_id,
-                    text=f"Berhasil menerima {jumlah_file} file dengan total {jumlah_kontak} kontak. Silakan ketik /done jika Anda sudah selesai mengirim semua file."
+                    text=f"{jumlah_file} file diterima ({jumlah_kontak} kontak). Ketik /done jika sudah."
                 )
     except asyncio.CancelledError:
         pass
@@ -213,7 +213,7 @@ async def handle_vcftotxt_done(update: Update, context: ContextTypes.DEFAULT_TYP
     db.set_session(user_id, STATE_NAMING, sess["data"])
     from handlers.start import get_start_keyboard
     await update.message.reply_text(
-        f"Berhasil mendeteksi {sess['data']['count']} file dengan total {sess['data'].get('total_contacts', 0)} kontak.\n\nSilakan masukkan nama yang Anda inginkan untuk file .TXT hasil konversi (Contoh: Hasil_Ekstrak, atau Kontak):",
+        f"{sess['data']['count']} file, {sess['data'].get('total_contacts', 0)} kontak. Nama file TXT? Contoh: FEE",
         reply_markup=ReplyKeyboardRemove()
     )
 
@@ -401,19 +401,17 @@ async def handle_show_vcftotxt_help_callback(update: Update, context: ContextTyp
     db.set_session(user_id, STATE, {"count": 0, "total_size": 0, "total_contacts": 0})
     from handlers.start import get_start_keyboard
 
-    # Edit the message in-place instead of deleting it to provide a smooth morphing transition
     try:
         await query.message.edit_text(
-            text="Silakan kirimkan satu atau beberapa file VCF Anda sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk melanjutkan."
+            text="Kirim file .VCF sekarang. Ketik /done jika sudah selesai."
         )
     except Exception:
-        # Fallback if editing fails
         try:
             await query.message.delete()
         except Exception:
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Silakan kirimkan satu atau beberapa file VCF Anda sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk melanjutkan.",
+            text="Kirim file .VCF sekarang. Ketik /done jika sudah selesai.",
             reply_markup=ReplyKeyboardRemove()
         )

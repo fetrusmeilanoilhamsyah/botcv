@@ -118,7 +118,7 @@ async def cmd_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Silakan kirimkan satu atau beberapa file .TXT atau .VCF Anda sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk menghitung total kontak.",
+        "Kirim file .TXT atau .VCF sekarang. Ketik /done jika sudah selesai.",
         reply_markup=ReplyKeyboardRemove(),
         update=update
     )
@@ -209,13 +209,9 @@ async def handle_count_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ])
 
     await update.message.reply_text(
-        f"LAPORAN HITUNGAN\n"
-        f"{'─' * 20}\n"
-        f"Total File : {total_file}\n"
-        f"Total Kontak : {total_kontak:,}\n"
-        f"Rata-rata/File : {avg:,}\n"
-        f"{'─' * 20}",
-        parse_mode="HTML",
+        f"Total file   : {total_file}\n"
+        f"Total kontak : {total_kontak:,}\n"
+        f"Rata-rata    : {avg:,}/file",
         reply_markup=keyboard,
     )
 
@@ -239,23 +235,19 @@ async def handle_show_count_help_callback(update: Update, context: ContextTypes.
 
     from handlers.start import get_start_keyboard
 
-    # Edit the message in-place instead of deleting it to provide a smooth morphing transition
     try:
         await query.message.edit_text(
-            text="Silakan kirimkan satu atau beberapa file .TXT atau .VCF Anda sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk menghitung total kontak.",
-            parse_mode="HTML"
+            text="Kirim file .TXT atau .VCF sekarang. Ketik /done jika sudah selesai."
         )
         msg = query.message
     except Exception:
-        # Fallback if editing fails
         try:
             await query.message.delete()
         except Exception:
             pass
         msg = await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Silakan kirimkan satu atau beberapa file .TXT atau .VCF Anda sekarang. Setelah selesai mengirim semua file, silakan ketik /done untuk menghitung total kontak.",
-            parse_mode="HTML",
+            text="Kirim file .TXT atau .VCF sekarang. Ketik /done jika sudah selesai.",
             reply_markup=ReplyKeyboardRemove()
         )
     _status_msg[user_id] = msg
