@@ -31,6 +31,22 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
             import logging
             logging.getLogger(__name__).warning("Gagal menghapus pesan user: %s", e)
 
+    # 2. Tangani ReplyKeyboardRemove jika ada
+    from telegram import ReplyKeyboardRemove
+    actual_reply_markup = reply_markup
+    if isinstance(reply_markup, ReplyKeyboardRemove):
+        # Kirim pesan dummy untuk menyembunyikan keyboard bawah, lalu hapus seketika
+        try:
+            dummy = await bot.send_message(
+                chat_id=chat_id,
+                text=".",
+                reply_markup=ReplyKeyboardRemove()
+            )
+            await bot.delete_message(chat_id=chat_id, message_id=dummy.message_id)
+        except Exception:
+            pass
+        actual_reply_markup = None
+
 
     # Ambil pesan welcome yang sedang aktif
     msg_ids = _welcome_messages.pop(user_id, [])
@@ -50,13 +66,14 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
             await asyncio.gather(*(safe_delete(msg_id) for msg_id in delete_ids))
 
         try:
-            # Edit pesan welcome panjang secara langsung
+            # Edit pesan welcome panjang secara langsung (tanpa memodifikasi ReplyKeyboardRemove)
             msg = await bot.edit_message_text(
                 chat_id=chat_id,
                 message_id=edit_msg_id,
                 text=text,
                 parse_mode="HTML",
-                reply_markup=reply_markup
+                reply_markup=actual_reply_markup,
+                disable_web_page_preview=True
             )
             # Daftarkan kembali pesan yang diedit ini sebagai welcome message aktif
             register_welcome_messages(user_id, [edit_msg_id])
@@ -71,7 +88,8 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
         chat_id=chat_id,
         text=text,
         parse_mode="HTML",
-        reply_markup=reply_markup
+        reply_markup=reply_markup,
+        disable_web_page_preview=True
     )
     return msg
 
@@ -127,7 +145,6 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"━━━━━━━━━━━━━━━━━\n"
         f"<b>Owner:</b> {ADMIN_CONTACT}",
         parse_mode="HTML",
-        reply_markup=get_start_keyboard(),
         disable_web_page_preview=True,
     )
     msg2 = await update.message.reply_text(
@@ -135,7 +152,12 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK, style="success")]]),
     )
-    register_welcome_messages(user.id, [msg1.message_id, msg2.message_id])
+    restore_msg = await update.message.reply_text(
+        "Ketuk perintah di bawah untuk mulai:",
+        reply_markup=get_start_keyboard(),
+    )
+    register_welcome_messages(user.id, [msg1.message_id, msg2.message_id, restore_msg.message_id])
+
 
     # ── Semua DB + cleanup di background ──────────────────────────────────────
     async def _bg():
