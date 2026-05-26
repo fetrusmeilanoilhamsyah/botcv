@@ -50,7 +50,7 @@ WEBHOOK_PORT = int(os.getenv("WEBHOOK_PORT", 8081))   # FIX: was 8080 → port c
 HEALTH_PORT  = int(os.getenv("HEALTH_PORT",  8080))
 
 # ── Global concurrency shielding & RAM Caching (Anti-DDoS / Anti-Spam) ────────
-GLOBAL_MAX_CONCURRENT      = 32   # Maksimal 32 coroutine update teks jalan bersamaan
-GLOBAL_MAX_CONCURRENT_FILE = 50   # Maksimal 50 proses download/upload file jalan bersamaan (mencegah bottleneck merge/vcftotxt)
-USER_CLICK_COOLDOWN        = 0.8  # Jeda waktu minimum antar klik/pesan dalam detik (debounce)
-VIP_CACHE_TTL              = 30   # Durasi simpan cache status VIP di RAM dalam detik
+GLOBAL_MAX_CONCURRENT      = 256  # Maks 256 coroutine update berjalan bersamaan
+GLOBAL_MAX_CONCURRENT_FILE = 500  # Maks 500 proses download/upload file bersamaan
+USER_CLICK_COOLDOWN        = 0.3  # Jeda minimum antar klik (debounce anti-spam)
+VIP_CACHE_TTL              = 30   # Durasi simpan cache status VIP di RAM (detik)

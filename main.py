@@ -150,7 +150,6 @@ from config import (
 
 MAX_CONCURRENT_PER_USER = 2
 user_semaphores      = defaultdict(lambda: Semaphore(MAX_CONCURRENT_PER_USER))
-user_file_semaphores = defaultdict(lambda: Semaphore(50))
 
 global_semaphore      = Semaphore(GLOBAL_MAX_CONCURRENT)
 global_file_semaphore = Semaphore(GLOBAL_MAX_CONCURRENT_FILE)
@@ -193,12 +192,10 @@ def file_rate_limiter(func):
         if not update or not update.effective_user:
             return await func(update, context)
 
-        user_id = update.effective_user.id
-
-        # File rate limiting HANYA menggunakan global dan user-level semaphores (tanpa click cooldown)
+        # Hanya gunakan 1 global semaphore — tidak ada antrian per-user untuk file
+        # User bisa upload banyak file paralel, yang dibatasi hanya total global
         async with global_file_semaphore:
-            async with user_file_semaphores[user_id]:
-                return await func(update, context)
+            return await func(update, context)
 
     wrapper.__name__ = func.__name__
     return wrapper
@@ -418,7 +415,6 @@ async def _job_cleanup_sessions(context):
                     pass
         for uid in inactive:
             user_semaphores.pop(uid, None)
-            user_file_semaphores.pop(uid, None)
         if inactive:
             logger.info("[JOB] Cleaned %d inactive semaphores", len(inactive))
 
@@ -529,9 +525,9 @@ def main():
         ApplicationBuilder()
         .token(BOT_TOKEN)
         .defaults(Defaults(parse_mode=ParseMode.HTML))
-        .concurrent_updates(32)
-        .connection_pool_size(100)
-        .pool_timeout(30)
+        .concurrent_updates(256)      # proses hingga 256 update paralel
+        .connection_pool_size(256)    # 256 koneksi ke Telegram API
+        .pool_timeout(60)
         .read_timeout(30)
         .write_timeout(120)
         .connect_timeout(30)
