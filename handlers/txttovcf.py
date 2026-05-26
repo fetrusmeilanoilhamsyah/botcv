@@ -390,7 +390,8 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         send_status = await update.message.reply_text(f"Menyiapkan {total_files} file...")
 
-        # ── KIRIM via BytesIO — tidak ada ketergantungan disk ──
+        # ── KIRIM via BytesIO — PARALEL ASYNC SANGAT CEPAT ──
+        tasks = []
         chunk_size = 5
         for i in range(0, len(results), chunk_size):
             chunk_results = results[i:i + chunk_size]
@@ -403,43 +404,45 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 bio_list.append(buf)
                 media_group.append(InputMediaDocument(media=buf, filename=f"{label}.vcf"))
 
-            async def _send_chunk(_mg=media_group, _bl=bio_list, _cr=chunk_results):
-                if len(_mg) == 1:
-                    label_name, _ = _cr[0]
-                    _bl[0].seek(0)
-                    await update.message.reply_document(
-                        document=_bl[0],
-                        filename=f"{label_name}.vcf",
-                        read_timeout=120, write_timeout=120, connect_timeout=60
-                    )
-                else:
-                    for b in _bl: b.seek(0)
-                    await update.message.reply_media_group(
-                        media=_mg,
-                        read_timeout=120, write_timeout=120, connect_timeout=60
-                    )
+            async def _send_chunk_with_retry(_mg=media_group, _bl=bio_list, _cr=chunk_results, _idx=i//chunk_size):
+                async def _send_chunk():
+                    if len(_mg) == 1:
+                        label_name, _ = _cr[0]
+                        _bl[0].seek(0)
+                        await update.message.reply_document(
+                            document=_bl[0],
+                            filename=f"{label_name}.vcf",
+                            read_timeout=120, write_timeout=120, connect_timeout=60
+                        )
+                    else:
+                        for b in _bl: b.seek(0)
+                        await update.message.reply_media_group(
+                            media=_mg,
+                            read_timeout=120, write_timeout=120, connect_timeout=60
+                        )
 
-            max_retries = 3
-            for attempt in range(max_retries):
-                try:
-                    await _send_chunk()
-                    break  # Success, exit retry loop
-                except RetryAfter as e:
-                    if attempt == max_retries - 1:
-                        _logger.error(f"Max retries reached for chunk {i//chunk_size + 1}")
-                        raise
-                    # Exponential backoff: attempt 0->2s, attempt 1->4s, attempt 2->6s
-                    wait_secs = int(e.retry_after) * (attempt + 1) + 2
-                    _logger.warning(f"Flood limit! Retry {attempt+1}/{max_retries} after {wait_secs}s...")
-                    await asyncio.sleep(wait_secs)
-                except Exception as e:
-                    _logger.error(f"Gagal kirim chunk {i//chunk_size + 1}: {e}")
-                    if attempt == max_retries - 1:
-                        raise
-                    await asyncio.sleep(2)  # Short wait before retry on generic error
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        await _send_chunk()
+                        break  # Success
+                    except RetryAfter as e:
+                        if attempt == max_retries - 1:
+                            _logger.error(f"Max retries reached for chunk {_idx + 1}")
+                            raise
+                        wait_secs = int(e.retry_after) * (attempt + 1) + 2
+                        _logger.warning(f"Flood limit! Retry {attempt+1}/{max_retries} after {wait_secs}s...")
+                        await asyncio.sleep(wait_secs)
+                    except Exception as e:
+                        _logger.error(f"Gagal kirim chunk {_idx + 1}: {e}")
+                        if attempt == max_retries - 1:
+                            raise
+                        await asyncio.sleep(2)
 
-            if i + chunk_size < len(results):
-                await asyncio.sleep(0.5)
+            tasks.append(_send_chunk_with_retry())
+
+        # Unggah semua berkas secara paralel serentak!
+        await asyncio.gather(*tasks)
 
         try:
             try:

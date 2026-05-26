@@ -316,6 +316,8 @@ async def handle_vcftotxt_naming(update: Update, context: ContextTypes.DEFAULT_T
             await progress_msg.edit_text("Gagal. Nomor tidak ditemukan.")
             return
 
+        # ── KIRIM via BytesIO — PARALEL ASYNC SANGAT CEPAT ──
+        tasks = []
         for i in range(0, total_created, chunk_size):
             chunk = results_files[i:i + chunk_size]
 
@@ -327,43 +329,45 @@ async def handle_vcftotxt_naming(update: Update, context: ContextTypes.DEFAULT_T
                 bio_list.append(buf)
                 media_group.append(InputMediaDocument(media=buf, filename=f"{label}.txt"))
 
-            async def _send_v2t_chunk(_mg=media_group, _bl=bio_list, _ch=chunk):
-                if len(_mg) == 1:
-                    label_name, _ = _ch[0]
-                    _bl[0].seek(0)
-                    await update.message.reply_document(
-                        document=_bl[0],
-                        filename=f"{label_name}.txt",
-                        read_timeout=120, connect_timeout=60, write_timeout=120
-                    )
-                else:
-                    for b in _bl: b.seek(0)
-                    await update.message.reply_media_group(
-                        media=_mg,
-                        read_timeout=120, connect_timeout=60, write_timeout=120
-                    )
+            async def _send_v2t_chunk_with_retry(_mg=media_group, _bl=bio_list, _ch=chunk, _idx=i//chunk_size):
+                async def _send_v2t_chunk():
+                    if len(_mg) == 1:
+                        label_name, _ = _ch[0]
+                        _bl[0].seek(0)
+                        await update.message.reply_document(
+                            document=_bl[0],
+                            filename=f"{label_name}.txt",
+                            read_timeout=120, connect_timeout=60, write_timeout=120
+                        )
+                    else:
+                        for b in _bl: b.seek(0)
+                        await update.message.reply_media_group(
+                            media=_mg,
+                            read_timeout=120, connect_timeout=60, write_timeout=120
+                        )
 
-            max_retries = 3
-            for attempt in range(max_retries):
-                try:
-                    await _send_v2t_chunk()
-                    break  # Success, exit retry loop
-                except RetryAfter as e:
-                    if attempt == max_retries - 1:
-                        logger.warning(f"Max retries reached for vcftotxt chunk {i//chunk_size + 1}")
-                        raise
-                    # Exponential backoff
-                    wait_secs = int(e.retry_after) * (attempt + 1) + 2
-                    logger.warning(f"vcftotxt flood limit! Retry {attempt+1}/{max_retries} after {wait_secs}s...")
-                    await asyncio.sleep(wait_secs)
-                except Exception as e:
-                    logger.error(f"vcftotxt gagal kirim chunk {i//chunk_size + 1}: {e}")
-                    if attempt == max_retries - 1:
-                        raise
-                    await asyncio.sleep(2)
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        await _send_v2t_chunk()
+                        break  # Success
+                    except RetryAfter as e:
+                        if attempt == max_retries - 1:
+                            logger.warning(f"Max retries reached for vcftotxt chunk {_idx + 1}")
+                            raise
+                        wait_secs = int(e.retry_after) * (attempt + 1) + 2
+                        logger.warning(f"vcftotxt flood limit! Retry {attempt+1}/{max_retries} after {wait_secs}s...")
+                        await asyncio.sleep(wait_secs)
+                    except Exception as e:
+                        logger.error(f"vcftotxt gagal kirim chunk {_idx + 1}: {e}")
+                        if attempt == max_retries - 1:
+                            raise
+                        await asyncio.sleep(2)
 
-            if i + chunk_size < total_created:
-                await asyncio.sleep(0.5)
+            tasks.append(_send_v2t_chunk_with_retry())
+
+        # Unggah semua berkas secara paralel serentak!
+        await asyncio.gather(*tasks)
 
         try:
             await progress_msg.delete()
