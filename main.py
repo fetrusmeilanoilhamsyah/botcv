@@ -167,19 +167,18 @@ def rate_limiter(func):
             return await func(update, context)
 
         user_id = update.effective_user.id
-        now = time.time()
 
-        # Cooldown Anti-Spam (smart debounce)
-        last_click = _user_last_click.get(user_id, 0)
-        if now - last_click < USER_CLICK_COOLDOWN:
-            if update.callback_query:
+        # Cooldown Anti-Spam (smart debounce) HANYA untuk klik tombol inline (callback query)
+        if update.callback_query:
+            now = time.time()
+            last_click = _user_last_click.get(user_id, 0)
+            if now - last_click < USER_CLICK_COOLDOWN:
                 try:
                     await update.callback_query.answer()
                 except Exception:
                     pass
-            return
-
-        _user_last_click[user_id] = now
+                return
+            _user_last_click[user_id] = now
 
         async with global_semaphore:
             async with user_semaphores[user_id]:
@@ -195,20 +194,8 @@ def file_rate_limiter(func):
             return await func(update, context)
 
         user_id = update.effective_user.id
-        now = time.time()
 
-        # Cooldown Anti-Spam (smart debounce)
-        last_click = _user_last_click.get(user_id, 0)
-        if now - last_click < USER_CLICK_COOLDOWN:
-            if update.callback_query:
-                try:
-                    await update.callback_query.answer()
-                except Exception:
-                    pass
-            return
-
-        _user_last_click[user_id] = now
-
+        # File rate limiting HANYA menggunakan global dan user-level semaphores (tanpa click cooldown)
         async with global_file_semaphore:
             async with user_file_semaphores[user_id]:
                 return await func(update, context)
