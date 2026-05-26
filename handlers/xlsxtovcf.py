@@ -424,7 +424,7 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         # ── KIRIM via BytesIO — PARALEL ASYNC SANGAT CEPAT ──
         tasks = []
-        chunk_size = 5
+        chunk_size = 10
         for i in range(0, len(results), chunk_size):
             chunk_results = results[i:i + chunk_size]
 

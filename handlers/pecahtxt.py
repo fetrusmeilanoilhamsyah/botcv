@@ -249,7 +249,7 @@ async def handle_pecahtxt_done(update: Update, context: ContextTypes.DEFAULT_TYP
             return
 
         # Kirim hasil dalam batch 10
-        BATCH = 5
+        BATCH = 10
         for i in range(0, total_parts, BATCH):
             batch = output_files[i:i + BATCH]
             bio_list = []
