@@ -309,7 +309,7 @@ async def handle_vcftotxt_naming(update: Update, context: ContextTypes.DEFAULT_T
         from telegram import InputMediaDocument
         from telegram.error import RetryAfter
         
-        chunk_size = 10
+        chunk_size = 5
         total_created = len(results_files)
 
         if total_created == 0:

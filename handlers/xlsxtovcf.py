@@ -422,7 +422,7 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         send_status = await update.message.reply_text(f"Menyiapkan {total_files} file...")
 
-        chunk_size = 10
+        chunk_size = 5
         for i in range(0, len(results), chunk_size):
             chunk_results = results[i:i + chunk_size]
 

@@ -147,7 +147,7 @@ async def handle_pecah_vcf_file(update: Update, context: ContextTypes.DEFAULT_TY
             pass
 
         # Kirim file hasil dalam batch 10
-        BATCH = 10
+        BATCH = 5
         for i in range(0, total_parts, BATCH):
             batch = output_files[i:i + BATCH]
             bio_list = []
