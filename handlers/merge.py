@@ -306,7 +306,7 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                 with ThreadPoolExecutor(max_workers=min(8, len(files) or 1)) as pool:
                     future_to_idx = {pool.submit(parse_one, f): i for i, f in enumerate(files)}
                     try:
-                        for future in as_completed(future_to_idx, timeout=300):  # 5 min timeout
+                        for future in as_completed(future_to_idx, timeout=300):
                             idx = future_to_idx[future]
                             try:
                                 results[idx] = future.result()
@@ -316,10 +316,19 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                         logger.error("ThreadPool timeout during merge - aborting")
                         raise RuntimeError("Merge timeout - file terlalu besar atau corrupt")
 
+                # Gabung semua kontak DENGAN anti-duplikat berdasarkan nomor telepon
+                seen_tel = set()
                 all_contacts = []
                 for i in range(len(files)):
-                    all_contacts.extend(results.get(i, []))
+                    for contact in results.get(i, []):
+                        tel = (contact.get("tel") or "").strip()
+                        if tel and tel in seen_tel:
+                            continue  # duplikat — skip
+                        if tel:
+                            seen_tel.add(tel)
+                        all_contacts.append(contact)
                 return all_contacts
+
 
             if total_files > 10:
                 await update_progress(10)
