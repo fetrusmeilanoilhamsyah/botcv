@@ -186,19 +186,23 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         ref_id = int(arg.replace("ref_", ""))
                         if ref_id != user.id:
                             await adb.set_referrer(user.id, ref_id)
-                            count = await adb.get_referral_count(ref_id)
-                            if count > 0 and count % 5 == 0:
-                                await adb.set_member_vip(ref_id, 7, "Referral Bonus")
-                                await context.bot.send_message(
-                                    chat_id=ref_id,
-                                    text=f"Bonus referral! Teman ke-{count} bergabung. Kamu dapat 7 hari VIP gratis.",
-                                )
-                            else:
-                                sisa = 5 - (count % 5)
-                                await context.bot.send_message(
-                                    chat_id=ref_id,
-                                    text=f"Teman baru bergabung! Total {count} orang. Undang {sisa} lagi untuk VIP gratis.",
-                                )
+                            points_added = await adb.add_referral_points(ref_id, 1)
+                            if points_added:
+                                pts = await adb.get_referral_points(ref_id)
+                                try:
+                                    await context.bot.send_message(
+                                        chat_id=ref_id,
+                                        text=(
+                                            "<b>Teman baru bergabung!</b>\n\n"
+                                            "Kamu berhasil mengundang teman baru dan mendapatkan <b>1 Poin</b>.\n"
+                                            f"• Saldo Poin: <b>{pts['referral_points']} Poin</b>\n"
+                                            f"• Total Akumulasi: <b>{pts['total_referral_points_earned']}/50 Poin</b>\n\n"
+                                            "Kumpulkan poin dan tukarkan dengan VIP gratis di menu /referal!"
+                                        ),
+                                        parse_mode="HTML"
+                                    )
+                                except Exception:
+                                    pass
                     except ValueError:
                         pass
 

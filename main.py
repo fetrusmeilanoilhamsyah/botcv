@@ -38,7 +38,7 @@ from database.db_async import adb
 # ── Handlers ──────────────────────────────────────────────────────────────────
 from handlers.start import cmd_start, handle_back_to_start
 from handlers.reset import cmd_reset, handle_reset_callback
-from handlers.referral import cmd_referral
+from handlers.referral import cmd_referral, handle_redeem_points
 from handlers.daftar import cmd_daftar
 from handlers.stat import cmd_stat
 from handlers.akun import cmd_akun
@@ -550,6 +550,7 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_show_cleanup_help_callback, pattern="^show_cleanup_help$"))
     app.add_handler(CallbackQueryHandler(handle_show_admin_help_callback, pattern="^show_admin_help$"))
     app.add_handler(CallbackQueryHandler(handle_reset_callback,  pattern="^admin_db_reset"))
+    app.add_handler(CallbackQueryHandler(handle_redeem_points,   pattern="^redeem_ref_"))
 
     if VIP_PAKASIR_MODE:
         app.add_handler(CallbackQueryHandler(handle_buy_vip,         pattern="^buy_vip_"))

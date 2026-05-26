@@ -1,7 +1,7 @@
 """
-handlers/referral.py — Referral system logic.
+handlers/referral.py — Referral points system & VIP Redemption Shop logic.
 """
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from database import db
 from database.db_async import adb
@@ -12,29 +12,50 @@ async def cmd_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     from handlers.start import transition_to_handler
     
-    # Hitung jumlah referral
-    count = db.get_referral_count(user.id)
-    
-    bonus_target = 5
-    remains = bonus_target - (count % bonus_target)
-    if remains == 0: remains = bonus_target
+    # Ambil poin & total akumulasi referral
+    pts = await adb.get_referral_points(user.id)
+    count = await adb.get_referral_count(user.id)
     
     link = f"https://t.me/{bot_username}?start=ref_{user.id}"
     
     text = (
-        f"<b>PROGRAM REFERRAL</b> \n\n"
-        f"Dapatkan <b>7 HARI VIP GRATIS</b> setiap kali kamu berhasil mengundang 5 teman baru!\n\n"
-        f" <b>Link Referral Kamu:</b>\n"
-        f"<code>{link}</code>\n"
-        f"<i>(Klik link di atas untuk menyalin)</i>\n\n"
-        f" <b>Statistik Kamu:</b>\n"
-        f"• Teman diundang: {count} orang\n"
-        f"• Kurang {remains} orang lagi untuk dapat Bonus 7 Hari VIP!"
+        "<b>PROGRAM REFERRAL (SISTEM POIN)</b>\n\n"
+        "Undang teman baru dan dapatkan poin koin untuk ditukarkan dengan paket VIP gratis secara instan!\n\n"
+        "<b>Aturan Program:</b>\n"
+        "• 1 Teman diundang = <b>1 Poin</b>.\n"
+        "• Maksimal perolehan seumur hidup = <b>50 Poin</b> (anti-spam).\n\n"
     )
     
-    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    if pts["total_referral_points_earned"] < 50:
+        text += (
+            "<b>Link Referral Kamu:</b>\n"
+            f"<code>{link}</code>\n"
+            "<i>(Klik link di atas untuk menyalin)</i>\n\n"
+        )
+    else:
+        text += (
+            "<b>Link Referral Kamu:</b>\n"
+            "<i>Link referral dinonaktifkan karena telah mencapai batas maksimal 50 Poin.</i>\n\n"
+        )
+        
+    text += (
+        "<b>Statistik Kamu:</b>\n"
+        f"• Saldo Poin: <b>{pts['referral_points']} Poin</b>\n"
+        f"• Total Akumulasi: <b>{pts['total_referral_points_earned']} / 50 Poin</b>\n"
+        f"• Total Teman Diundang: <b>{count} orang</b>\n\n"
+        "<b>Toko Penukaran VIP:</b>\n"
+        "Pilih paket VIP di bawah ini untuk menukarkan poin kamu secara langsung."
+    )
     
     keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("10 POIN — 7 HARI VIP", callback_data="redeem_ref_10", style="primary"),
+            InlineKeyboardButton("20 POIN — 14 HARI VIP", callback_data="redeem_ref_20", style="primary")
+        ],
+        [
+            InlineKeyboardButton("30 POIN — 21 HARI VIP", callback_data="redeem_ref_30", style="primary"),
+            InlineKeyboardButton("50 POIN — 30 HARI VIP", callback_data="redeem_ref_50", style="primary")
+        ],
         [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
     ])
     
@@ -47,3 +68,42 @@ async def cmd_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
         update=update
     )
 
+
+async def handle_redeem_points(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user = query.from_user
+    data = query.data
+    
+    try:
+        points_to_redeem = int(data.replace("redeem_ref_", ""))
+    except ValueError:
+        await query.answer("Paket penukaran tidak valid.", show_alert=True)
+        return
+        
+    days_map = {
+        10: 7,
+        20: 14,
+        30: 21,
+        50: 30
+    }
+    
+    if points_to_redeem not in days_map:
+        await query.answer("Paket penukaran tidak ditemukan.", show_alert=True)
+        return
+        
+    days = days_map[points_to_redeem]
+    
+    # Kurangi poin
+    success = await adb.deduct_referral_points(user.id, points_to_redeem)
+    if not success:
+        await query.answer("Saldo koin/poin kamu tidak mencukupi untuk penukaran ini.", show_alert=True)
+        return
+        
+    # Tambah masa VIP
+    await adb.set_member_vip(user.id, days, "Referral Redemption")
+    
+    # Alert sukses
+    await query.answer(f"Penukaran sukses! {points_to_redeem} Poin ditukarkan dengan {days} Hari VIP gratis.", show_alert=True)
+    
+    # Refresh halaman referral secara mulus
+    await cmd_referral(update, context)

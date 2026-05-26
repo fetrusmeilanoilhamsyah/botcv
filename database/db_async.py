@@ -87,6 +87,15 @@ class AsyncDB:
     async def get_referrer(self, user_id: int):
         return await _run(db.get_referrer, user_id)
 
+    async def get_referral_points(self, user_id: int):
+        return await _run(db.get_referral_points, user_id)
+
+    async def add_referral_points(self, user_id: int, points: int) -> bool:
+        return await _run(db.add_referral_points, user_id, points)
+
+    async def deduct_referral_points(self, user_id: int, points: int) -> bool:
+        return await _run(db.deduct_referral_points, user_id, points)
+
     # ── Sessions (in-memory — tidak perlu executor, sudah non-blocking) ────────
     def get_session(self, user_id: int) -> dict:
         return db.get_session(user_id)

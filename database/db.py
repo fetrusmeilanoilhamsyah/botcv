@@ -139,6 +139,19 @@ def init_db():
             logging.getLogger(__name__).error("Unexpected migration error: %s", e)
             raise
         
+        try:
+            conn.execute("ALTER TABLE users ADD COLUMN referral_points INTEGER DEFAULT 0")
+            conn.execute("ALTER TABLE users ADD COLUMN total_referral_points_earned INTEGER DEFAULT 0")
+            conn.commit()
+            print("✅ Migrated: added referral_points columns")
+        except sqlite3.OperationalError as e:
+            if "duplicate column" not in str(e).lower():
+                logging.getLogger(__name__).error("Migration referral_points failed: %s", e)
+                raise
+        except Exception as e:
+            logging.getLogger(__name__).error("Unexpected migration error: %s", e)
+            raise
+
         conn.execute("""
             CREATE TABLE IF NOT EXISTS broadcast_log (
                 id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -276,6 +289,59 @@ def get_referrer(user_id: int):
     with get_connection() as conn:
         row = conn.execute("SELECT referred_by FROM users WHERE id = ?", (user_id,)).fetchone()
         return row["referred_by"] if row else None
+
+def get_referral_points(user_id: int) -> dict:
+    """Get spendable referral points and total accumulated points."""
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT referral_points, total_referral_points_earned FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+        if row:
+            return dict(row)
+        return {"referral_points": 0, "total_referral_points_earned": 0}
+
+def add_referral_points(user_id: int, points: int) -> bool:
+    """Add referral points up to the limit of 50 total earned points."""
+    with get_connection() as conn:
+        # Check current total points earned
+        row = conn.execute(
+            "SELECT total_referral_points_earned FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+        if not row:
+            return False
+        current_total = row["total_referral_points_earned"]
+        if current_total >= 50:
+            return False
+        
+        # Calculate how many points we can actually add
+        points_to_add = min(points, 50 - current_total)
+        if points_to_add <= 0:
+            return False
+            
+        conn.execute(
+            """UPDATE users 
+               SET referral_points = referral_points + ?, 
+                   total_referral_points_earned = total_referral_points_earned + ? 
+               WHERE id = ?""", 
+            (points_to_add, points_to_add, user_id)
+        )
+        conn.commit()
+        return True
+
+def deduct_referral_points(user_id: int, points: int) -> bool:
+    """Deduct spendable referral points."""
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT referral_points FROM users WHERE id = ?", (user_id,)
+        ).fetchone()
+        if not row or row["referral_points"] < points:
+            return False
+        conn.execute(
+            "UPDATE users SET referral_points = referral_points - ? WHERE id = ?", 
+            (points, user_id)
+        )
+        conn.commit()
+        return True
 
 def get_top_users(limit=5):
     """Get top active users for leaderboard"""

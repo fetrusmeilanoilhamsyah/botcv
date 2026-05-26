@@ -60,6 +60,7 @@ PAKET = [
     {"label": "2 Minggu",  "days": 14, "price": 10_000},
     {"label": "3 Minggu",  "days": 21, "price": 15_000},
     {"label": "1 Bulan",   "days": 30, "price": 20_000},
+    {"label": "Permanen",  "days": 365, "price": 100_000},
 ]
 
 _STATUS_EMOJI = {"completed": "[SUKSES]", "pending": "[PENDING]", "cancelled": "[BATAL]", "expired": "[EXPIRED]"}
@@ -114,19 +115,24 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         info = f"Metode: Manual\nHubungi {ADMIN_CONTACT} untuk aktivasi."
 
-    # Keyboard
+    # Keyboard (Symmetric 3x2 untuk Paket: 3 di kiri, 3 di kanan, warna all biru cerah/primary)
     if QRIS_ENABLED:
-        rows = []
-        for p in PAKET:
-            rows.append([
-                InlineKeyboardButton(
-                    f"{p['label'].upper()} — {_fmt_price(p['price'])}",
-                    callback_data=f"buy_vip_{p['days']}",
-                    style="primary"
-                )
-            ])
-        rows.append([InlineKeyboardButton("RIWAYAT PEMBAYARAN", callback_data="vip_history", style="success")])
-        rows.append([InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")])
+        rows = [
+            [
+                InlineKeyboardButton("2 HARI — 2K", callback_data="buy_vip_2", style="primary"),
+                InlineKeyboardButton("1 MINGGU — 5K", callback_data="buy_vip_7", style="primary")
+            ],
+            [
+                InlineKeyboardButton("2 MINGGU — 10K", callback_data="buy_vip_14", style="primary"),
+                InlineKeyboardButton("3 MINGGU — 15K", callback_data="buy_vip_21", style="primary")
+            ],
+            [
+                InlineKeyboardButton("1 BULAN — 20K", callback_data="buy_vip_30", style="primary"),
+                InlineKeyboardButton("PERMANEN — 100K", callback_data="buy_vip_365", style="primary")
+            ],
+            [InlineKeyboardButton("RIWAYAT PEMBAYARAN", callback_data="vip_history", style="success")],
+            [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
+        ]
     else:
         rows = [
             [InlineKeyboardButton("HUBUNGI ADMIN", url=f"https://t.me/{ADMIN_CONTACT.lstrip('@')}")],

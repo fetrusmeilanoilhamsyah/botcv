@@ -15,6 +15,7 @@ PAKET = [
     {"label": "2 Minggu",  "days": 14, "harga": "Rp 10.000"},
     {"label": "3 Minggu",  "days": 21, "harga": "Rp 15.000"},
     {"label": "1 Bulan",   "days": 30, "harga": "Rp 20.000"},
+    {"label": "Permanen",  "days": 365, "harga": "Rp 100.000"},
 ]
 
 
