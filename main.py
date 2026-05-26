@@ -150,7 +150,7 @@ from config import (
 
 MAX_CONCURRENT_PER_USER = 2
 user_semaphores      = defaultdict(lambda: Semaphore(MAX_CONCURRENT_PER_USER))
-user_file_semaphores = defaultdict(lambda: Semaphore(MAX_CONCURRENT_PER_USER))
+user_file_semaphores = defaultdict(lambda: Semaphore(50))
 
 global_semaphore      = Semaphore(GLOBAL_MAX_CONCURRENT)
 global_file_semaphore = Semaphore(GLOBAL_MAX_CONCURRENT_FILE)

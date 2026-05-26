@@ -51,6 +51,6 @@ HEALTH_PORT  = int(os.getenv("HEALTH_PORT",  8080))
 
 # ── Global concurrency shielding & RAM Caching (Anti-DDoS / Anti-Spam) ────────
 GLOBAL_MAX_CONCURRENT      = 32   # Maksimal 32 coroutine update teks jalan bersamaan
-GLOBAL_MAX_CONCURRENT_FILE = 8    # Maksimal 8 proses file besar jalan bersamaan
+GLOBAL_MAX_CONCURRENT_FILE = 50   # Maksimal 50 proses download/upload file jalan bersamaan (mencegah bottleneck merge/vcftotxt)
 USER_CLICK_COOLDOWN        = 0.8  # Jeda waktu minimum antar klik/pesan dalam detik (debounce)
 VIP_CACHE_TTL              = 30   # Durasi simpan cache status VIP di RAM dalam detik
