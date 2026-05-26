@@ -244,6 +244,7 @@ def init_db():
 # ─── IN-MEMORY SESSION CACHE ──────────────────────────────────────────────────
 _session_cache: dict = {}
 _all_buffers: dict = {}
+_vip_cache: dict = {}
 
 
 # ─── USERS ────────────────────────────────────────────────────────────────────
@@ -381,9 +382,17 @@ def get_user(user_id: int):
 
 def is_member(user_id: int) -> bool:
     """Check if user is an active member.
-    FIX RACE CONDITION: Gunakan single query atomic — cek dan revoke dalam 1 transaksi
-    untuk mencegah double-query race condition pada concurrent request dari user yang sama.
+    FIX: Gunakan RAM Cache (VIP_CACHE_TTL) untuk performa ekstrim di bawah beban konkurensi tinggi.
     """
+    import time
+    from config import VIP_CACHE_TTL
+    
+    # Cek cache RAM
+    now = time.time()
+    cached = _vip_cache.get(user_id)
+    if cached and (now - cached["cached_at"] < VIP_CACHE_TTL):
+        return cached["is_member"]
+
     with get_connection() as conn:
         # Single atomic query: update expired rows sekaligus
         now_iso = datetime.now().isoformat()
@@ -399,16 +408,25 @@ def is_member(user_id: int) -> bool:
         conn.commit()
         # Sekarang baca status terkini
         row = conn.execute(
-            "SELECT is_member, expired_at FROM users WHERE id = ?",
+            "SELECT is_member FROM users WHERE id = ?",
             (user_id,)
         ).fetchone()
-        if row is None:
-            return False
-        return bool(row["is_member"])
+        
+        status = False
+        if row is not None:
+            status = bool(row["is_member"])
+            
+        # Simpan ke cache RAM
+        _vip_cache[user_id] = {
+            "is_member": status,
+            "cached_at": now
+        }
+        return status
 
 
 def remove_member(user_id: int):
     """Remove user from membership status"""
+    _vip_cache.pop(user_id, None)  # Invalidate RAM cache
     with get_connection() as conn:
         conn.execute("UPDATE users SET is_member = 0, expired_at = NULL WHERE id = ?", (user_id,))
         conn.commit()
@@ -416,6 +434,7 @@ def remove_member(user_id: int):
 
 def set_member(user_id: int, full_name: str = ""):
     """Set user as permanent member (no expiry — for admins / manual grant)"""
+    _vip_cache.pop(user_id, None)  # Invalidate RAM cache
     with get_connection() as conn:
         conn.execute("""
             INSERT INTO users (id, username, full_name, is_member, expired_at)
@@ -427,6 +446,7 @@ def set_member(user_id: int, full_name: str = ""):
 
 def set_member_vip(user_id: int, days: int, full_name: str = ""):
     """Set user as VIP member with expiry date. Admins are forced to NULL (permanent)."""
+    _vip_cache.pop(user_id, None)  # Invalidate RAM cache
     from datetime import datetime, timedelta
     from config import ADMIN_IDS
     

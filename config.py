@@ -48,3 +48,9 @@ PAKASIR_WEBHOOK_SECRET = os.getenv("PAKASIR_WEBHOOK_SECRET", "")
 # Default 8081 ≠ 8080 agar tidak bentrok di server yang sama.
 WEBHOOK_PORT = int(os.getenv("WEBHOOK_PORT", 8081))   # FIX: was 8080 → port conflict
 HEALTH_PORT  = int(os.getenv("HEALTH_PORT",  8080))
+
+# ── Global concurrency shielding & RAM Caching (Anti-DDoS / Anti-Spam) ────────
+GLOBAL_MAX_CONCURRENT      = 32   # Maksimal 32 coroutine update teks jalan bersamaan
+GLOBAL_MAX_CONCURRENT_FILE = 8    # Maksimal 8 proses file besar jalan bersamaan
+USER_CLICK_COOLDOWN        = 0.8  # Jeda waktu minimum antar klik/pesan dalam detik (debounce)
+VIP_CACHE_TTL              = 30   # Durasi simpan cache status VIP di RAM dalam detik

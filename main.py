@@ -142,11 +142,20 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
 # ── Rate limiting ─────────────────────────────────────────────────────────────
-MAX_CONCURRENT_PER_USER  = 2
-MAX_CONCURRENT_FILE      = 16
-user_semaphores      = defaultdict(lambda: Semaphore(MAX_CONCURRENT_PER_USER))
-user_file_semaphores = defaultdict(lambda: Semaphore(MAX_CONCURRENT_FILE))
+from config import (
+    GLOBAL_MAX_CONCURRENT,
+    GLOBAL_MAX_CONCURRENT_FILE,
+    USER_CLICK_COOLDOWN,
+)
 
+MAX_CONCURRENT_PER_USER = 2
+user_semaphores      = defaultdict(lambda: Semaphore(MAX_CONCURRENT_PER_USER))
+user_file_semaphores = defaultdict(lambda: Semaphore(MAX_CONCURRENT_PER_USER))
+
+global_semaphore      = Semaphore(GLOBAL_MAX_CONCURRENT)
+global_file_semaphore = Semaphore(GLOBAL_MAX_CONCURRENT_FILE)
+
+_user_last_click: dict = {}
 _error_last_sent: dict = {}
 _job_running = {"expire": False, "cleanup": False, "notify": False}
 _start_time = time.time()
@@ -154,16 +163,56 @@ _start_time = time.time()
 
 def rate_limiter(func):
     async def wrapper(update: Update, context):
-        async with user_semaphores[update.effective_user.id]:
+        if not update or not update.effective_user:
             return await func(update, context)
+
+        user_id = update.effective_user.id
+        now = time.time()
+
+        # Cooldown Anti-Spam (smart debounce)
+        last_click = _user_last_click.get(user_id, 0)
+        if now - last_click < USER_CLICK_COOLDOWN:
+            if update.callback_query:
+                try:
+                    await update.callback_query.answer()
+                except Exception:
+                    pass
+            return
+
+        _user_last_click[user_id] = now
+
+        async with global_semaphore:
+            async with user_semaphores[user_id]:
+                return await func(update, context)
+
     wrapper.__name__ = func.__name__
     return wrapper
 
 
 def file_rate_limiter(func):
     async def wrapper(update: Update, context):
-        async with user_file_semaphores[update.effective_user.id]:
+        if not update or not update.effective_user:
             return await func(update, context)
+
+        user_id = update.effective_user.id
+        now = time.time()
+
+        # Cooldown Anti-Spam (smart debounce)
+        last_click = _user_last_click.get(user_id, 0)
+        if now - last_click < USER_CLICK_COOLDOWN:
+            if update.callback_query:
+                try:
+                    await update.callback_query.answer()
+                except Exception:
+                    pass
+            return
+
+        _user_last_click[user_id] = now
+
+        async with global_file_semaphore:
+            async with user_file_semaphores[user_id]:
+                return await func(update, context)
+
     wrapper.__name__ = func.__name__
     return wrapper
 
@@ -533,30 +582,30 @@ def main():
     app.add_handler(CommandHandler("done",                              rate_limiter(done_router)))
 
     # ── Callback handlers ──
-    app.add_handler(CallbackQueryHandler(cb_show_vip_menu,       pattern="^show_vip_menu$"))
-    app.add_handler(CallbackQueryHandler(handle_back_to_start,   pattern="^back_to_start$"))
-    app.add_handler(CallbackQueryHandler(handle_show_duplikat_help_callback, pattern="^show_duplikat_help$"))
-    app.add_handler(CallbackQueryHandler(handle_show_count_help_callback, pattern="^show_count_help$"))
-    app.add_handler(CallbackQueryHandler(handle_show_txttovcf_help_callback, pattern="^show_txttovcf_help$"))
-    app.add_handler(CallbackQueryHandler(handle_show_xlsxtovcf_help_callback, pattern="^show_xlsxtovcf_help$"))
-    app.add_handler(CallbackQueryHandler(handle_show_vcftotxt_help_callback, pattern="^show_vcftotxt_help$"))
-    app.add_handler(CallbackQueryHandler(handle_show_xlsxtotxt_help_callback, pattern="^show_xlsxtotxt_help$"))
-    app.add_handler(CallbackQueryHandler(handle_show_merge_help_callback, pattern="^show_merge_help$"))
-    app.add_handler(CallbackQueryHandler(handle_show_pecahvcf_help_callback, pattern="^show_pecahvcf_help$"))
-    app.add_handler(CallbackQueryHandler(handle_show_pecahtxt_help_callback, pattern="^show_pecahtxt_help$"))
-    app.add_handler(CallbackQueryHandler(handle_show_rename_help_callback, pattern="^show_rename_help$"))
-    app.add_handler(CallbackQueryHandler(handle_show_walink_help_callback, pattern="^show_walink_help$"))
-    app.add_handler(CallbackQueryHandler(handle_show_walinkweb_help_callback, pattern="^show_walinkweb_help$"))
-    app.add_handler(CallbackQueryHandler(handle_show_cleanup_help_callback, pattern="^show_cleanup_help$"))
-    app.add_handler(CallbackQueryHandler(handle_show_admin_help_callback, pattern="^show_admin_help$"))
-    app.add_handler(CallbackQueryHandler(handle_reset_callback,  pattern="^admin_db_reset"))
-    app.add_handler(CallbackQueryHandler(handle_redeem_points,   pattern="^redeem_ref_"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(cb_show_vip_menu),       pattern="^show_vip_menu$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_back_to_start),   pattern="^back_to_start$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_duplikat_help_callback), pattern="^show_duplikat_help$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_count_help_callback), pattern="^show_count_help$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_txttovcf_help_callback), pattern="^show_txttovcf_help$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_xlsxtovcf_help_callback), pattern="^show_xlsxtovcf_help$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_vcftotxt_help_callback), pattern="^show_vcftotxt_help$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_xlsxtotxt_help_callback), pattern="^show_xlsxtotxt_help$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_merge_help_callback), pattern="^show_merge_help$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_pecahvcf_help_callback), pattern="^show_pecahvcf_help$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_pecahtxt_help_callback), pattern="^show_pecahtxt_help$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_rename_help_callback), pattern="^show_rename_help$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_walink_help_callback), pattern="^show_walink_help$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_walinkweb_help_callback), pattern="^show_walinkweb_help$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_cleanup_help_callback), pattern="^show_cleanup_help$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_admin_help_callback), pattern="^show_admin_help$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_reset_callback),  pattern="^admin_db_reset"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_redeem_points),   pattern="^redeem_ref_"))
 
     if VIP_PAKASIR_MODE:
-        app.add_handler(CallbackQueryHandler(handle_buy_vip,         pattern="^buy_vip_"))
-        app.add_handler(CallbackQueryHandler(handle_check_payment,   pattern="^check_payment_"))
-        app.add_handler(CallbackQueryHandler(handle_cancel_payment,  pattern="^cancel_payment_"))
-        app.add_handler(CallbackQueryHandler(handle_vip_history,     pattern="^vip_history$"))
+        app.add_handler(CallbackQueryHandler(rate_limiter(handle_buy_vip),         pattern="^buy_vip_"))
+        app.add_handler(CallbackQueryHandler(rate_limiter(handle_check_payment),   pattern="^check_payment_"))
+        app.add_handler(CallbackQueryHandler(rate_limiter(handle_cancel_payment),  pattern="^cancel_payment_"))
+        app.add_handler(CallbackQueryHandler(rate_limiter(handle_vip_history),     pattern="^vip_history$"))
 
     # ── Message handlers ──
     app.add_handler(MessageHandler(
