@@ -234,21 +234,13 @@ async def handle_ttv_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     pass
                 return
 
-            # Hitung jumlah kontak di file ini — validasi nomor HP lebih ketat
+            # Hitung perkiraan kontak — cepat, hanya hitung baris tidak kosong
             lines = 0
             try:
-                import re as _re
-                # Regex lebih strict: minimal 8 digit, maksimal 15 digit, bisa ada + di depan
-                _phone_re = _re.compile(r'^(\+?\d{1,3})?[\s\-\.]?\(?\d{2,4}\)?[\s\-\.]?\d{3,4}[\s\-\.]?\d{4,}$')
                 with open(out_path, "r", encoding="utf-8", errors="ignore") as f:
                     for line in f:
-                        stripped = line.strip()
-                        # Check: minimal 8 karakter, match regex, minimal 8 digit
-                        if stripped and len(stripped) >= 8 and _phone_re.match(stripped):
-                            # Extra check: hitung digit (tanpa spasi/dash)
-                            digit_only = _re.sub(r'[^\d]', '', stripped)
-                            if 8 <= len(digit_only) <= 15:
-                                lines += 1
+                        if line.strip():
+                            lines += 1
             except Exception:
                 pass
 
