@@ -396,23 +396,15 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
         total_chunks = len(all_chunks)
         async def safe_edit_progress(text):
             try:
-                await status_msg.edit_text(text, parse_mode="HTML")
+                await status_msg.edit_text(text)
             except Exception:
                 pass
 
         max_retries = 3
         for chunk_idx, media_group, bio_list, chunk_results in all_chunks:
-            # Update Progress Bar di background agar TIDAK MEMBLOKIR pengiriman!
             progress_pct = int(((chunk_idx) / total_chunks) * 100)
-            bar_len = 10
-            filled = int(round(bar_len * chunk_idx / total_chunks))
-            bar = "█" * filled + "░" * (bar_len - filled)
-            status_text = (
-                f"📤 <b>Mengirim file VCF...</b>\n"
-                f"`[{bar}]` <b>{progress_pct}%</b> ({chunk_idx * chunk_size}/{total_files} file)\n"
-                f"_Urutan terjamin & anti-error._"
-            )
-            asyncio.create_task(safe_edit_progress(status_text))
+            status_text = f"Mengirim... {chunk_idx}/{total_chunks} batch ({progress_pct}%)"
+            await safe_edit_progress(status_text)
 
             for attempt in range(max_retries):
                 try:
