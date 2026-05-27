@@ -411,7 +411,7 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     await update.message.reply_document(
                         document=buf,
                         filename=f"{label}.vcf",
-                        read_timeout=120, write_timeout=120, connect_timeout=60
+                        read_timeout=15, write_timeout=20, connect_timeout=10
                     )
                     break
                 except RetryAfter as e:
