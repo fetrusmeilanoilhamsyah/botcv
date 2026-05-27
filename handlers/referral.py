@@ -19,44 +19,37 @@ async def cmd_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     link = f"https://t.me/{bot_username}?start=ref_{user.id}"
     
     text = (
-        "<b>PROGRAM REFERRAL (SISTEM POIN)</b>\n\n"
-        "Undang teman baru dan dapatkan poin koin untuk ditukarkan dengan paket VIP gratis secara instan!\n\n"
-        "<b>Aturan Program:</b>\n"
-        "• 1 Teman diundang = <b>1 Poin</b>.\n"
-        "• Maksimal perolehan seumur hidup = <b>50 Poin</b> (anti-spam).\n\n"
+        "<b>🎁 PROGRAM REFERRAL (SISTEM POIN)</b>\n"
+        "Undang teman & dapatkan VIP Gratis instan!\n"
+        "• 1 Teman = <b>1 Poin</b> (Maksimal 50 Poin per akun).\n\n"
     )
     
     if pts["total_referral_points_earned"] < 50:
         text += (
-            "<b>Link Referral Kamu:</b>\n"
-            f"<code>{link}</code>\n"
-            "<i>(Klik link di atas untuk menyalin)</i>\n\n"
+            "<b>🔗 Link Referral Kamu (Klik untuk Salin):</b>\n"
+            f"<code>{link}</code>\n\n"
         )
     else:
         text += (
-            "<b>Link Referral Kamu:</b>\n"
-            "<i>Link referral dinonaktifkan karena telah mencapai batas maksimal 50 Poin.</i>\n\n"
+            "<b>🔗 Link Referral Kamu:</b>\n"
+            "<i>Mencapai batas maks 50 Poin.</i>\n\n"
         )
         
     text += (
-        "<b>Statistik Kamu:</b>\n"
+        "<b>📊 Statistik Kamu:</b>\n"
         f"• Saldo Poin: <b>{pts['referral_points']} Poin</b>\n"
-        f"• Total Akumulasi: <b>{pts['total_referral_points_earned']} / 50 Poin</b>\n"
-        f"• Total Teman Diundang: <b>{count} orang</b>\n\n"
-        "<b>Toko Penukaran VIP:</b>\n"
-        "Pilih paket VIP di bawah ini untuk menukarkan poin kamu secara langsung."
+        f"• Akumulasi: <b>{pts['total_referral_points_earned']}/50 Poin</b>\n"
+        f"• Total Teman: <b>{count} orang</b>\n\n"
+        "<b>🛒 Toko Penukaran VIP:</b>\n"
+        "Pilih paket VIP di bawah untuk menukarkan poin Anda:"
     )
     
     keyboard = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("10 POIN — 7 HARI VIP", callback_data="redeem_ref_10", style="primary"),
-            InlineKeyboardButton("20 POIN — 14 HARI VIP", callback_data="redeem_ref_20", style="primary")
-        ],
-        [
-            InlineKeyboardButton("30 POIN — 21 HARI VIP", callback_data="redeem_ref_30", style="primary"),
-            InlineKeyboardButton("50 POIN — 30 HARI VIP", callback_data="redeem_ref_50", style="primary")
-        ],
-        [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
+        [InlineKeyboardButton("🪙 10 POIN  ➔  🌟 7 HARI VIP GRATIS", callback_data="redeem_ref_10", style="primary")],
+        [InlineKeyboardButton("🪙 20 POIN  ➔  🌟 14 HARI VIP GRATIS", callback_data="redeem_ref_20", style="primary")],
+        [InlineKeyboardButton("🪙 30 POIN  ➔  🌟 21 HARI VIP GRATIS", callback_data="redeem_ref_30", style="primary")],
+        [InlineKeyboardButton("🪙 50 POIN  ➔  🌟 30 HARI VIP GRATIS", callback_data="redeem_ref_50", style="primary")],
+        [InlineKeyboardButton("❌ KEMBALI KE MENU UTAMA", callback_data="back_to_start", style="danger")]
     ])
     
     await transition_to_handler(
