@@ -390,11 +390,30 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 media_group.append(InputMediaDocument(media=buf, filename=f"{label}.vcf"))
             all_chunks.append((i // chunk_size, media_group, bio_list, chunk_results))
 
-        # ── SEQUENTIAL SEND — urutan terjamin, tidak kena flood control ──────
-        # Data dari log: tiap batch ~1.3 detik. Parallel → Telegram flood (30s retry).
-        # Sequential murni = satu-satunya cara aman. 100 file = ~13 detik, semua terkirim.
-        max_retries = 5
+        # ── SEQUENTIAL SEND — urutan terjamin, super cepat, tanpa sleep ──
+        # Karena VPS di Singapore, pengiriman sequential murni berjalan sangat cepat.
+        # Menghapus parallel/stagger/gather untuk stabilitas & urutan 100% rapi.
+        total_chunks = len(all_chunks)
+        async def safe_edit_progress(text):
+            try:
+                await status_msg.edit_text(text, parse_mode="HTML")
+            except Exception:
+                pass
+
+        max_retries = 3
         for chunk_idx, media_group, bio_list, chunk_results in all_chunks:
+            # Update Progress Bar di background agar TIDAK MEMBLOKIR pengiriman!
+            progress_pct = int(((chunk_idx) / total_chunks) * 100)
+            bar_len = 10
+            filled = int(round(bar_len * chunk_idx / total_chunks))
+            bar = "█" * filled + "░" * (bar_len - filled)
+            status_text = (
+                f"📤 <b>Mengirim file VCF...</b>\n"
+                f"`[{bar}]` <b>{progress_pct}%</b> ({chunk_idx * chunk_size}/{total_files} file)\n"
+                f"_Urutan terjamin & anti-error._"
+            )
+            asyncio.create_task(safe_edit_progress(status_text))
+
             for attempt in range(max_retries):
                 try:
                     for b in bio_list: b.seek(0)
@@ -412,15 +431,15 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                         )
                     break
                 except RetryAfter as e:
-                    # Hormati flood limit Telegram — tunggu sesuai petunjuknya
-                    wait_secs = max(int(e.retry_after), 3) + 1
-                    _logger.warning(f"[TTV] Flood limit batch {chunk_idx+1}, tunggu {wait_secs}s (attempt {attempt+1}/{max_retries})")
+                    # Jika kena limit Telegram, tunggu sesuai instruksi Telegram
+                    wait_secs = max(int(e.retry_after), 2) + 1
+                    _logger.warning(f"[TTV] Flood limit batch {chunk_idx+1}, tunggu {wait_secs}s")
                     await asyncio.sleep(wait_secs)
                 except Exception as ex:
                     _logger.error(f"[TTV] Gagal kirim batch {chunk_idx + 1}: {ex}")
                     if attempt == max_retries - 1:
                         raise
-                    await asyncio.sleep(2)
+                    await asyncio.sleep(1)
 
         try:
             await status_msg.delete()
