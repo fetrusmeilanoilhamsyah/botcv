@@ -390,57 +390,37 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 media_group.append(InputMediaDocument(media=buf, filename=f"{label}.vcf"))
             all_chunks.append((i // chunk_size, media_group, bio_list, chunk_results))
 
-        # ── STAGGERED PARALLEL SEND ───────────────────────────────────────────
-        STAGGER_S = 0.10
-        import time as _time
-        _t0 = _time.perf_counter()
-
-        async def _send_one(chunk_idx, mg, bl, cr):
-            _ts = _time.perf_counter()
-            max_retries = 3
+        # ── SEQUENTIAL SEND — urutan terjamin, tidak kena flood control ──────
+        # Data dari log: tiap batch ~1.3 detik. Parallel → Telegram flood (30s retry).
+        # Sequential murni = satu-satunya cara aman. 100 file = ~13 detik, semua terkirim.
+        max_retries = 5
+        for chunk_idx, media_group, bio_list, chunk_results in all_chunks:
             for attempt in range(max_retries):
                 try:
-                    for b in bl: b.seek(0)
-                    if len(mg) == 1:
-                        label_name, _ = cr[0]
+                    for b in bio_list: b.seek(0)
+                    if len(media_group) == 1:
+                        label_name, _ = chunk_results[0]
                         await update.message.reply_document(
-                            document=bl[0],
+                            document=bio_list[0],
                             filename=f"{label_name}.vcf",
                             read_timeout=120, write_timeout=120, connect_timeout=60
                         )
                     else:
                         await update.message.reply_media_group(
-                            media=mg,
+                            media=media_group,
                             read_timeout=120, write_timeout=120, connect_timeout=60
                         )
-                    _logger.info(f"[TTV] batch {chunk_idx+1} selesai dalam {(_time.perf_counter()-_ts)*1000:.0f}ms (total elapsed {(_time.perf_counter()-_t0)*1000:.0f}ms)")
-                    return
+                    break
                 except RetryAfter as e:
-                    if attempt == max_retries - 1:
-                        _logger.error(f"Max retries chunk {chunk_idx + 1}")
-                        raise
-                    wait_secs = int(e.retry_after) * (attempt + 1) + 2
-                    _logger.warning(f"Flood limit chunk {chunk_idx+1}! Retry {attempt+1}/{max_retries} setelah {wait_secs}s")
+                    # Hormati flood limit Telegram — tunggu sesuai petunjuknya
+                    wait_secs = max(int(e.retry_after), 3) + 1
+                    _logger.warning(f"[TTV] Flood limit batch {chunk_idx+1}, tunggu {wait_secs}s (attempt {attempt+1}/{max_retries})")
                     await asyncio.sleep(wait_secs)
                 except Exception as ex:
-                    _logger.error(f"Gagal kirim chunk {chunk_idx + 1}: {ex}")
+                    _logger.error(f"[TTV] Gagal kirim batch {chunk_idx + 1}: {ex}")
                     if attempt == max_retries - 1:
                         raise
                     await asyncio.sleep(2)
-
-        send_tasks = []
-        for idx, (chunk_idx, mg, bl, cr) in enumerate(all_chunks):
-            if idx > 0:
-                await asyncio.sleep(STAGGER_S)
-            _logger.info(f"[TTV] start task batch {chunk_idx+1} di t+{(_time.perf_counter()-_t0)*1000:.0f}ms")
-            task = asyncio.create_task(_send_one(chunk_idx, mg, bl, cr))
-            send_tasks.append(task)
-
-        done = await asyncio.gather(*send_tasks, return_exceptions=True)
-        _logger.info(f"[TTV] TOTAL send {len(all_chunks)} batch = {(_time.perf_counter()-_t0)*1000:.0f}ms")
-        for i, r in enumerate(done):
-            if isinstance(r, Exception):
-                _logger.error(f"Batch {i + 1} error: {r}")
 
         try:
             await status_msg.delete()
