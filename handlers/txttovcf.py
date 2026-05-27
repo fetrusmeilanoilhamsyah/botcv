@@ -377,8 +377,12 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
             pass
 
         # ── SINGLE DOCUMENT SEQUENTIAL SEND — Urutan 100% Terjamin ──
+        # ── SINGLE DOCUMENT SEQUENTIAL SEND — Urutan 100% Terjamin & Super Cepat ──
         # Mengirim file satu per satu secara vertikal persis seperti di demo video PEGASUS CV.
         # Sangat stabil, teratur, dan urutan terjamin rapi.
+        import time as _time
+        _last_edit_time = 0.0
+
         async def safe_edit_progress(text):
             try:
                 await status_msg.edit_text(text)
@@ -387,12 +391,15 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         max_retries = 3
         for file_idx, (label, content) in enumerate(results):
-            # Update Progress per file (dikurangi frekuensi editnya agar tidak memicu rate limit edit pesan)
-            # Update progress setiap 5 file atau jika itu file pertama / terakhir.
-            if file_idx % 5 == 0 or file_idx == total_files - 1:
+            # Update progress secara asinkron di background (tidak memblokir loop utama sama sekali)
+            # Throttle edit: hanya edit status maksimal sekali dalam 2 detik agar tidak kena rate limit/flood
+            current_time = _time.time()
+            if file_idx == 0 or file_idx == total_files - 1 or (current_time - _last_edit_time >= 2.0):
                 progress_pct = int(((file_idx + 1) / total_files) * 100)
                 status_text = f"Mengirim... {file_idx + 1}/{total_files} file ({progress_pct}%)"
-                await safe_edit_progress(status_text)
+                # Jalankan di background (create_task) agar loop upload utama berjalan tanpa jeda 1 milidetik pun!
+                asyncio.create_task(safe_edit_progress(status_text))
+                _last_edit_time = current_time
 
             # Siapkan BytesIO buffer
             buf = io.BytesIO(content)
