@@ -178,8 +178,9 @@ async def handle_pecah_vcf_file(update: Update, context: ContextTypes.DEFAULT_TY
                         filename=fname,
                         read_timeout=15, write_timeout=20, connect_timeout=10
                     )
-                    # Jeda 50ms antar file agar HP user (iPhone) tidak lag saat render
-                    await asyncio.sleep(0.05)
+                    # Jeda 300ms antar file — agar setiap file masuk ke update batch
+                    # Telegram iOS yang berbeda sehingga animasi muncul 1-per-1 konsisten
+                    await asyncio.sleep(0.3)
                     break
                 except RetryAfter as e:
                     wait_secs = max(int(e.retry_after), 2) + 1
