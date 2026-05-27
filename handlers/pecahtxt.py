@@ -280,9 +280,8 @@ async def handle_pecahtxt_done(update: Update, context: ContextTypes.DEFAULT_TYP
                         filename=fname,
                         read_timeout=15, write_timeout=20, connect_timeout=10
                     )
-                    # Jeda 300ms antar file — agar setiap file masuk ke update batch
-                    # Telegram iOS yang berbeda sehingga animasi muncul 1-per-1 konsisten
-                    await asyncio.sleep(0.15)
+                    # Jeda 20ms antar file — performa maksimal via Local Telegram Bot API Server
+                    await asyncio.sleep(0.02)
                     break
                 except RetryAfter as e:
                     wait_secs = max(int(e.retry_after), 2) + 1
