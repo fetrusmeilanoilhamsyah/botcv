@@ -415,7 +415,7 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     )
                     # Jeda 300ms antar file — agar setiap file masuk ke update batch
                     # Telegram iOS yang berbeda sehingga animasi muncul 1-per-1 konsisten
-                    await asyncio.sleep(0.3)
+                    await asyncio.sleep(0.15)
                     break
                 except RetryAfter as e:
                     # Jika kena flood limit Telegram, tunggu sesuai instruksi

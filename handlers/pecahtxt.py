@@ -282,7 +282,7 @@ async def handle_pecahtxt_done(update: Update, context: ContextTypes.DEFAULT_TYP
                     )
                     # Jeda 300ms antar file — agar setiap file masuk ke update batch
                     # Telegram iOS yang berbeda sehingga animasi muncul 1-per-1 konsisten
-                    await asyncio.sleep(0.3)
+                    await asyncio.sleep(0.15)
                     break
                 except RetryAfter as e:
                     wait_secs = max(int(e.retry_after), 2) + 1
