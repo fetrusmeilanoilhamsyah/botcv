@@ -393,8 +393,8 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                         filename=f"{label}.vcf",
                         read_timeout=15, write_timeout=20, connect_timeout=10
                     )
-                    # Jeda 350ms antar file — memberikan waktu agar UI Telegram/iOS merender animasi secara berurutan
-                    await asyncio.sleep(0.35)
+                    # Jeda 250ms antar file — memberikan waktu agar UI Telegram/iOS merender animasi secara berurutan
+                    await asyncio.sleep(0.25)
                     break
                 except RetryAfter as e:
                     # Jika kena flood limit Telegram, tunggu sesuai instruksi
