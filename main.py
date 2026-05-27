@@ -276,6 +276,8 @@ async def text_router(update: Update, context):
 
 
 async def file_router(update: Update, context):
+    if not update.message:
+        return
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
     if not sess:
@@ -524,6 +526,9 @@ def main():
     app = (
         ApplicationBuilder()
         .token(BOT_TOKEN)
+        .base_url("http://localhost:8082/bot")
+        .base_file_url("http://localhost:8082/file/bot")
+        .local_mode(True)
         .defaults(Defaults(parse_mode=ParseMode.HTML))
         .concurrent_updates(256)      # proses hingga 256 update paralel
         .connection_pool_size(256)    # 256 koneksi ke Telegram API
@@ -533,6 +538,7 @@ def main():
         .connect_timeout(30)
         .build()
     )
+
 
     # ── Command handlers ──
     app.add_handler(CommandHandler("start",                              rate_limiter(cmd_start)))

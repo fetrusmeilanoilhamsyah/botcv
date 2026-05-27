@@ -306,61 +306,62 @@ async def handle_vcftotxt_naming(update: Update, context: ContextTypes.DEFAULT_T
         await update_progress(90)
 
         import io
-        from telegram import InputMediaDocument
         from telegram.error import RetryAfter
-        
-        chunk_size = 10
+        import time as _time
+
         total_created = len(results_files)
 
         if total_created == 0:
             await progress_msg.edit_text("Gagal. Nomor tidak ditemukan.")
             return
 
-        # ── KIRIM via BytesIO — SEQUENTIAL FAST (URUT & CEPAT) ──
-        for i in range(0, total_created, chunk_size):
-            chunk = results_files[i:i + chunk_size]
+        # Update status awal
+        try:
+            await progress_msg.edit_text(f"Mengirim {total_created} file TXT...")
+        except Exception:
+            pass
 
-            media_group = []
-            bio_list    = []
-            for label, content in chunk:
-                buf = io.BytesIO(content)
-                buf.name = f"{label}.txt"
-                bio_list.append(buf)
-                media_group.append(InputMediaDocument(media=buf, filename=f"{label}.txt"))
+        # ── SINGLE DOCUMENT SEQUENTIAL SEND — Urutan 100% Terjamin & Super Cepat ──
+        # Mengirim file satu per satu secara vertikal, persis seperti txttovcf
+        _last_edit_time = 0.0
 
-            async def _send_v2t_chunk(_mg=media_group, _bl=bio_list, _ch=chunk):
-                if len(_mg) == 1:
-                    label_name, _ = _ch[0]
-                    _bl[0].seek(0)
-                    await update.message.reply_document(
-                        document=_bl[0],
-                        filename=f"{label_name}.txt",
-                        read_timeout=120, connect_timeout=60, write_timeout=120
-                    )
-                else:
-                    for b in _bl: b.seek(0)
-                    await update.message.reply_media_group(
-                        media=_mg,
-                        read_timeout=120, connect_timeout=60, write_timeout=120
-                    )
+        async def safe_edit_progress(text):
+            try:
+                await progress_msg.edit_text(text)
+            except Exception:
+                pass
 
-            max_retries = 3
+        max_retries = 3
+        for file_idx, (label, content) in enumerate(results_files):
+            # Throttle edit status: maksimal sekali dalam 2 detik
+            current_time = _time.time()
+            if file_idx == 0 or file_idx == total_created - 1 or (current_time - _last_edit_time >= 2.0):
+                progress_pct = int(((file_idx + 1) / total_created) * 100)
+                status_text = f"Mengirim... {file_idx + 1}/{total_created} file ({progress_pct}%)"
+                asyncio.create_task(safe_edit_progress(status_text))
+                _last_edit_time = current_time
+
+            buf = io.BytesIO(content)
+            buf.name = f"{label}.txt"
+
             for attempt in range(max_retries):
                 try:
-                    await _send_v2t_chunk()
-                    break  # Success
+                    buf.seek(0)
+                    await update.message.reply_document(
+                        document=buf,
+                        filename=f"{label}.txt",
+                        read_timeout=15, write_timeout=20, connect_timeout=10
+                    )
+                    break
                 except RetryAfter as e:
-                    if attempt == max_retries - 1:
-                        logger.warning(f"Max retries reached for vcftotxt chunk {i//chunk_size + 1}")
-                        raise
-                    wait_secs = int(e.retry_after) * (attempt + 1) + 2
-                    logger.warning(f"vcftotxt flood limit! Retry {attempt+1}/{max_retries} after {wait_secs}s...")
+                    wait_secs = max(int(e.retry_after), 2) + 1
+                    logger.warning(f"[V2T] Flood limit file {label}.txt, tunggu {wait_secs}s")
                     await asyncio.sleep(wait_secs)
-                except Exception as e:
-                    logger.error(f"vcftotxt gagal kirim chunk {i//chunk_size + 1}: {e}")
+                except Exception as ex:
+                    logger.error(f"[V2T] Gagal kirim file {label}.txt: {ex}")
                     if attempt == max_retries - 1:
                         raise
-                    await asyncio.sleep(2)
+                    await asyncio.sleep(1)
 
         try:
             await progress_msg.delete()
