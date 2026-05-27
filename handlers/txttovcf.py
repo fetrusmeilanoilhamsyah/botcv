@@ -376,24 +376,9 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
         except Exception:
             pass
 
-        # Pre-build semua BytesIO sekaligus sebelum loop kirim
-        chunk_size = 10
-        all_chunks = []
-        for i in range(0, len(results), chunk_size):
-            chunk_results = results[i:i + chunk_size]
-            bio_list = []
-            media_group = []
-            for label, content in chunk_results:
-                buf = io.BytesIO(content)
-                buf.name = f"{label}.vcf"
-                bio_list.append(buf)
-                media_group.append(InputMediaDocument(media=buf, filename=f"{label}.vcf"))
-            all_chunks.append((i // chunk_size, media_group, bio_list, chunk_results))
-
-        # ── SEQUENTIAL SEND — urutan terjamin, super cepat, tanpa sleep ──
-        # Karena VPS di Singapore, pengiriman sequential murni berjalan sangat cepat.
-        # Menghapus parallel/stagger/gather untuk stabilitas & urutan 100% rapi.
-        total_chunks = len(all_chunks)
+        # ── SINGLE DOCUMENT SEQUENTIAL SEND — Urutan 100% Terjamin ──
+        # Mengirim file satu per satu secara vertikal persis seperti di demo video PEGASUS CV.
+        # Sangat stabil, teratur, dan urutan terjamin rapi.
         async def safe_edit_progress(text):
             try:
                 await status_msg.edit_text(text)
@@ -401,34 +386,34 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 pass
 
         max_retries = 3
-        for chunk_idx, media_group, bio_list, chunk_results in all_chunks:
-            progress_pct = int(((chunk_idx) / total_chunks) * 100)
-            status_text = f"Mengirim... {chunk_idx}/{total_chunks} batch ({progress_pct}%)"
-            await safe_edit_progress(status_text)
+        for file_idx, (label, content) in enumerate(results):
+            # Update Progress per file (dikurangi frekuensi editnya agar tidak memicu rate limit edit pesan)
+            # Update progress setiap 5 file atau jika itu file pertama / terakhir.
+            if file_idx % 5 == 0 or file_idx == total_files - 1:
+                progress_pct = int(((file_idx + 1) / total_files) * 100)
+                status_text = f"Mengirim... {file_idx + 1}/{total_files} file ({progress_pct}%)"
+                await safe_edit_progress(status_text)
+
+            # Siapkan BytesIO buffer
+            buf = io.BytesIO(content)
+            buf.name = f"{label}.vcf"
 
             for attempt in range(max_retries):
                 try:
-                    for b in bio_list: b.seek(0)
-                    if len(media_group) == 1:
-                        label_name, _ = chunk_results[0]
-                        await update.message.reply_document(
-                            document=bio_list[0],
-                            filename=f"{label_name}.vcf",
-                            read_timeout=120, write_timeout=120, connect_timeout=60
-                        )
-                    else:
-                        await update.message.reply_media_group(
-                            media=media_group,
-                            read_timeout=120, write_timeout=120, connect_timeout=60
-                        )
+                    buf.seek(0)
+                    await update.message.reply_document(
+                        document=buf,
+                        filename=f"{label}.vcf",
+                        read_timeout=120, write_timeout=120, connect_timeout=60
+                    )
                     break
                 except RetryAfter as e:
-                    # Jika kena limit Telegram, tunggu sesuai instruksi Telegram
+                    # Jika kena flood limit Telegram, tunggu sesuai instruksi
                     wait_secs = max(int(e.retry_after), 2) + 1
-                    _logger.warning(f"[TTV] Flood limit batch {chunk_idx+1}, tunggu {wait_secs}s")
+                    _logger.warning(f"[TTV] Flood limit file {label}.vcf, tunggu {wait_secs}s")
                     await asyncio.sleep(wait_secs)
                 except Exception as ex:
-                    _logger.error(f"[TTV] Gagal kirim batch {chunk_idx + 1}: {ex}")
+                    _logger.error(f"[TTV] Gagal kirim file {label}.vcf: {ex}")
                     if attempt == max_retries - 1:
                         raise
                     await asyncio.sleep(1)
