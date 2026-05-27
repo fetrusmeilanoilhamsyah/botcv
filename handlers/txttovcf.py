@@ -393,8 +393,8 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                         filename=f"{label}.vcf",
                         read_timeout=15, write_timeout=20, connect_timeout=10
                     )
-                    # Jeda 1.2 detik antar file — wajib agar Local Telegram Bot API Server tidak memicu limit Telegram (maks 20 pesan/menit)
-                    await asyncio.sleep(1.2)
+                    # Jeda 150ms antar file — disamakan dengan kecepatan vcftotxt yang terbukti lancar
+                    await asyncio.sleep(0.15)
                     break
                 except RetryAfter as e:
                     # Jika kena flood limit Telegram, tunggu sesuai instruksi
