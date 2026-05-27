@@ -352,6 +352,8 @@ async def handle_vcftotxt_naming(update: Update, context: ContextTypes.DEFAULT_T
                         filename=f"{label}.txt",
                         read_timeout=15, write_timeout=20, connect_timeout=10
                     )
+                    # Jeda 50ms antar file agar HP user (iPhone) tidak lag saat render
+                    await asyncio.sleep(0.05)
                     break
                 except RetryAfter as e:
                     wait_secs = max(int(e.retry_after), 2) + 1

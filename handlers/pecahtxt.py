@@ -248,50 +248,50 @@ async def handle_pecahtxt_done(update: Update, context: ContextTypes.DEFAULT_TYP
             await status_msg.edit_text("Tidak ada nomor yang ditemukan dalam file.")
             return
 
-        # Kirim hasil dalam batch 10
-        BATCH = 10
-        for i in range(0, total_parts, BATCH):
-            batch = output_files[i:i + BATCH]
-            bio_list = []
-            media_group = []
+        import time as _time
+        _last_edit_time = 0.0
 
-            for out_path in batch:
-                with open(out_path, "rb") as fd:
-                    buf = io.BytesIO(fd.read())
-                fname = os.path.basename(out_path)
-                buf.name = fname
-                bio_list.append(buf)
-                media_group.append(InputMediaDocument(media=buf, filename=fname))
-
-            async def _send(_mg=media_group, _bl=bio_list, _bt=batch):
-                if len(_mg) == 1:
-                    _bl[0].seek(0)
-                    await update.message.reply_document(
-                        document=_bl[0],
-                        filename=os.path.basename(_bt[0]),
-                        read_timeout=120, write_timeout=120, connect_timeout=60,
-                    )
-                else:
-                    for b in _bl:
-                        b.seek(0)
-                    await update.message.reply_media_group(
-                        media=_mg,
-                        read_timeout=120, write_timeout=120, connect_timeout=60,
-                    )
-
+        async def _safe_edit_txt(text):
             try:
-                await _send()
-            except RetryAfter as e:
-                await asyncio.sleep(int(e.retry_after) + 2)
-                try:
-                    await _send()
-                except Exception as e2:
-                    logger.error("PecahTXT kirim ulang gagal: %s", e2)
-            except Exception as e:
-                logger.error("PecahTXT send error: %s", e)
+                await status_msg.edit_text(text)
+            except Exception:
+                pass
 
-            if i + BATCH < total_parts:
-                await asyncio.sleep(0.5)
+        # ── SINGLE DOCUMENT SEQUENTIAL SEND — Anti Lag HP ──
+        max_retries = 3
+        for file_idx, out_path in enumerate(output_files):
+            # Throttle progress: maks 1x edit per 2 detik
+            current_time = _time.time()
+            if file_idx == 0 or file_idx == total_parts - 1 or (current_time - _last_edit_time >= 2.0):
+                progress_pct = int(((file_idx + 1) / total_parts) * 100)
+                asyncio.create_task(_safe_edit_txt(f"Mengirim... {file_idx + 1}/{total_parts} file ({progress_pct}%)"))
+                _last_edit_time = current_time
+
+            with open(out_path, "rb") as fd:
+                buf = io.BytesIO(fd.read())
+            fname = os.path.basename(out_path)
+            buf.name = fname
+
+            for attempt in range(max_retries):
+                try:
+                    buf.seek(0)
+                    await update.message.reply_document(
+                        document=buf,
+                        filename=fname,
+                        read_timeout=15, write_timeout=20, connect_timeout=10
+                    )
+                    # Jeda 50ms antar file agar HP user (iPhone) tidak lag saat render
+                    await asyncio.sleep(0.05)
+                    break
+                except RetryAfter as e:
+                    wait_secs = max(int(e.retry_after), 2) + 1
+                    logger.warning(f"[PecahTXT] Flood limit {fname}, tunggu {wait_secs}s")
+                    await asyncio.sleep(wait_secs)
+                except Exception as ex:
+                    logger.error(f"[PecahTXT] Gagal kirim {fname}: {ex}")
+                    if attempt == max_retries - 1:
+                        raise
+                    await asyncio.sleep(1)
 
         try:
             await status_msg.delete()

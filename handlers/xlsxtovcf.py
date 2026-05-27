@@ -417,54 +417,49 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
             msg = (header_text if i == 0 else "") + "\n".join(lines[i:i + CHUNK])
             await update.message.reply_text(msg)
 
-        send_status = await update.message.reply_text(f"Menyiapkan {total_files} file...")
+        import time as _time
+        send_status = await update.message.reply_text(f"Mengirim {total_files} file VCF...")
+        _last_edit_time = 0.0
 
-        # ── KIRIM via BytesIO — SEQUENTIAL FAST (URUT & CEPAT) ──
-        chunk_size = 10
-        for i in range(0, len(results), chunk_size):
-            chunk_results = results[i:i + chunk_size]
+        async def _safe_edit(text):
+            try:
+                await send_status.edit_text(text)
+            except Exception:
+                pass
 
-            media_group = []
-            bio_list    = []
-            for label, content in chunk_results:
-                buf = io.BytesIO(content)
-                buf.name = f"{label}.vcf"
-                bio_list.append(buf)
-                media_group.append(InputMediaDocument(media=buf, filename=f"{label}.vcf"))
+        # ── SINGLE DOCUMENT SEQUENTIAL SEND — Urutan 100% Terjamin & Anti Lag HP ──
+        max_retries = 3
+        for file_idx, (label, content) in enumerate(results):
+            # Throttle progress: maks 1x edit per 2 detik
+            current_time = _time.time()
+            if file_idx == 0 or file_idx == total_files - 1 or (current_time - _last_edit_time >= 2.0):
+                progress_pct = int(((file_idx + 1) / total_files) * 100)
+                asyncio.create_task(_safe_edit(f"Mengirim... {file_idx + 1}/{total_files} file ({progress_pct}%)"))
+                _last_edit_time = current_time
 
-            async def _send_chunk(_mg=media_group, _bl=bio_list, _cr=chunk_results):
-                if len(_mg) == 1:
-                    label_name, _ = _cr[0]
-                    _bl[0].seek(0)
-                    await update.message.reply_document(
-                        document=_bl[0],
-                        filename=f"{label_name}.vcf",
-                        read_timeout=120, write_timeout=120, connect_timeout=60
-                    )
-                else:
-                    for b in _bl: b.seek(0)
-                    await update.message.reply_media_group(
-                        media=_mg,
-                        read_timeout=120, write_timeout=120, connect_timeout=60
-                    )
+            buf = io.BytesIO(content)
+            buf.name = f"{label}.vcf"
 
-            max_retries = 3
             for attempt in range(max_retries):
                 try:
-                    await _send_chunk()
+                    buf.seek(0)
+                    await update.message.reply_document(
+                        document=buf,
+                        filename=f"{label}.vcf",
+                        read_timeout=15, write_timeout=20, connect_timeout=10
+                    )
+                    # Jeda 50ms antar file agar HP user (iPhone) tidak lag saat render
+                    await asyncio.sleep(0.05)
                     break
                 except RetryAfter as e:
-                    if attempt == max_retries - 1:
-                        logger.error(f"Max retries reached for chunk {i//chunk_size + 1}")
-                        raise
-                    wait_secs = int(e.retry_after) * (attempt + 1) + 2
-                    logger.warning(f"Flood limit! Retry {attempt+1}/{max_retries} after {wait_secs}s...")
+                    wait_secs = max(int(e.retry_after), 2) + 1
+                    logger.warning(f"[XTV] Flood limit file {label}.vcf, tunggu {wait_secs}s")
                     await asyncio.sleep(wait_secs)
-                except Exception as e:
-                    logger.error(f"Gagal kirim chunk {i//chunk_size + 1}: {e}")
+                except Exception as ex:
+                    logger.error(f"[XTV] Gagal kirim file {label}.vcf: {ex}")
                     if attempt == max_retries - 1:
                         raise
-                    await asyncio.sleep(2)
+                    await asyncio.sleep(1)
 
         try:
             try:
