@@ -413,8 +413,8 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                         filename=f"{label}.vcf",
                         read_timeout=15, write_timeout=20, connect_timeout=10
                     )
-                    # Jeda 650ms antar file (150ms base + 500ms extra) — sweet spot txttovcf
-                    await asyncio.sleep(0.65)
+                    # Jeda 100ms antar file — cukup untuk animasi iOS, tetap cepat
+                    await asyncio.sleep(0.1)
                     break
                 except RetryAfter as e:
                     # Jika kena flood limit Telegram, tunggu sesuai instruksi
