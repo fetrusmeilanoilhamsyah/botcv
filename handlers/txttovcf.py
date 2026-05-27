@@ -391,12 +391,12 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
             all_chunks.append((i // chunk_size, media_group, bio_list, chunk_results))
 
         # ── STAGGERED PARALLEL SEND ───────────────────────────────────────────
-        # Setiap batch dimulai 100ms setelah batch sebelumnya START (bukan selesai).
-        # VCF file ukurannya identik (per_file kontak) → batch awal selalu sampai
-        # Telegram lebih dulu → urutan terjamin, kecepatan 3-4x lebih cepat.
-        STAGGER_S = 0.10  # 100ms jarak antar batch start
+        STAGGER_S = 0.10
+        import time as _time
+        _t0 = _time.perf_counter()
 
         async def _send_one(chunk_idx, mg, bl, cr):
+            _ts = _time.perf_counter()
             max_retries = 3
             for attempt in range(max_retries):
                 try:
@@ -413,6 +413,7 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                             media=mg,
                             read_timeout=120, write_timeout=120, connect_timeout=60
                         )
+                    _logger.info(f"[TTV] batch {chunk_idx+1} selesai dalam {(_time.perf_counter()-_ts)*1000:.0f}ms (total elapsed {(_time.perf_counter()-_t0)*1000:.0f}ms)")
                     return
                 except RetryAfter as e:
                     if attempt == max_retries - 1:
@@ -430,13 +431,13 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
         send_tasks = []
         for idx, (chunk_idx, mg, bl, cr) in enumerate(all_chunks):
             if idx > 0:
-                # Jeda kecil agar batch sebelumnya start upload duluan ke Telegram
                 await asyncio.sleep(STAGGER_S)
+            _logger.info(f"[TTV] start task batch {chunk_idx+1} di t+{(_time.perf_counter()-_t0)*1000:.0f}ms")
             task = asyncio.create_task(_send_one(chunk_idx, mg, bl, cr))
             send_tasks.append(task)
 
-        # Tunggu semua batch selesai
         done = await asyncio.gather(*send_tasks, return_exceptions=True)
+        _logger.info(f"[TTV] TOTAL send {len(all_chunks)} batch = {(_time.perf_counter()-_t0)*1000:.0f}ms")
         for i, r in enumerate(done):
             if isinstance(r, Exception):
                 _logger.error(f"Batch {i + 1} error: {r}")
