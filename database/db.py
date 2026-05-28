@@ -769,30 +769,26 @@ def expire_old_pending_payments(minutes: int = 20) -> int:
 
 def get_and_expire_old_pending_payments(minutes: int = 5) -> list:
     """
-    Mendapatkan semua pembayaran pending yang sudah kedaluwarsa (> minutes) secara UTC-to-UTC,
-    kemudian memperbarui statusnya menjadi 'expired' di database dalam satu transaksi.
-    Returns: list of dict berisi pembayaran yang expired (user_id, order_id, qr_chat_id, qr_message_id, dll).
+    ATOMIC: Memperbarui status pembayaran pending yang kedaluwarsa menjadi 'expired'
+    dan mengembalikan detail baris yang di-update secara atomic menggunakan RETURNING clause (SQLite 3.35+).
+    Mencegah race condition double-notification.
+    Returns: list of dict berisi pembayaran yang di-expire oleh query ini saja.
     """
     time_clause = f"-{minutes} minutes"
     try:
         with get_connection() as conn:
-            rows = conn.execute(
-                """SELECT id, user_id, order_id, amount, qr_chat_id, qr_message_id
-                   FROM payments
-                   WHERE status = 'pending' AND created_at < datetime('now', ?)""",
+            cursor = conn.execute(
+                """UPDATE payments
+                   SET status = 'expired'
+                   WHERE status = 'pending' AND created_at < datetime('now', ?)
+                   RETURNING id, user_id, order_id, amount, qr_chat_id, qr_message_id""",
                 (time_clause,)
-            ).fetchall()
+            )
+            rows = cursor.fetchall()
+            conn.commit()
             
             expired_list = [dict(r) for r in rows]
-            
             if expired_list:
-                conn.execute(
-                    """UPDATE payments
-                       SET status = 'expired'
-                       WHERE status = 'pending' AND created_at < datetime('now', ?)""",
-                    (time_clause,)
-                )
-                conn.commit()
                 logger.info("[DB] get_and_expire_old_pending_payments: %d payment di-expire", len(expired_list))
             return expired_list
     except Exception as exc:
