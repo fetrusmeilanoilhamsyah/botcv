@@ -110,47 +110,28 @@ def init_db():
             )
         """)
         
-        # Safe migration: add expired_at if db already exists without it
-        try:
-            conn.execute("ALTER TABLE users ADD COLUMN expired_at TEXT DEFAULT NULL")
-            conn.commit()
-            print("✅ Migrated: added expired_at column")
-        except sqlite3.OperationalError as e:
-            if "duplicate column" not in str(e).lower():
-                logging.getLogger(__name__).error("Migration expired_at failed: %s", e)
+        # Safe migration helper
+        def safe_add_column(table: str, col_def: str):
+            col_name = col_def.split()[0]
+            try:
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {col_def}")
+                conn.commit()
+                print(f"✅ Migrated: added {col_name} column to {table}")
+            except sqlite3.OperationalError as e:
+                if "duplicate column" not in str(e).lower():
+                    logging.getLogger(__name__).error("Migration of %s failed: %s", col_name, e)
+                    raise
+            except Exception as e:
+                logging.getLogger(__name__).error("Unexpected migration error for %s: %s", col_name, e)
                 raise
-            # Column already exists, silently continue
-        except Exception as e:
-            logging.getLogger(__name__).error("Unexpected migration error: %s", e)
-            raise
-            
-        try:
-            conn.execute("ALTER TABLE users ADD COLUMN referred_by INTEGER DEFAULT NULL")
-            conn.execute("ALTER TABLE users ADD COLUMN usage_count INTEGER DEFAULT 0")
-            conn.execute("ALTER TABLE users ADD COLUMN expiry_notified INTEGER DEFAULT 0")
-            conn.commit()
-            print("✅ Migrated: added referral and analytics columns")
-        except sqlite3.OperationalError as e:
-            if "duplicate column" not in str(e).lower():
-                logging.getLogger(__name__).error("Migration referral/analytics failed: %s", e)
-                raise
-            # Columns already exist, silently continue
-        except Exception as e:
-            logging.getLogger(__name__).error("Unexpected migration error: %s", e)
-            raise
-        
-        try:
-            conn.execute("ALTER TABLE users ADD COLUMN referral_points INTEGER DEFAULT 0")
-            conn.execute("ALTER TABLE users ADD COLUMN total_referral_points_earned INTEGER DEFAULT 0")
-            conn.commit()
-            print("✅ Migrated: added referral_points columns")
-        except sqlite3.OperationalError as e:
-            if "duplicate column" not in str(e).lower():
-                logging.getLogger(__name__).error("Migration referral_points failed: %s", e)
-                raise
-        except Exception as e:
-            logging.getLogger(__name__).error("Unexpected migration error: %s", e)
-            raise
+
+        # Perform migrations for users table columns individually
+        safe_add_column("users", "expired_at TEXT DEFAULT NULL")
+        safe_add_column("users", "referred_by INTEGER DEFAULT NULL")
+        safe_add_column("users", "usage_count INTEGER DEFAULT 0")
+        safe_add_column("users", "expiry_notified INTEGER DEFAULT 0")
+        safe_add_column("users", "referral_points INTEGER DEFAULT 0")
+        safe_add_column("users", "total_referral_points_earned INTEGER DEFAULT 0")
 
         conn.execute("""
             CREATE TABLE IF NOT EXISTS broadcast_log (
