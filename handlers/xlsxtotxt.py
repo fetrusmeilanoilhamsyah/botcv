@@ -106,7 +106,7 @@ def _schedule_move(chat_id: int, bot, user_id: int):
         except Exception:
             pass
 
-    task = asyncio.get_event_loop().create_task(_wait_then_move())
+    task = asyncio.create_task(_wait_then_move())
     _debounce_tasks[user_id] = task
 
 

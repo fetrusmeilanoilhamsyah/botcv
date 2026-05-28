@@ -243,7 +243,7 @@ async def handle_duplikat_file(update: Update, context: ContextTypes.DEFAULT_TYP
                 )
                 db.clear_session(uid)
 
-            task = asyncio.get_event_loop().create_task(_send_duplikat_buttons_debounced(user_id, update.effective_chat.id, context.bot))
+            task = asyncio.create_task(_send_duplikat_buttons_debounced(user_id, update.effective_chat.id, context.bot))
             _button_timers[user_id] = task
 
 

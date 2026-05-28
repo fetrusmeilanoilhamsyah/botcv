@@ -181,7 +181,7 @@ async def handle_cleanup_file(update: Update, context: ContextTypes.DEFAULT_TYPE
                 reply_markup=keyboard
             )
 
-        task = asyncio.get_event_loop().create_task(_send_buttons_debounced(user_id, update.effective_chat.id, context.bot))
+        task = asyncio.create_task(_send_buttons_debounced(user_id, update.effective_chat.id, context.bot))
         _button_timers[user_id] = task
 
     except Exception as e:

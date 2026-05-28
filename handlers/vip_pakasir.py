@@ -325,7 +325,7 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 conn.commit()
 
-        await asyncio.get_event_loop().run_in_executor(None, _save_qr_ids)
+        await asyncio.get_running_loop().run_in_executor(None, _save_qr_ids)
     except Exception as exc:
         logger.warning("[VIP] Gagal simpan qr_message_id: %s", exc)
 

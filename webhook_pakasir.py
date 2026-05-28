@@ -97,7 +97,7 @@ async def handle_pakasir_webhook(request: web.Request) -> web.Response:
             return web.Response(status=400, text="Missing required fields")
 
         # FIX: Semua DB call dijalankan via run_in_executor agar tidak blokir aiohttp event loop.
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         # Ambil data dari DB dulu (untuk validasi)
         payment = await loop.run_in_executor(None, get_payment, order_id)
@@ -241,7 +241,7 @@ def start_webhook_server_thread(port: int = 8080, bot=None):
 
     # Capture the main event loop
     try:
-        main_loop = asyncio.get_event_loop()
+        main_loop = asyncio.get_event_loop_policy().get_event_loop()
     except Exception:
         main_loop = None
 

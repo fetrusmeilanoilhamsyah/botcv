@@ -92,7 +92,7 @@ def _schedule_move(chat_id: int, bot, user_id: int):
         await asyncio.sleep(DEBOUNCE_SECONDS)
         await _do_move_status(chat_id, bot, user_id)
 
-    task = asyncio.get_event_loop().create_task(_wait_then_move())
+    task = asyncio.create_task(_wait_then_move())
     _debounce_tasks[user_id] = task
 
 
