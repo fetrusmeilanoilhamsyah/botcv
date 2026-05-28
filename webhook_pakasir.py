@@ -235,12 +235,12 @@ async def run_webhook_server(port: int = 8080, bot=None, main_loop=None):
         await runner.cleanup()
 
 
-def start_webhook_server_thread(port: int = 8080, bot=None):
+def start_webhook_server_thread(port: int = 8080, bot=None, main_loop=None):
     """Jalankan webhook di thread terpisah (kompatibel dengan bot polling)."""
     import threading
 
     def _run():
-        asyncio.run(run_webhook_server(port, bot, None))
+        asyncio.run(run_webhook_server(port, bot, main_loop))
 
     t = threading.Thread(target=_run, daemon=True, name="webhook-pakasir")
     t.start()

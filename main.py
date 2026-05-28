@@ -531,7 +531,7 @@ def main():
     # FIX: gunakan HEALTH_PORT dari config (konsisten)
     logger.info("Health check server started on port %s", HEALTH_PORT)
 
-    async def startup_expire_vip(application):
+    async def startup_init(application):
         try:
             from database.db_async import adb
             expired = await adb.expire_vip_members()
@@ -539,6 +539,26 @@ def main():
                 logger.info("Startup: %d VIP expired", expired)
         except Exception as e:
             logger.error("Startup VIP expiration failed: %s", e)
+
+        # ── Pakasir webhook server ──
+        if os.getenv("PAKASIR_ENABLED", "false").lower() == "true" and VIP_PAKASIR_MODE:
+            # Validasi: pastikan WEBHOOK_PORT != HEALTH_PORT agar tidak bentrok
+            if WEBHOOK_PORT == HEALTH_PORT:
+                logger.error(
+                    "WEBHOOK_PORT (%s) == HEALTH_PORT (%s)! Ganti salah satunya di .env. "
+                    "Webhook server TIDAK dijalankan untuk mencegah crash.",
+                    WEBHOOK_PORT, HEALTH_PORT
+                )
+            else:
+                try:
+                    import asyncio
+                    from webhook_pakasir import start_webhook_server_thread
+                    # Ambil running event loop dari thread utama bot
+                    loop = asyncio.get_running_loop()
+                    start_webhook_server_thread(WEBHOOK_PORT, application.bot, loop)
+                    logger.info("Pakasir webhook server started on port %s", WEBHOOK_PORT)
+                except Exception as e:
+                    logger.error("Gagal start webhook server: %s", e)
 
     app = (
         ApplicationBuilder()
@@ -553,7 +573,7 @@ def main():
         .read_timeout(30)
         .write_timeout(120)
         .connect_timeout(30)
-        .post_init(startup_expire_vip)
+        .post_init(startup_init)
         .build()
     )
 
@@ -626,23 +646,7 @@ def main():
 
 
 
-    # ── Pakasir webhook server ──
-    if os.getenv("PAKASIR_ENABLED", "false").lower() == "true" and VIP_PAKASIR_MODE:
-        # Validasi: pastikan WEBHOOK_PORT != HEALTH_PORT agar tidak bentrok
-        if WEBHOOK_PORT == HEALTH_PORT:
-            logger.error(
-                "WEBHOOK_PORT (%s) == HEALTH_PORT (%s)! Ganti salah satunya di .env. "
-                "Webhook server TIDAK dijalankan untuk mencegah crash.",
-                WEBHOOK_PORT, HEALTH_PORT
-            )
-        else:
-            try:
-                from webhook_pakasir import start_webhook_server_thread
-                # FIX: gunakan WEBHOOK_PORT dari config (bukan os.getenv ulang dengan default berbeda)
-                start_webhook_server_thread(WEBHOOK_PORT, app.bot)
-                logger.info("Pakasir webhook server started on port %s", WEBHOOK_PORT)
-            except Exception as e:
-                logger.error("Gagal start webhook server: %s", e)
+
 
     # ── Scheduled jobs ──
     app.job_queue.run_repeating(_job_expire_vip,               interval=JOB_EXPIRE_VIP_INTERVAL,       first=60)
