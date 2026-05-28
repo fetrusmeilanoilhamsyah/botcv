@@ -520,6 +520,10 @@ def _run_health_server():
 
 # ── main ────────────────────────────────────────────────────────────────────────
 def main():
+    # Explicitly initialize SQLite database and connection pool
+    from database.db import init_db
+    init_db()
+
     # Health check server (background)
     threading.Thread(target=_run_health_server, daemon=True, name="health-server").start()
     # FIX: gunakan HEALTH_PORT dari config (konsisten)

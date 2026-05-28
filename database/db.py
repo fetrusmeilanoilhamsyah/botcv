@@ -838,5 +838,6 @@ def get_payment_stats():
         return {"total": 0, "completed": 0, "pending": 0, "income": 0}
 
 
-# Initialize on module import
-init_db()
+# Only initialize automatically when run directly as main script
+if __name__ == "__main__":
+    init_db()

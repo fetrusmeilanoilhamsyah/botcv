@@ -260,4 +260,9 @@ if __name__ == "__main__":
     load_dotenv()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     port = int(os.getenv("WEBHOOK_PORT", 8080))
+    
+    # Explicitly initialize SQLite database and connection pool
+    from database.db import init_db
+    init_db()
+    
     asyncio.run(run_webhook_server(port))
