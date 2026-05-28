@@ -109,9 +109,28 @@ class AsyncDB:
     def clear_user_ram(self, user_id: int):
         return db.clear_user_ram(user_id)
 
-    # ── Payments ───────────────────────────────────────────────────────────────
-    async def create_payment(self, **kwargs) -> bool:
-        return await _run(db.create_payment, **kwargs)
+    async def create_payment(
+        self,
+        user_id: int,
+        order_id: str,
+        amount: int,
+        package_days: int,
+        payment_number: str = None,
+        expired_at: str = None,
+        qr_chat_id: int = None,
+        qr_message_id: int = None,
+    ) -> bool:
+        return await _run(
+            db.create_payment,
+            user_id=user_id,
+            order_id=order_id,
+            amount=amount,
+            package_days=package_days,
+            payment_number=payment_number,
+            expired_at=expired_at,
+            qr_chat_id=qr_chat_id,
+            qr_message_id=qr_message_id,
+        )
 
     async def get_payment(self, order_id: str):
         return await _run(db.get_payment, order_id)
