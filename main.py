@@ -427,6 +427,67 @@ async def _job_cleanup_sessions(context):
         cleaned_cache = await adb.cleanup_stale_sessions()
         if cleaned_cache:
             logger.info("[JOB] Cleaned %d stale session cache", cleaned_cache)
+
+        # Cleanup welcome messages dan locks/timers di seluruh handler untuk mencegah memory leak
+        try:
+            from handlers.start import _welcome_messages
+            import handlers.txttovcf
+            import handlers.pecahtxt
+            import handlers.pecahvcf
+            import handlers.vcftotxt
+            import handlers.xlsxtovcf
+            import handlers.merge
+            import handlers.admin_navy
+            import handlers.count
+            import handlers.duplikat
+            import handlers.rename
+
+            active_uids = set(_welcome_messages.keys())
+            active_uids.update(handlers.txttovcf._user_locks.keys())
+            active_uids.update(handlers.pecahtxt._user_locks.keys())
+            active_uids.update(handlers.pecahvcf._user_locks.keys())
+            active_uids.update(handlers.vcftotxt._user_locks.keys())
+            active_uids.update(handlers.xlsxtovcf._user_locks.keys())
+            active_uids.update(handlers.merge._user_locks.keys())
+            active_uids.update(handlers.admin_navy._user_locks.keys())
+            active_uids.update(handlers.count._user_locks.keys())
+            active_uids.update(handlers.duplikat._user_locks.keys())
+            active_uids.update(handlers.rename._user_locks.keys())
+
+            inactive_ids = []
+            from datetime import datetime
+            now = datetime.now()
+            for uid in active_uids:
+                user = db.get_user(uid)
+                if user:
+                    try:
+                        last = datetime.fromisoformat(dict(user)["last_active"])
+                        if (now - last).total_seconds() > SESSION_INACTIVE_TIMEOUT:
+                            inactive_ids.append(uid)
+                    except Exception:
+                        inactive_ids.append(uid)
+                else:
+                    inactive_ids.append(uid)
+
+            if inactive_ids:
+                for uid in inactive_ids:
+                    _welcome_messages.pop(uid, None)
+                
+                handlers.txttovcf.cleanup_inactive_users(inactive_ids)
+                handlers.pecahtxt.cleanup_inactive_users(inactive_ids)
+                handlers.pecahvcf.cleanup_inactive_users(inactive_ids)
+                handlers.vcftotxt.cleanup_inactive_users(inactive_ids)
+                handlers.xlsxtovcf.cleanup_inactive_users(inactive_ids)
+                handlers.merge.cleanup_inactive_users(inactive_ids)
+                handlers.admin_navy.cleanup_inactive_users(inactive_ids)
+                handlers.count.cleanup_inactive_users(inactive_ids)
+                handlers.duplikat.cleanup_inactive_users(inactive_ids)
+                handlers.rename.cleanup_inactive_users(inactive_ids)
+                
+                logger.info("[JOB] Cleaned %d inactive users from welcome messages and handler locks/timers", len(inactive_ids))
+        except Exception as e_cleanup:
+            logger.error("[JOB] Error during active users memory cleanup: %s", e_cleanup)
+
     finally:
         _job_running["cleanup"] = False
 

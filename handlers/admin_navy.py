@@ -14,9 +14,7 @@ import asyncio
 _user_locks: dict = {}
 
 def get_user_lock(user_id: int) -> asyncio.Lock:
-    if user_id not in _user_locks:
-        _user_locks[user_id] = asyncio.Lock()
-    return _user_locks[user_id]
+    return _user_locks.setdefault(user_id, asyncio.Lock())
 
 
 def cleanup_inactive_users(inactive_ids: list) -> int:
