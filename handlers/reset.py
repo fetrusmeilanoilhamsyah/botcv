@@ -82,7 +82,7 @@ async def handle_reset_callback(update: Update, context: ContextTypes.DEFAULT_TY
 
     elif data == "admin_db_reset_final":
         # Eksekusi Reset Total Database
-        db.clear_all_db()
+        await adb.clear_all_db()
         clear_all_sessions()
         await query.edit_message_text(
             "Database berhasil direset."

@@ -39,7 +39,7 @@ async def cmd_addvip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Hari harus 1-365.")
         return
 
-    expired_at = db.set_member_vip(target_id, days)
+    expired_at = await adb.set_member_vip(target_id, days)
 
     # set_member_vip returns None for admins (forced permanent member)
     if expired_at is None:
@@ -90,16 +90,15 @@ async def cmd_delvip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    user_id = update.effective_user.id
-    db.increment_usage(user_id)
+    await adb.increment_usage(user_id)
 
     target_id = int(args[0])
-    user = db.get_user(target_id)
+    user = await adb.get_user(target_id)
     if not user or not user["is_member"]:
         await update.message.reply_text(f"User {target_id} bukan member.")
         return
 
-    db.remove_member(target_id)
+    await adb.remove_member(target_id)
     await update.message.reply_text(
         f"VIP {target_id} dicabut."
     )

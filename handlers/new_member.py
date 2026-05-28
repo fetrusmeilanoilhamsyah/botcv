@@ -25,6 +25,6 @@ async def handle_newmember_id(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text("ID harus angka.")
         return
     target_id = int(text)
-    db.set_member(target_id)
+    await adb.set_member(target_id)
     db.clear_session(user_id)
     await update.message.reply_text(f"User {target_id} aktif.")

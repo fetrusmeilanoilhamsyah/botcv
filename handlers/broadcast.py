@@ -13,6 +13,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from telegram.error import RetryAfter
 from database import db
+from database.db_async import adb
 from middleware.auth import require_admin
 
 STATE = "BROADCAST_WAIT_MSG"
@@ -41,7 +42,7 @@ async def handle_broadcast_msg(update: Update, context: ContextTypes.DEFAULT_TYP
     db.set_session(user_id, STATE, data)
 
     message = update.message.text.strip()
-    all_ids = db.get_all_user_ids()
+    all_ids = await adb.get_all_user_ids()
     success = 0
     fail    = 0
     total   = len(all_ids)
@@ -77,7 +78,7 @@ async def handle_broadcast_msg(update: Update, context: ContextTypes.DEFAULT_TYP
             except Exception:
                 pass
 
-    db.log_broadcast(user_id, message, success, fail)
+    await adb.log_broadcast(user_id, message, success, fail)
     db.clear_session(user_id)
 
     await update.message.reply_text(

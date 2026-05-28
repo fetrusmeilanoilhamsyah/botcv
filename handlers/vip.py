@@ -5,6 +5,7 @@ Pembayaran manual (QRIS pending approval Midtrans).
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from database import db
+from database.db_async import adb
 from datetime import datetime
 from config import ADMIN_CONTACT
 
@@ -24,9 +25,9 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     from handlers.start import transition_to_handler
     
-    expired_at  = db.get_vip_expiry(user.id)
+    expired_at  = await adb.get_vip_expiry(user.id)
     status_line = ""
-    if db.is_member(user.id):
+    if await adb.is_member(user.id):
         if expired_at:
             exp  = datetime.fromisoformat(expired_at)
             sisa = (exp - datetime.now()).days

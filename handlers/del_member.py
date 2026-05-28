@@ -27,13 +27,13 @@ async def handle_delmember_id(update: Update, context: ContextTypes.DEFAULT_TYPE
     target_id = int(text)
     
     # Check if user exists
-    user = db.get_user(target_id)
+    user = await adb.get_user(target_id)
     if not user:
         await update.message.reply_text(f"User {target_id} tidak ditemukan.")
         db.clear_session(user_id)
         return
 
-    db.remove_member(target_id)
+    await adb.remove_member(target_id)
     db.clear_session(user_id)
     await update.message.reply_text(
         f"Akses {target_id} dicabut."

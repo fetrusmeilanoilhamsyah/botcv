@@ -14,7 +14,7 @@ async def cmd_daftar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_admin(update, context):
         return
 
-    users = db.get_all_users_detail()
+    users = await adb.get_all_users_detail()
 
     if not users:
         await update.message.reply_text("Belum ada pengguna.")
