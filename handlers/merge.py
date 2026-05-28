@@ -27,9 +27,7 @@ _user_timers: dict = {}
 
 
 def get_user_lock(user_id: int) -> asyncio.Lock:
-    if user_id not in _user_locks:
-        _user_locks[user_id] = asyncio.Lock()
-    return _user_locks[user_id]
+    return _user_locks.setdefault(user_id, asyncio.Lock())
 
 
 def cleanup_inactive_users(inactive_ids: list) -> int:
@@ -289,6 +287,7 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
             pass
 
     out_path = None
+    success  = False
     try:
         if mode == "vcf":
             # ── Mode VCF: parse & gabung semua kontak ──────────────────────
@@ -345,9 +344,6 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
             with open(out_path, "w", encoding="utf-8") as f:
                 f.write(contacts_to_vcf(all_contacts))
 
-            _clear_buffers(user_id)
-            db.clear_session(user_id)
-
             try:
                 await progress_msg.delete()
             except Exception:
@@ -358,6 +354,8 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                     document=f, filename=f"{file_name}.vcf",
                     read_timeout=120, write_timeout=120, connect_timeout=60
                 )
+
+            success = True
 
             from telegram import InlineKeyboardButton, InlineKeyboardMarkup
             keyboard = InlineKeyboardMarkup([
@@ -408,9 +406,6 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
             with open(out_path, "w", encoding="utf-8") as f:
                 f.write("\n".join(numbers))
 
-            _clear_buffers(user_id)
-            db.clear_session(user_id)
-
             try:
                 await progress_msg.delete()
             except Exception:
@@ -421,6 +416,8 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                     document=f, filename=f"{file_name}.txt",
                     read_timeout=120, write_timeout=120, connect_timeout=60
                 )
+
+            success = True
 
             from telegram import InlineKeyboardButton, InlineKeyboardMarkup
             keyboard = InlineKeyboardMarkup([
@@ -438,9 +435,26 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                 reply_markup=keyboard
             )
 
+    except Exception as e:
+        logger.error("Merge error for user %s: %s", user_id, e)
+        try:
+            await progress_msg.delete()
+        except Exception:
+            pass
+        await update.message.reply_text(
+            f"❌ Gagal mengirim file gabungan: {e}\n"
+            "File mentah Anda masih tersimpan aman. Silakan ketik nama file baru untuk mencoba kembali."
+        )
+        # Buka kembali status processing agar user bisa ketik nama file ulang
+        sess = db.get_session(user_id)
+        if sess and sess["state"] == STATE_NAMING:
+            sess["data"]["is_processing"] = False
+            db.set_session(user_id, STATE_NAMING, sess["data"])
+
     finally:
-        _clear_buffers(user_id)
-        db.clear_session(user_id)
+        if success:
+            _clear_buffers(user_id)
+            db.clear_session(user_id)
         if out_path:
             try:
                 if os.path.exists(out_path):
