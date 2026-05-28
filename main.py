@@ -236,6 +236,8 @@ async def error_handler(update: object, context):
 
 # ── Text & file routers ───────────────────────────────────────────────────────
 async def text_router(update: Update, context):
+    if not update.message:
+        return
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
     if not sess:
