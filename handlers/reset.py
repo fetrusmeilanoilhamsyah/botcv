@@ -28,7 +28,7 @@ async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
 
     # Hapus 100 pesan ke belakang dari pesan /reset saat ini
-    await asyncio.gather(*(delete_msg(mid) for mid in range(current_msg_id, current_msg_id - 100, -1)))
+    await asyncio.gather(*(delete_msg(mid) for mid in range(current_msg_id, max(0, current_msg_id - 100), -1)))
 
     # 3. Kirim menu utama yang fresh dan bersih sebagai satu-satunya pesan tersisa
     from handlers.start import send_fresh_start_menu
