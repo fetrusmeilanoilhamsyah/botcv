@@ -613,18 +613,40 @@ def cleanup_stale_sessions(max_age_hours=24):
     """
     from datetime import datetime, timedelta
     
+    user_ids = list(_session_cache.keys())
+    if not user_ids:
+        return 0
+
     cleaned = 0
     stale_users = []
     
-    for user_id in list(_session_cache.keys()):
-        user = get_user(user_id)
-        if user:
-            try:
-                last_active = datetime.fromisoformat(dict(user)["last_active"])
-                if datetime.now() - last_active > timedelta(hours=max_age_hours):
-                    stale_users.append(user_id)
-            except:
-                pass
+    placeholders = ",".join("?" for _ in user_ids)
+    query = f"SELECT id, last_active FROM users WHERE id IN ({placeholders})"
+    
+    try:
+        with get_connection() as conn:
+            rows = conn.execute(query, user_ids).fetchall()
+    except Exception as e:
+        logger.error("[db] cleanup_stale_sessions failed to query DB: %s", e)
+        return 0
+
+    cutoff = datetime.now() - timedelta(hours=max_age_hours)
+    found_user_ids = set()
+    
+    for row in rows:
+        uid = row["id"]
+        found_user_ids.add(uid)
+        try:
+            last_active = datetime.fromisoformat(row["last_active"])
+            if last_active < cutoff:
+                stale_users.append(uid)
+        except Exception:
+            pass
+
+    # Hapus juga user yang tidak ditemukan di DB tapi ada di RAM cache
+    for uid in user_ids:
+        if uid not in found_user_ids:
+            stale_users.append(uid)
     
     for user_id in stale_users:
         _session_cache.pop(user_id, None)
