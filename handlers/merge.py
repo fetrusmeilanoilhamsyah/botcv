@@ -355,6 +355,9 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                     read_timeout=120, write_timeout=120, connect_timeout=60
                 )
 
+            # Clear buffers and session immediately after reply_document confirms success
+            _clear_buffers(user_id)
+            db.clear_session(user_id)
             success = True
 
             from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -417,6 +420,9 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                     read_timeout=120, write_timeout=120, connect_timeout=60
                 )
 
+            # Clear buffers and session immediately after reply_document confirms success
+            _clear_buffers(user_id)
+            db.clear_session(user_id)
             success = True
 
             from telegram import InlineKeyboardButton, InlineKeyboardMarkup
@@ -452,9 +458,6 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
             db.set_session(user_id, STATE_NAMING, sess["data"])
 
     finally:
-        if success:
-            _clear_buffers(user_id)
-            db.clear_session(user_id)
         if out_path:
             try:
                 if os.path.exists(out_path):
