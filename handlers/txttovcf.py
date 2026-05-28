@@ -24,7 +24,13 @@ from config import (
     MAX_FILES_PER_SESSION as MAX_FILES,
     MAX_UPLOAD_SIZE_MB as MAX_SIZE_MB,
     MAX_CONTACTS_PER_FILE,
-    THREAD_POOL_TIMEOUT
+    THREAD_POOL_TIMEOUT,
+    SEND_PROGRESS_INTERVAL,
+    SEND_MAX_RETRIES,
+    SEND_RETRY_DELAY,
+    FILE_READ_TIMEOUT,
+    FILE_WRITE_TIMEOUT,
+    FILE_CONNECT_TIMEOUT,
 )
 
 _user_locks: dict = {}
@@ -32,9 +38,7 @@ _user_timers: dict = {}
 
 
 def get_user_lock(user_id: int) -> asyncio.Lock:
-    if user_id not in _user_locks:
-        _user_locks[user_id] = asyncio.Lock()
-    return _user_locks[user_id]
+    return _user_locks.setdefault(user_id, asyncio.Lock())
 
 
 def cleanup_inactive_users(inactive_ids: list) -> int:
@@ -93,7 +97,7 @@ async def cmd_txttovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     asyncio.create_task(adb.increment_usage(user_id))
     
-    from handlers.start import transition_to_handler, get_start_keyboard
+    from handlers.start import transition_to_handler
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     db.set_session(user_id, S0, {"count": 0, "total_size": 0, "total_contacts": 0})
@@ -116,7 +120,6 @@ async def handle_ttv_contact_name(update: Update, context: ContextTypes.DEFAULT_
     data = sess["data"]
     data["contact_name"] = update.message.text.strip()
     db.set_session(user_id, S2, data)
-    from handlers.start import get_start_keyboard
     await update.message.reply_text("Berapa kontak per file? Contoh: <b>100</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]))
 
 
@@ -138,7 +141,6 @@ async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE
     data = sess["data"]
     data["per_file"] = per_file
     db.set_session(user_id, S3, data)
-    from handlers.start import get_start_keyboard
     await update.message.reply_text("Nama file? Contoh: <b>FEE</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]))
 
 
@@ -150,7 +152,6 @@ async def handle_ttv_file_name(update: Update, context: ContextTypes.DEFAULT_TYP
     data = sess["data"]
     data["file_name"] = sanitize_filename(update.message.text.strip())
     db.set_session(user_id, S4, data)
-    from handlers.start import get_start_keyboard
     await update.message.reply_text("Nomor urut awal? Contoh: <b>1</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]))
 
 
@@ -274,14 +275,13 @@ async def handle_ttv_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         
         db.set_session(user_id, S1, data)
-        from handlers.start import get_start_keyboard
         await update.message.reply_text(
             f"{data.get('total_contacts', 0)} kontak terdeteksi. Nama kontak? Contoh: <b>FEE</b>",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
         )
         return
 
-    if sess["state"] not in [S0, S5]:
+    if sess["state"] != S5:
         return
     
     data = sess["data"]
@@ -358,7 +358,6 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
     all_numbers, results = await loop.run_in_executor(None, do_build)
 
     import io
-    from telegram import InputMediaDocument
     from telegram.error import RetryAfter
     import logging as _log
     _logger = _log.getLogger(__name__)
@@ -370,42 +369,54 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         total_files = len(results)
 
-        # Update status langsung — tidak ada listing file yang memblokir
         try:
-            await status_msg.edit_text(f"Mengirim {total_files} file VCF...")
+            await status_msg.edit_text(f"Mengirim <b>0 / {total_files}</b> file VCF...")
         except Exception:
             pass
 
-        # ── SINGLE DOCUMENT SEQUENTIAL SEND — Urutan 100% Terjamin ──
-        # Mengirim file satu per satu secara vertikal persis seperti di demo video PEGASUS CV.
-        # Sangat stabil, teratur, dan urutan terjamin rapi.
-        max_retries = 3
-        for file_idx, (label, content) in enumerate(results):
-            # Siapkan BytesIO buffer
+        # ── SEQUENTIAL SEND FOR LOCAL API ──
+        # Tanpa batching/delay, kirim secepat mungkin.
+        # Update progress tiap 10 file untuk menghindari client choke / message queue overflow.
+        for idx, (label, content) in enumerate(results):
             buf = io.BytesIO(content)
             buf.name = f"{label}.vcf"
 
-            for attempt in range(max_retries):
+            if idx % SEND_PROGRESS_INTERVAL == 0:
+                try:
+                    await status_msg.edit_text(
+                        f"Mengirim <b>{idx + 1} / {total_files}</b> file VCF..."
+                    )
+                except Exception:
+                    pass
+
+            for attempt in range(SEND_MAX_RETRIES):
                 try:
                     buf.seek(0)
                     await update.message.reply_document(
                         document=buf,
                         filename=f"{label}.vcf",
-                        read_timeout=15, write_timeout=20, connect_timeout=10
+                        read_timeout=FILE_READ_TIMEOUT,
+                        write_timeout=FILE_WRITE_TIMEOUT,
+                        connect_timeout=FILE_CONNECT_TIMEOUT
                     )
-                    # Jeda 20ms antar file — performa maksimal via Local Telegram Bot API Server
-                    await asyncio.sleep(0.02)
                     break
                 except RetryAfter as e:
-                    # Jika kena flood limit Telegram, tunggu sesuai instruksi
                     wait_secs = max(int(e.retry_after), 2) + 1
-                    _logger.warning(f"[TTV] Flood limit file {label}.vcf, tunggu {wait_secs}s")
+                    _logger.warning(f"[TTV] Flood limit {label}.vcf, tunggu {wait_secs}s")
                     await asyncio.sleep(wait_secs)
                 except Exception as ex:
-                    _logger.error(f"[TTV] Gagal kirim file {label}.vcf: {ex}")
-                    if attempt == max_retries - 1:
+                    _logger.error(f"[TTV] Gagal kirim {label}.vcf attempt {attempt+1}: {ex}")
+                    if attempt == SEND_MAX_RETRIES - 1:
                         raise
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(SEND_RETRY_DELAY)
+
+        # Update final setelah loop selesai
+        try:
+            await status_msg.edit_text(
+                f"Mengirim <b>{total_files} / {total_files}</b> file VCF..."
+            )
+        except Exception:
+            pass
 
         try:
             await status_msg.delete()
@@ -442,7 +453,6 @@ async def handle_show_txttovcf_help_callback(update: Update, context: ContextTyp
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     db.set_session(user_id, S0, {"count": 0, "total_size": 0, "total_contacts": 0})
-    from handlers.start import get_start_keyboard
 
     try:
         await query.message.edit_text(

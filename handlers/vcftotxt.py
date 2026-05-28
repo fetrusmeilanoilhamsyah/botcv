@@ -19,7 +19,13 @@ STATE_NAMING = "VCF2TXT_NAMING"
 from config import (
     MAX_FILES_PER_SESSION as MAX_FILES,
     MAX_UPLOAD_SIZE_MB as MAX_SIZE_MB,
-    THREAD_POOL_TIMEOUT
+    THREAD_POOL_TIMEOUT,
+    SEND_PROGRESS_INTERVAL,
+    SEND_MAX_RETRIES,
+    SEND_RETRY_DELAY,
+    FILE_READ_TIMEOUT,
+    FILE_WRITE_TIMEOUT,
+    FILE_CONNECT_TIMEOUT,
 )
 
 _user_locks: dict = {}
@@ -27,9 +33,7 @@ _user_timers: dict = {}
 
 
 def get_user_lock(user_id: int) -> asyncio.Lock:
-    if user_id not in _user_locks:
-        _user_locks[user_id] = asyncio.Lock()
-    return _user_locks[user_id]
+    return _user_locks.setdefault(user_id, asyncio.Lock())
 
 
 def cleanup_inactive_users(inactive_ids: list) -> int:
@@ -89,7 +93,7 @@ async def cmd_vcftotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     asyncio.create_task(adb.increment_usage(user_id))
     
-    from handlers.start import transition_to_handler, get_start_keyboard
+    from handlers.start import transition_to_handler
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     db.set_session(user_id, STATE, {"count": 0, "total_size": 0, "total_contacts": 0})
@@ -211,7 +215,6 @@ async def handle_vcftotxt_done(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     db.set_session(user_id, STATE_NAMING, sess["data"])
-    from handlers.start import get_start_keyboard
     await update.message.reply_text(
         f"{sess['data']['count']} file ({sess['data'].get('total_contacts', 0)} kontak). Nama file TXT? Contoh: <b>FEE</b>",
         reply_markup=ReplyKeyboardRemove()
@@ -315,55 +318,52 @@ async def handle_vcftotxt_naming(update: Update, context: ContextTypes.DEFAULT_T
             await progress_msg.edit_text("Gagal. Nomor tidak ditemukan.")
             return
 
-        # Update status awal
-        try:
-            await progress_msg.edit_text(f"Mengirim {total_created} file TXT...")
-        except Exception:
-            pass
-
-        # ── SINGLE DOCUMENT SEQUENTIAL SEND — Urutan 100% Terjamin & Super Cepat ──
-        # Mengirim file satu per satu secara vertikal, persis seperti txttovcf
-        _last_edit_time = 0.0
-
-        async def safe_edit_progress(text):
-            try:
-                await progress_msg.edit_text(text)
-            except Exception:
-                pass
-
-        max_retries = 3
-        for file_idx, (label, content) in enumerate(results_files):
-            # Throttle edit status: maksimal sekali dalam 2 detik
-            current_time = _time.time()
-            if file_idx == 0 or file_idx == total_created - 1 or (current_time - _last_edit_time >= 2.0):
-                progress_pct = int(((file_idx + 1) / total_created) * 100)
-                status_text = f"Mengirim... {file_idx + 1}/{total_created} file ({progress_pct}%)"
-                asyncio.create_task(safe_edit_progress(status_text))
-                _last_edit_time = current_time
-
+        # ── SEQUENTIAL SEND FOR LOCAL API ──
+        # Tanpa batching/delay, kirim secepat mungkin.
+        # Update progress tiap 10 file untuk menghindari client choke / message queue overflow.
+        for idx, (label, content) in enumerate(results_files):
             buf = io.BytesIO(content)
             buf.name = f"{label}.txt"
 
-            for attempt in range(max_retries):
+            if idx % SEND_PROGRESS_INTERVAL == 0:
+                progress_pct = int(((idx + 1) / total_created) * 100)
+                try:
+                    await progress_msg.edit_text(
+                        f"Mengirim <b>{idx + 1} / {total_created}</b> file ({progress_pct}%)",
+                        parse_mode="HTML"
+                    )
+                except Exception:
+                    pass
+
+            for attempt in range(SEND_MAX_RETRIES):
                 try:
                     buf.seek(0)
                     await update.message.reply_document(
                         document=buf,
                         filename=f"{label}.txt",
-                        read_timeout=15, write_timeout=20, connect_timeout=10
+                        read_timeout=FILE_READ_TIMEOUT,
+                        write_timeout=FILE_WRITE_TIMEOUT,
+                        connect_timeout=FILE_CONNECT_TIMEOUT
                     )
-                    # Jeda 20ms antar file — performa maksimal via Local Telegram Bot API Server
-                    await asyncio.sleep(0.02)
                     break
                 except RetryAfter as e:
                     wait_secs = max(int(e.retry_after), 2) + 1
                     logger.warning(f"[V2T] Flood limit file {label}.txt, tunggu {wait_secs}s")
                     await asyncio.sleep(wait_secs)
                 except Exception as ex:
-                    logger.error(f"[V2T] Gagal kirim file {label}.txt: {ex}")
-                    if attempt == max_retries - 1:
+                    logger.error(f"[V2T] Gagal kirim file {label}.txt attempt {attempt+1}: {ex}")
+                    if attempt == SEND_MAX_RETRIES - 1:
                         raise
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(SEND_RETRY_DELAY)
+
+        # Update final setelah loop selesai
+        try:
+            await progress_msg.edit_text(
+                f"Mengirim <b>{total_created} / {total_created}</b> file (100%)",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
 
         try:
             await progress_msg.delete()
@@ -400,7 +400,6 @@ async def handle_show_vcftotxt_help_callback(update: Update, context: ContextTyp
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     db.set_session(user_id, STATE, {"count": 0, "total_size": 0, "total_contacts": 0})
-    from handlers.start import get_start_keyboard
 
     try:
         await query.message.edit_text(

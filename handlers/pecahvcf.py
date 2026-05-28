@@ -6,7 +6,7 @@ import io
 import shutil
 import asyncio
 import logging
-from telegram import Update, InputMediaDocument, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import RetryAfter
 from telegram.ext import ContextTypes
 from database import db
@@ -14,7 +14,15 @@ from database.db_async import adb
 from middleware.auth import require_member
 from middleware.session import get_user_dir
 from core.vcf_parser import parse_vcf_file, contacts_to_vcf
-from config import MAX_CONTACTS_PER_FILE
+from config import (
+    MAX_CONTACTS_PER_FILE,
+    SEND_PROGRESS_INTERVAL,
+    SEND_MAX_RETRIES,
+    SEND_RETRY_DELAY,
+    FILE_READ_TIMEOUT,
+    FILE_WRITE_TIMEOUT,
+    FILE_CONNECT_TIMEOUT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +53,7 @@ async def cmd_pecahvcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     asyncio.create_task(adb.increment_usage(user_id))
     
-    from handlers.start import transition_to_handler, get_start_keyboard
+    from handlers.start import transition_to_handler
     _cancel_timer(user_id)
     db.set_session(user_id, STATE_PER_FILE, {})
     await transition_to_handler(
@@ -78,7 +86,6 @@ async def handle_pecah_per_file(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     db.set_session(user_id, STATE_WAIT_VCF, {"per_file": per_file})
-    from handlers.start import get_start_keyboard
     await update.message.reply_text(
         f"Oke, {per_file} kontak per file. Kirim file <b>.VCF</b> sekarang.",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
@@ -147,49 +154,54 @@ async def handle_pecah_vcf_file(update: Update, context: ContextTypes.DEFAULT_TY
             pass
 
         import time as _time
-        _last_edit_time = 0.0
-
-        async def _safe_edit_vcf(text):
-            try:
-                await status_msg.edit_text(text, parse_mode="HTML")
-            except Exception:
-                pass
-
-        # ── SINGLE DOCUMENT SEQUENTIAL SEND — Anti Lag HP ──
-        max_retries = 3
-        for file_idx, out_path in enumerate(output_files):
-            # Throttle progress: maks 1x edit per 2 detik
-            current_time = _time.time()
-            if file_idx == 0 or file_idx == total_parts - 1 or (current_time - _last_edit_time >= 2.0):
-                progress_pct = int(((file_idx + 1) / total_parts) * 100)
-                asyncio.create_task(_safe_edit_vcf(f"Mengirim... {file_idx + 1}/{total_parts} file ({progress_pct}%)"))
-                _last_edit_time = current_time
-
+        # ── SEQUENTIAL SEND FOR LOCAL API ──
+        # Tanpa batching/delay, kirim secepat mungkin.
+        # Update progress tiap 10 file untuk menghindari client choke / message queue overflow.
+        for idx, out_path in enumerate(output_files):
             with open(out_path, "rb") as fd:
                 buf = io.BytesIO(fd.read())
             fname = os.path.basename(out_path)
             buf.name = fname
 
-            for attempt in range(max_retries):
+            if idx % SEND_PROGRESS_INTERVAL == 0:
+                progress_pct = int(((idx + 1) / total_parts) * 100)
+                try:
+                    await status_msg.edit_text(
+                        f"Mengirim <b>{idx + 1} / {total_parts}</b> file ({progress_pct}%)",
+                        parse_mode="HTML"
+                    )
+                except Exception:
+                    pass
+
+            for attempt in range(SEND_MAX_RETRIES):
                 try:
                     buf.seek(0)
                     await update.message.reply_document(
                         document=buf,
                         filename=fname,
-                        read_timeout=15, write_timeout=20, connect_timeout=10
+                        read_timeout=FILE_READ_TIMEOUT,
+                        write_timeout=FILE_WRITE_TIMEOUT,
+                        connect_timeout=FILE_CONNECT_TIMEOUT
                     )
-                    # Jeda 20ms antar file — performa maksimal via Local Telegram Bot API Server
-                    await asyncio.sleep(0.02)
                     break
                 except RetryAfter as e:
                     wait_secs = max(int(e.retry_after), 2) + 1
                     logger.warning(f"[PecahVCF] Flood limit {fname}, tunggu {wait_secs}s")
                     await asyncio.sleep(wait_secs)
                 except Exception as ex:
-                    logger.error(f"[PecahVCF] Gagal kirim {fname}: {ex}")
-                    if attempt == max_retries - 1:
+                    logger.error(f"[PecahVCF] Gagal kirim {fname} attempt {attempt+1}: {ex}")
+                    if attempt == SEND_MAX_RETRIES - 1:
                         raise
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(SEND_RETRY_DELAY)
+
+        # Update final setelah loop selesai
+        try:
+            await status_msg.edit_text(
+                f"Mengirim <b>{total_parts} / {total_parts}</b> file (100%)",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
 
         # Hapus pesan "mengirim..." dan ganti dengan ringkasan
         try:
@@ -232,7 +244,6 @@ async def handle_show_pecahvcf_help_callback(update: Update, context: ContextTyp
     asyncio.create_task(adb.increment_usage(user_id))
     _cancel_timer(user_id)
     db.set_session(user_id, STATE_PER_FILE, {})
-    from handlers.start import get_start_keyboard
 
     # Edit the message in-place instead of deleting it to provide a smooth morphing transition
     try:

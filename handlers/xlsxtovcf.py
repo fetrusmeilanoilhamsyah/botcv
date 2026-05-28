@@ -30,7 +30,13 @@ from config import (
     MAX_FILES_PER_SESSION as MAX_FILES,
     MAX_UPLOAD_SIZE_MB as MAX_SIZE_MB,
     MAX_CONTACTS_PER_FILE,
-    THREAD_POOL_TIMEOUT
+    THREAD_POOL_TIMEOUT,
+    SEND_PROGRESS_INTERVAL,
+    SEND_MAX_RETRIES,
+    SEND_RETRY_DELAY,
+    FILE_READ_TIMEOUT,
+    FILE_WRITE_TIMEOUT,
+    FILE_CONNECT_TIMEOUT,
 )
 
 _user_locks: dict = {}
@@ -40,9 +46,7 @@ PHONE_REGEX = re.compile(r'\+?(?:\d[\s\-\(\)\.]*){8,16}')
 
 
 def get_user_lock(user_id: int) -> asyncio.Lock:
-    if user_id not in _user_locks:
-        _user_locks[user_id] = asyncio.Lock()
-    return _user_locks[user_id]
+    return _user_locks.setdefault(user_id, asyncio.Lock())
 
 
 def cleanup_inactive_users(inactive_ids: list) -> int:
@@ -146,7 +150,7 @@ async def cmd_xlsxtovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     asyncio.create_task(adb.increment_usage(user_id))
     
-    from handlers.start import transition_to_handler, get_start_keyboard
+    from handlers.start import transition_to_handler
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     db.set_session(user_id, S0, {"count": 0, "total_size": 0, "total_contacts": 0})
@@ -319,7 +323,7 @@ async def handle_xtv_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    if sess["state"] not in [S0, S5]:
+    if sess["state"] != S5:
         return
     
     data = sess["data"]
@@ -344,7 +348,7 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
     data["is_processing_final"] = True
     db.set_session(user_id, sess["state"], data)
     
-    await update.message.reply_text("Memproses...")
+    send_status = await update.message.reply_text("⏳ Memproses...")
 
     user_dir = get_user_dir(user_id)
     xtv_dir = os.path.join(user_dir, "xlsxtovcf")
@@ -399,7 +403,6 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
     all_numbers, results = await loop.run_in_executor(None, do_build)
 
     import io
-    from telegram import InputMediaDocument
     from telegram.error import RetryAfter
 
     try:
@@ -417,49 +420,52 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
             msg = (header_text if i == 0 else "") + "\n".join(lines[i:i + CHUNK])
             await update.message.reply_text(msg)
 
-        import time as _time
-        send_status = await update.message.reply_text(f"Mengirim {total_files} file VCF...")
-        _last_edit_time = 0.0
-
-        async def _safe_edit(text):
-            try:
-                await send_status.edit_text(text)
-            except Exception:
-                pass
-
-        # ── SINGLE DOCUMENT SEQUENTIAL SEND — Urutan 100% Terjamin & Anti Lag HP ──
-        max_retries = 3
-        for file_idx, (label, content) in enumerate(results):
-            # Throttle progress: maks 1x edit per 2 detik
-            current_time = _time.time()
-            if file_idx == 0 or file_idx == total_files - 1 or (current_time - _last_edit_time >= 2.0):
-                progress_pct = int(((file_idx + 1) / total_files) * 100)
-                asyncio.create_task(_safe_edit(f"Mengirim... {file_idx + 1}/{total_files} file ({progress_pct}%)"))
-                _last_edit_time = current_time
-
+        # ── SEQUENTIAL SEND FOR LOCAL API ──
+        # Tanpa batching/delay, kirim secepat mungkin.
+        # Update progress tiap 10 file untuk menghindari client choke / message queue overflow.
+        for idx, (label, content) in enumerate(results):
             buf = io.BytesIO(content)
             buf.name = f"{label}.vcf"
 
-            for attempt in range(max_retries):
+            if idx % SEND_PROGRESS_INTERVAL == 0:
+                progress_pct = int(((idx + 1) / total_files) * 100)
+                try:
+                    await send_status.edit_text(
+                        f"Mengirim <b>{idx + 1} / {total_files}</b> file ({progress_pct}%)",
+                        parse_mode="HTML"
+                    )
+                except Exception:
+                    pass
+
+            for attempt in range(SEND_MAX_RETRIES):
                 try:
                     buf.seek(0)
                     await update.message.reply_document(
                         document=buf,
                         filename=f"{label}.vcf",
-                        read_timeout=15, write_timeout=20, connect_timeout=10
+                        read_timeout=FILE_READ_TIMEOUT,
+                        write_timeout=FILE_WRITE_TIMEOUT,
+                        connect_timeout=FILE_CONNECT_TIMEOUT
                     )
-                    # Jeda 20ms antar file — performa maksimal via Local Telegram Bot API Server
-                    await asyncio.sleep(0.02)
                     break
                 except RetryAfter as e:
                     wait_secs = max(int(e.retry_after), 2) + 1
-                    logger.warning(f"[XTV] Flood limit file {label}.vcf, tunggu {wait_secs}s")
+                    logger.warning(f"[XTV] Flood limit {label}.vcf, tunggu {wait_secs}s")
                     await asyncio.sleep(wait_secs)
                 except Exception as ex:
-                    logger.error(f"[XTV] Gagal kirim file {label}.vcf: {ex}")
-                    if attempt == max_retries - 1:
+                    logger.error(f"[XTV] Gagal kirim {label}.vcf attempt {attempt+1}: {ex}")
+                    if attempt == SEND_MAX_RETRIES - 1:
                         raise
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(SEND_RETRY_DELAY)
+
+        # Update final setelah loop selesai
+        try:
+            await send_status.edit_text(
+                f"Mengirim <b>{total_files} / {total_files}</b> file (100%)",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
 
         try:
             try:

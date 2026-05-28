@@ -55,3 +55,14 @@ GLOBAL_MAX_CONCURRENT      = 256  # Maks 256 coroutine update berjalan bersamaan
 GLOBAL_MAX_CONCURRENT_FILE = 500  # Maks 500 proses download/upload file bersamaan
 USER_CLICK_COOLDOWN        = 0.3  # Jeda minimum antar klik (debounce anti-spam)
 VIP_CACHE_TTL              = 30   # Durasi simpan cache status VIP di RAM (detik)
+
+# ─── Bot Sending & Timeout Constants ──────────────────────────────────────────
+SEND_PROGRESS_INTERVAL = 10   # Update progress tiap N file
+SEND_MAX_RETRIES       = 3    # Maksimum percobaan kirim file
+SEND_RETRY_DELAY       = 1    # Delay jeda antar retry gagal (detik)
+FILE_READ_TIMEOUT      = 15   # Timeout pembacaan file
+FILE_WRITE_TIMEOUT     = 20   # Timeout penulisan file
+FILE_CONNECT_TIMEOUT   = 10   # Timeout koneksi ke Bot API
+
+
+
