@@ -529,6 +529,15 @@ def main():
     # FIX: gunakan HEALTH_PORT dari config (konsisten)
     logger.info("Health check server started on port %s", HEALTH_PORT)
 
+    async def startup_expire_vip(application):
+        try:
+            from database.db_async import adb
+            expired = await adb.expire_vip_members()
+            if expired:
+                logger.info("Startup: %d VIP expired", expired)
+        except Exception as e:
+            logger.error("Startup VIP expiration failed: %s", e)
+
     app = (
         ApplicationBuilder()
         .token(BOT_TOKEN)
@@ -542,6 +551,7 @@ def main():
         .read_timeout(30)
         .write_timeout(120)
         .connect_timeout(30)
+        .post_init(startup_expire_vip)
         .build()
     )
 
@@ -612,11 +622,7 @@ def main():
     # ── Error handler ──
     app.add_error_handler(error_handler)
 
-    # ── Startup: expire VIP ──
-    from database import db as _db
-    expired = _db.expire_vip_members()
-    if expired:
-        logger.info("Startup: %d VIP expired", expired)
+
 
     # ── Pakasir webhook server ──
     if os.getenv("PAKASIR_ENABLED", "false").lower() == "true" and VIP_PAKASIR_MODE:
