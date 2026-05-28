@@ -419,8 +419,9 @@ async def _job_cleanup_sessions(context):
                     pass
         for uid in inactive:
             user_semaphores.pop(uid, None)
+            _user_last_click.pop(uid, None)
         if inactive:
-            logger.info("[JOB] Cleaned %d inactive semaphores", len(inactive))
+            logger.info("[JOB] Cleaned %d inactive semaphores and click timers", len(inactive))
 
         cleaned_cache = await adb.cleanup_stale_sessions()
         if cleaned_cache:
