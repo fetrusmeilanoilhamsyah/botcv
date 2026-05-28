@@ -13,9 +13,14 @@ if [ ! -f ".env" ]; then
     exit 1
 fi
 
-# 2. Baca API_ID dan API_HASH dari file .env
+# 2. Baca API_ID, API_HASH, dan LOCAL_BOT_API_PORT dari file .env
 API_ID=$(grep -E "^API_ID=" .env | cut -d'=' -f2 | tr -d '"' | tr -d "'" | tr -d '[:space:]')
 API_HASH=$(grep -E "^API_HASH=" .env | cut -d'=' -f2 | tr -d '"' | tr -d "'" | tr -d '[:space:]')
+LOCAL_BOT_API_PORT=$(grep -E "^LOCAL_BOT_API_PORT=" .env | cut -d'=' -f2 | tr -d '"' | tr -d "'" | tr -d '[:space:]')
+
+if [ -z "$LOCAL_BOT_API_PORT" ]; then
+    LOCAL_BOT_API_PORT=8082
+fi
 
 # Jika tidak ditemukan di .env, tampilkan error dan keluar
 if [ -z "$API_ID" ] || [ -z "$API_HASH" ]; then
@@ -53,7 +58,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/telegram-bot-api --local --api-id=$API_ID --api-hash=$API_HASH --http-port=8082 --dir=/var/lib/telegram-bot-api --log=/var/log/telegram-bot-api.log --verbosity=1
+ExecStart=/usr/local/bin/telegram-bot-api --local --api-id=$API_ID --api-hash=$API_HASH --http-port=$LOCAL_BOT_API_PORT --dir=/var/lib/telegram-bot-api --log=/var/log/telegram-bot-api.log --verbosity=1
 Restart=always
 RestartSec=5
 LimitNOFILE=65536
@@ -76,7 +81,7 @@ echo "Status Layanan:"
 sudo systemctl status telegram-bot-api --no-pager -l | head -n 12
 echo ""
 echo "Tes Respons Server Lokal:"
-curl -s http://localhost:8082
+curl -s http://localhost:$LOCAL_BOT_API_PORT
 echo ""
-echo "Catatan: Layanan berjalan di port 8082 (http://localhost:8082)"
+echo "Catatan: Layanan berjalan di port $LOCAL_BOT_API_PORT (http://localhost:$LOCAL_BOT_API_PORT)"
 echo "============================================="

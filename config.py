@@ -48,6 +48,7 @@ PAKASIR_WEBHOOK_SECRET = os.getenv("PAKASIR_WEBHOOK_SECRET", "")
 # Default 8081 ≠ 8080 agar tidak bentrok di server yang sama.
 WEBHOOK_PORT = int(os.getenv("WEBHOOK_PORT", 8081))   # FIX: was 8080 → port conflict
 HEALTH_PORT  = int(os.getenv("HEALTH_PORT",  8080))
+LOCAL_BOT_API_PORT = int(os.getenv("LOCAL_BOT_API_PORT", 8082))
 
 # ── Global concurrency shielding & RAM Caching (Anti-DDoS / Anti-Spam) ────────
 GLOBAL_MAX_CONCURRENT      = 256  # Maks 256 coroutine update berjalan bersamaan

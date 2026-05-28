@@ -31,6 +31,7 @@ from config import (
     SESSION_STUCK_TIMEOUT,
     HEALTH_PORT,       # FIX: import dari config agar konsisten
     WEBHOOK_PORT,      # FIX: import dari config agar konsisten (default 8081 ≠ 8080)
+    LOCAL_BOT_API_PORT,
 )
 from database import db
 from database.db_async import adb
@@ -542,8 +543,8 @@ def main():
     app = (
         ApplicationBuilder()
         .token(BOT_TOKEN)
-        .base_url("http://localhost:8082/bot")
-        .base_file_url("http://localhost:8082/file/bot")
+        .base_url(f"http://localhost:{LOCAL_BOT_API_PORT}/bot")
+        .base_file_url(f"http://localhost:{LOCAL_BOT_API_PORT}/file/bot")
         .local_mode(True)
         .defaults(Defaults(parse_mode=ParseMode.HTML))
         .concurrent_updates(256)      # proses hingga 256 update paralel
