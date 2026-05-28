@@ -303,46 +303,30 @@ def get_referral_points(user_id: int) -> dict:
 
 def add_referral_points(user_id: int, points: int) -> bool:
     """Add referral points up to the limit of 50 total earned points."""
+    if points <= 0:
+        return False
     with get_connection() as conn:
-        # Check current total points earned
-        row = conn.execute(
-            "SELECT total_referral_points_earned FROM users WHERE id = ?", (user_id,)
-        ).fetchone()
-        if not row:
-            return False
-        current_total = row["total_referral_points_earned"]
-        if current_total >= 50:
-            return False
-        
-        # Calculate how many points we can actually add
-        points_to_add = min(points, 50 - current_total)
-        if points_to_add <= 0:
-            return False
-            
-        conn.execute(
+        cursor = conn.execute(
             """UPDATE users 
-               SET referral_points = referral_points + ?, 
-                   total_referral_points_earned = total_referral_points_earned + ? 
-               WHERE id = ?""", 
-            (points_to_add, points_to_add, user_id)
+               SET referral_points = referral_points + min(?, 50 - total_referral_points_earned), 
+                   total_referral_points_earned = total_referral_points_earned + min(?, 50 - total_referral_points_earned) 
+               WHERE id = ? AND total_referral_points_earned < 50""", 
+            (points, points, user_id)
         )
         conn.commit()
-        return True
+        return cursor.rowcount > 0
 
 def deduct_referral_points(user_id: int, points: int) -> bool:
     """Deduct spendable referral points."""
+    if points <= 0:
+        return False
     with get_connection() as conn:
-        row = conn.execute(
-            "SELECT referral_points FROM users WHERE id = ?", (user_id,)
-        ).fetchone()
-        if not row or row["referral_points"] < points:
-            return False
-        conn.execute(
-            "UPDATE users SET referral_points = referral_points - ? WHERE id = ?", 
-            (points, user_id)
+        cursor = conn.execute(
+            "UPDATE users SET referral_points = referral_points - ? WHERE id = ? AND referral_points >= ?", 
+            (points, user_id, points)
         )
         conn.commit()
-        return True
+        return cursor.rowcount > 0
 
 def get_top_users(limit=5):
     """Get top active users for leaderboard"""
