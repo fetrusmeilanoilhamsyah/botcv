@@ -445,7 +445,7 @@ async def _job_cleanup_sessions(context):
             active_uids = set(_welcome_messages.keys())
             active_uids.update(handlers.txttovcf._user_locks.keys())
             active_uids.update(handlers.pecahtxt._user_locks.keys())
-            active_uids.update(handlers.pecahvcf._user_locks.keys())
+            active_uids.update(handlers.pecahvcf._processing)
             active_uids.update(handlers.vcftotxt._user_locks.keys())
             active_uids.update(handlers.xlsxtovcf._user_locks.keys())
             active_uids.update(handlers.merge._user_locks.keys())

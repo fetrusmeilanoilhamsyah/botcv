@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 DB_PATH = os.path.join(os.path.dirname(__file__), "bot.db")
 
 # ─── CONNECTION POOL ──────────────────────────────────────────────────────────
-_conn_pool = queue.Queue(maxsize=8)
+_conn_pool = queue.Queue(maxsize=32)
 _pool_initialized = False
 _pool_lock = threading.Lock()
 _pool_put_lock = threading.Lock()  # NOTE: Queue.put sudah thread-safe, lock ini redundant tapi dibiarkan untuk kompatibilitas
@@ -45,19 +45,19 @@ def _init_connection():
 
 
 def init_connection_pool():
-    """Initialize connection pool with 8 connections"""
+    """Initialize connection pool with 32 connections"""
     global _pool_initialized
     
     with _pool_lock:
         if _pool_initialized:
             return
             
-        for _ in range(8):
+        for _ in range(32):
             conn = _init_connection()
             _conn_pool.put(conn)
         
         _pool_initialized = True
-        print(f"✅ Database connection pool initialized (8 connections)")
+        print(f"✅ Database connection pool initialized (32 connections)")
 
 
 @contextmanager
