@@ -127,6 +127,9 @@ async def handle_pecah_vcf_file(update: Update, context: ContextTypes.DEFAULT_TY
     os.makedirs(pecah_dir, exist_ok=True)
     input_path = os.path.join(pecah_dir, "input.vcf")
 
+    from handlers.cancel_helper import register_active_task, unregister_active_task
+    register_active_task(user_id, asyncio.current_task())
+
     try:
         file_obj = await context.bot.get_file(doc.file_id)
         await file_obj.download_to_drive(input_path)
@@ -240,6 +243,7 @@ async def handle_pecah_vcf_file(update: Update, context: ContextTypes.DEFAULT_TY
         except Exception:
             pass
     finally:
+        unregister_active_task(user_id)
         _processing.discard(user_id)
         shutil.rmtree(pecah_dir, ignore_errors=True)
 

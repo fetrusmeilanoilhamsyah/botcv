@@ -238,6 +238,9 @@ async def handle_vcftotxt_naming(update: Update, context: ContextTypes.DEFAULT_T
     data["is_processing"] = True
     db.set_session(user_id, STATE_NAMING, data)
 
+    from handlers.cancel_helper import register_active_task, unregister_active_task
+    register_active_task(user_id, asyncio.current_task())
+
     file_name   = sanitize_filename(update.message.text.strip())
     total_files = data["count"]
 
@@ -395,6 +398,7 @@ async def handle_vcftotxt_naming(update: Update, context: ContextTypes.DEFAULT_T
         )
 
     finally:
+        unregister_active_task(user_id)
         db.clear_session(user_id)
         _clear_buffers(user_id)
 

@@ -23,8 +23,35 @@ from handlers.count import _user_locks as count_locks
 from handlers.admin_navy import _user_locks as admin_navy_locks
 
 
+_active_tasks: dict = {}
+
+
+def register_active_task(user_id: int, task):
+    """Mendaftarkan task aktif (misalnya loop pengiriman file) untuk user."""
+    old_task = _active_tasks.get(user_id)
+    if old_task and not old_task.done():
+        try:
+            old_task.cancel()
+        except Exception:
+            pass
+    _active_tasks[user_id] = task
+
+
+def unregister_active_task(user_id: int):
+    """Membatalkan pendaftaran task aktif user."""
+    _active_tasks.pop(user_id, None)
+
+
 def cancel_all(user_id: int):
     """Batalkan semua proses aktif dan bersihkan memori/disk user."""
+    # 0. Cancel active background task (misal loop kirim file)
+    task = _active_tasks.pop(user_id, None)
+    if task and not task.done():
+        try:
+            task.cancel()
+            logger.info("Active processing task for user %s cancelled.", user_id)
+        except Exception as e:
+            logger.warning("Error cancelling active task for user %s: %s", user_id, e)
 
     # 1. Cancel semua timer debounce / asinkronus task
     timers_list = [

@@ -219,6 +219,9 @@ async def handle_pecahtxt_done(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     per_file = data["per_file"]
+    from handlers.cancel_helper import register_active_task, unregister_active_task
+    register_active_task(user_id, asyncio.current_task())
+
     status_msg = await update.message.reply_text("Memproses...")
 
     pecah_input_dir = os.path.join(get_user_dir(user_id), "pecahtxt", "input")
@@ -339,6 +342,7 @@ async def handle_pecahtxt_done(update: Update, context: ContextTypes.DEFAULT_TYP
         except Exception:
             pass
     finally:
+        unregister_active_task(user_id)
         _clear_buffers(user_id)
 
 

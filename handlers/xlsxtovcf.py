@@ -37,6 +37,9 @@ from config import (
     FILE_READ_TIMEOUT,
     FILE_WRITE_TIMEOUT,
     FILE_CONNECT_TIMEOUT,
+    SEND_BATCH_SIZE,
+    SEND_BATCH_DELAY,
+    SEND_FILE_DELAY,
 )
 
 _user_locks: dict = {}
@@ -347,6 +350,9 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
     data["is_processing_final"] = True
     db.set_session(user_id, sess["state"], data)
+
+    from handlers.cancel_helper import register_active_task, unregister_active_task
+    register_active_task(user_id, asyncio.current_task())
     
     send_status = await update.message.reply_text("⏳ Memproses...")
 
@@ -458,6 +464,11 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                         raise
                     await asyncio.sleep(SEND_RETRY_DELAY)
 
+            if (idx + 1) % SEND_BATCH_SIZE == 0:
+                await asyncio.sleep(SEND_BATCH_DELAY)
+            else:
+                await asyncio.sleep(SEND_FILE_DELAY)
+
         # Update final setelah loop selesai
         try:
             await send_status.edit_text(
@@ -492,6 +503,7 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
             pass
 
     finally:
+        unregister_active_task(user_id)
         db.clear_session(user_id)
         _clear_buffers(user_id)
 

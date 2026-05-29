@@ -10,7 +10,6 @@ from handlers.cancel_helper import cancel_all
 async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
-    current_msg_id = update.message.message_id
 
     # 1. Jalankan pembersihan sesi RAM & disk di background
     async def cleanup_bg():
@@ -20,17 +19,13 @@ async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     asyncio.create_task(cleanup_bg())
 
-    # 2. Hapus seluruh riwayat chat (100 pesan terakhir) secara paralel untuk membersihkan layar secara total
-    async def delete_msg(msg_id):
-        try:
-            await context.bot.delete_message(chat_id=chat_id, message_id=msg_id)
-        except Exception:
-            pass
+    # Hapus pesan perintah /reset dari user agar obrolan bersih
+    try:
+        await update.message.delete()
+    except Exception:
+        pass
 
-    # Hapus 100 pesan ke belakang dari pesan /reset saat ini
-    await asyncio.gather(*(delete_msg(mid) for mid in range(current_msg_id, max(0, current_msg_id - 100), -1)))
-
-    # 3. Kirim menu utama yang fresh dan bersih sebagai satu-satunya pesan tersisa
+    # 2. Kirim menu utama yang fresh dan bersih
     from handlers.start import send_fresh_start_menu
     first_name = update.effective_user.first_name or "Kawan"
     await send_fresh_start_menu(context.bot, user_id, chat_id, first_name)

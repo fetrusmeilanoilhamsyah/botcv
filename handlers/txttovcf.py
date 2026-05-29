@@ -301,6 +301,9 @@ async def handle_ttv_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    from handlers.cancel_helper import register_active_task, unregister_active_task
+    register_active_task(user_id, asyncio.current_task())
+
     sess = db.get_session(user_id)
     data = sess["data"]
     
@@ -464,6 +467,7 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
         )
 
     finally:
+        unregister_active_task(user_id)
         db.clear_session(user_id)
         _clear_buffers(user_id)
 
