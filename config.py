@@ -64,9 +64,9 @@ FILE_READ_TIMEOUT      = 15   # Timeout pembacaan file
 FILE_WRITE_TIMEOUT     = 20   # Timeout penulisan file
 FILE_CONNECT_TIMEOUT   = 10   # Timeout koneksi ke Bot API
 
-SEND_BATCH_SIZE  = 1     # kirim N file lalu napas
-SEND_BATCH_DELAY = 0.1   # detik napas setelah tiap batch
-SEND_FILE_DELAY  = 0.08  # detik jeda antar file dalam batch ini kernder tapi 
+SEND_BATCH_SIZE  = 1
+SEND_BATCH_DELAY = 0.12
+SEND_FILE_DELAY  = 0.06
 
 
 
