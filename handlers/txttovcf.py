@@ -377,43 +377,40 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
         except Exception:
             pass
 
-        # ── PARALLEL SEND WITH SEMAPHORE FOR LOCAL API ──
-        # Kirim N file sekaligus (semaphore), progress update task terpisah.
-        # Tidak ada edit_text di dalam loop kirim — progress update async sendiri.
-        CONCURRENT = 5          # 5 file paralel — sweet spot local API
-        INTER_DELAY = 0.05      # 50ms antar slot dalam semaphore (anti-burst ke client)
+        # ── HIGH-SPEED SEQUENTIAL SEND FOR LOCAL API ──
+        # Kirim file satu per satu secara berurutan agar urutan dijamin rapi 100% dari file pertama,
+        # tetapi menggunakan jeda kecil (INTER_DELAY = 0.04s) agar kecepatan tetap super cepat.
+        INTER_DELAY = 0.04      # 40ms jeda antar file (anti-burst & menjaga urutan sempurna)
 
         sent_count = 0
-        sem = asyncio.Semaphore(CONCURRENT)
 
         async def send_one(idx: int, label: str, content: bytes):
             nonlocal sent_count
-            async with sem:
-                buf = io.BytesIO(content)
-                buf.name = f"{label}.vcf"
-                for attempt in range(SEND_MAX_RETRIES):
-                    try:
-                        buf.seek(0)
-                        await update.message.reply_document(
-                            document=buf,
-                            filename=f"{label}.vcf",
-                            read_timeout=FILE_READ_TIMEOUT,
-                            write_timeout=FILE_WRITE_TIMEOUT,
-                            connect_timeout=FILE_CONNECT_TIMEOUT,
-                        )
-                        sent_count += 1
-                        break
-                    except RetryAfter as e:
-                        wait_secs = max(int(e.retry_after), 2) + 1
-                        _logger.warning(f"[TTV] Flood limit {label}.vcf, tunggu {wait_secs}s")
-                        await asyncio.sleep(wait_secs)
-                    except Exception as ex:
-                        _logger.error(f"[TTV] Gagal kirim {label}.vcf attempt {attempt+1}: {ex}")
-                        if attempt == SEND_MAX_RETRIES - 1:
-                            sent_count += 1  # tetap count supaya progress tidak stuck
-                        else:
-                            await asyncio.sleep(SEND_RETRY_DELAY)
-                await asyncio.sleep(INTER_DELAY)
+            buf = io.BytesIO(content)
+            buf.name = f"{label}.vcf"
+            for attempt in range(SEND_MAX_RETRIES):
+                try:
+                    buf.seek(0)
+                    await update.message.reply_document(
+                        document=buf,
+                        filename=f"{label}.vcf",
+                        read_timeout=FILE_READ_TIMEOUT,
+                        write_timeout=FILE_WRITE_TIMEOUT,
+                        connect_timeout=FILE_CONNECT_TIMEOUT,
+                    )
+                    sent_count += 1
+                    break
+                except RetryAfter as e:
+                    wait_secs = max(int(e.retry_after), 2) + 1
+                    _logger.warning(f"[TTV] Flood limit {label}.vcf, tunggu {wait_secs}s")
+                    await asyncio.sleep(wait_secs)
+                except Exception as ex:
+                    _logger.error(f"[TTV] Gagal kirim {label}.vcf attempt {attempt+1}: {ex}")
+                    if attempt == SEND_MAX_RETRIES - 1:
+                        sent_count += 1  # tetap count supaya progress tidak stuck
+                    else:
+                        await asyncio.sleep(SEND_RETRY_DELAY)
+            await asyncio.sleep(INTER_DELAY)
 
         async def progress_ticker():
             last = -1
@@ -430,7 +427,8 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         ticker = asyncio.create_task(progress_ticker())
         try:
-            await asyncio.gather(*[send_one(i, label, content) for i, (label, content) in enumerate(results)])
+            for i, (label, content) in enumerate(results):
+                await send_one(i, label, content)
         finally:
             ticker.cancel()
             try:
