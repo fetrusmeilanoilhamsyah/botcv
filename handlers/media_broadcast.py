@@ -44,7 +44,7 @@ async def handle_broadcast_media(update: Update, context: ContextTypes.DEFAULT_T
     db.clear_session(user_id)
 
     # Ambil semua user
-    users = db.get_all_users_detail()
+    users = await adb.get_all_users_detail()
     await update.message.reply_text(f"Memulai broadcast media ke {len(users)} user...")
 
     from telegram.error import RetryAfter
