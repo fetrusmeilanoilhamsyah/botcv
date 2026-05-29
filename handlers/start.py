@@ -120,7 +120,9 @@ def build_menu_text(first_name: str, user_id: int) -> str:
             "\n\n<b>ADMIN</b>\n"
             "├ /stat — Statistik\n"
             "├ /daftar — Daftar user\n"
-            "├ /broadcast — Broadcast\n"
+            "├ /broadcast — Broadcast teks\n"
+            "├ /mediabroadcast — Broadcast media\n"
+            "├ /stopbroadcast — Hentikan broadcast\n"
             "├ /addvip /delvip — Kelola VIP\n"
             "└ /resetdatabase — Bersihkan cache"
         )
