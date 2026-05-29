@@ -383,6 +383,7 @@ async def _job_cleanup_sessions(context):
     if _job_running["cleanup"]:
         return
     _job_running["cleanup"] = True
+    MEM_CLEANUP_TIMEOUT = 3600  # 1 jam asinkronus RAM cleanup (anti memory leaks)
     try:
         from middleware.session import clear_user_dir
         tmp_base = os.path.join("tmp", "sessions")
@@ -414,7 +415,7 @@ async def _job_cleanup_sessions(context):
                 try:
                     from datetime import datetime
                     last = datetime.fromisoformat(dict(user)["last_active"])
-                    if (datetime.now() - last).total_seconds() > SESSION_INACTIVE_TIMEOUT:
+                    if (datetime.now() - last).total_seconds() > MEM_CLEANUP_TIMEOUT:
                         inactive.append(uid)
                 except Exception:
                     pass
@@ -462,7 +463,7 @@ async def _job_cleanup_sessions(context):
                 if user:
                     try:
                         last = datetime.fromisoformat(dict(user)["last_active"])
-                        if (now - last).total_seconds() > SESSION_INACTIVE_TIMEOUT:
+                        if (now - last).total_seconds() > MEM_CLEANUP_TIMEOUT:
                             inactive_ids.append(uid)
                     except Exception:
                         inactive_ids.append(uid)
