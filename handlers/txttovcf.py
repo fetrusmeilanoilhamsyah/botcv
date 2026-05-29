@@ -34,8 +34,6 @@ from config import (
     SEND_BATCH_SIZE,
     SEND_BATCH_DELAY,
     SEND_FILE_DELAY,
-    SEND_PARALLEL_CONCURRENT,
-    SEND_PARALLEL_DELAY,
 )
 
 _user_locks: dict = {}
@@ -382,8 +380,8 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
         # ── PARALLEL SEND WITH SEMAPHORE FOR LOCAL API ──
         # Kirim N file sekaligus (semaphore), progress update task terpisah.
         # Tidak ada edit_text di dalam loop kirim — progress update async sendiri.
-        CONCURRENT = SEND_PARALLEL_CONCURRENT          # dari config.py
-        INTER_DELAY = SEND_PARALLEL_DELAY              # dari config.py
+        CONCURRENT = 5          # 5 file paralel — sweet spot local API
+        INTER_DELAY = 0.05      # 50ms antar slot dalam semaphore (anti-burst ke client)
 
         sent_count = 0
         sem = asyncio.Semaphore(CONCURRENT)

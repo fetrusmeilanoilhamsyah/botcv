@@ -25,8 +25,6 @@ from config import (
     SEND_BATCH_SIZE,
     SEND_BATCH_DELAY,
     SEND_FILE_DELAY,
-    SEND_PARALLEL_CONCURRENT,
-    SEND_PARALLEL_DELAY,
 )
 
 logger = logging.getLogger(__name__)
@@ -158,71 +156,51 @@ async def handle_pecah_vcf_file(update: Update, context: ContextTypes.DEFAULT_TY
         except Exception:
             pass
 
-        # ── PARALLEL SEND WITH SEMAPHORE FOR LOCAL API ──
-        # Kirim N file sekaligus (semaphore), progress update task terpisah.
-        # Tidak ada edit_text di dalam loop kirim — progress update async sendiri.
-        CONCURRENT = SEND_PARALLEL_CONCURRENT
-        INTER_DELAY = SEND_PARALLEL_DELAY
+        import time as _time
+        # ── SEQUENTIAL SEND FOR LOCAL API ──
+        # Tanpa batching/delay, kirim secepat mungkin.
+        # Update progress tiap 10 file untuk menghindari client choke / message queue overflow.
+        for idx, out_path in enumerate(output_files):
+            with open(out_path, "rb") as fd:
+                buf = io.BytesIO(fd.read())
+            fname = os.path.basename(out_path)
+            buf.name = fname
 
-        sent_count = 0
-        sem = asyncio.Semaphore(CONCURRENT)
+            if idx % SEND_PROGRESS_INTERVAL == 0:
+                progress_pct = int(((idx + 1) / total_parts) * 100)
+                try:
+                    await status_msg.edit_text(
+                        f"Mengirim <b>{idx + 1} / {total_parts}</b> file ({progress_pct}%)",
+                        parse_mode="HTML"
+                    )
+                except Exception:
+                    pass
 
-        async def send_one(idx: int, out_path: str):
-            nonlocal sent_count
-            async with sem:
-                with open(out_path, "rb") as fd:
-                    content = fd.read()
-                buf = io.BytesIO(content)
-                fname = os.path.basename(out_path)
-                buf.name = fname
-                for attempt in range(SEND_MAX_RETRIES):
-                    try:
-                        buf.seek(0)
-                        await update.message.reply_document(
-                            document=buf,
-                            filename=fname,
-                            read_timeout=FILE_READ_TIMEOUT,
-                            write_timeout=FILE_WRITE_TIMEOUT,
-                            connect_timeout=FILE_CONNECT_TIMEOUT,
-                        )
-                        sent_count += 1
-                        break
-                    except RetryAfter as e:
-                        wait_secs = max(int(e.retry_after), 2) + 1
-                        logger.warning(f"[PecahVCF] Flood limit {fname}, tunggu {wait_secs}s")
-                        await asyncio.sleep(wait_secs)
-                    except Exception as ex:
-                        logger.error(f"[PecahVCF] Gagal kirim {fname} attempt {attempt+1}: {ex}")
-                        if attempt == SEND_MAX_RETRIES - 1:
-                            sent_count += 1  # tetap count supaya progress tidak stuck
-                        else:
-                            await asyncio.sleep(SEND_RETRY_DELAY)
-                await asyncio.sleep(INTER_DELAY)
+            for attempt in range(SEND_MAX_RETRIES):
+                try:
+                    buf.seek(0)
+                    await update.message.reply_document(
+                        document=buf,
+                        filename=fname,
+                        read_timeout=FILE_READ_TIMEOUT,
+                        write_timeout=FILE_WRITE_TIMEOUT,
+                        connect_timeout=FILE_CONNECT_TIMEOUT
+                    )
+                    break
+                except RetryAfter as e:
+                    wait_secs = max(int(e.retry_after), 2) + 1
+                    logger.warning(f"[PecahVCF] Flood limit {fname}, tunggu {wait_secs}s")
+                    await asyncio.sleep(wait_secs)
+                except Exception as ex:
+                    logger.error(f"[PecahVCF] Gagal kirim {fname} attempt {attempt+1}: {ex}")
+                    if attempt == SEND_MAX_RETRIES - 1:
+                        raise
+                    await asyncio.sleep(SEND_RETRY_DELAY)
 
-        async def progress_ticker():
-            last = -1
-            while sent_count < total_parts:
-                if sent_count != last:
-                    last = sent_count
-                    progress_pct = int((sent_count / total_parts) * 100) if total_parts > 0 else 0
-                    try:
-                        await status_msg.edit_text(
-                            f"Mengirim <b>{sent_count} / {total_parts}</b> file ({progress_pct}%)",
-                            parse_mode="HTML"
-                        )
-                    except Exception:
-                        pass
-                await asyncio.sleep(1.5)  # update tiap 1.5 detik — tidak spam edit
-
-        ticker = asyncio.create_task(progress_ticker())
-        try:
-            await asyncio.gather(*[send_one(i, path) for i, path in enumerate(output_files)])
-        finally:
-            ticker.cancel()
-            try:
-                await ticker
-            except asyncio.CancelledError:
-                pass
+            if (idx + 1) % SEND_BATCH_SIZE == 0:
+                await asyncio.sleep(SEND_BATCH_DELAY)
+            else:
+                await asyncio.sleep(SEND_FILE_DELAY)
 
         # Update final setelah loop selesai
         try:
