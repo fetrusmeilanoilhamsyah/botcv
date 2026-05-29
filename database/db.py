@@ -227,6 +227,7 @@ _session_cache: dict = {}
 _all_buffers: dict = {}
 _vip_cache: dict = {}
 _vip_cache_lock = threading.Lock()
+_session_cache_lock = threading.Lock()
 
 
 # ─── USERS ────────────────────────────────────────────────────────────────────
@@ -495,8 +496,9 @@ def clear_all_db():
         conn.commit()
     
     # Clear in-memory buffers
-    _session_cache.clear()
-    _all_buffers.clear()
+    with _session_cache_lock:
+        _session_cache.clear()
+        _all_buffers.clear()
     
     # Clear on-disk temporary files via session middleware (if possible)
     try:
@@ -534,11 +536,12 @@ def batch_update_users(users: list):
 
 def get_session(user_id: int) -> dict:
     """Get user session (in-memory) with deep copy to prevent mutation"""
-    cached = _session_cache.get(user_id, {"state": None, "data": {}})
-    return {
-        "state": cached["state"],
-        "data": copy.deepcopy(cached["data"])
-    }
+    with _session_cache_lock:
+        cached = _session_cache.get(user_id, {"state": None, "data": {}})
+        return {
+            "state": cached["state"],
+            "data": copy.deepcopy(cached["data"])
+        }
 
 
 def set_session(user_id: int, state: str, data: dict):
@@ -551,29 +554,32 @@ def set_session(user_id: int, state: str, data: dict):
     except ImportError:
         max_size = 2000
 
-    # Evict 10% entri terlama jika cache penuh
-    if len(_session_cache) >= max_size and user_id not in _session_cache:
-        evict_count = max(1, max_size // 10)
-        for old_uid in list(_session_cache.keys())[:evict_count]:
-            _session_cache.pop(old_uid, None)
-            _all_buffers.pop(old_uid, None)
-        logger.warning("[db] Session cache penuh, evict %d entri terlama", evict_count)
+    with _session_cache_lock:
+        # Evict 10% entri terlama jika cache penuh
+        if len(_session_cache) >= max_size and user_id not in _session_cache:
+            evict_count = max(1, max_size // 10)
+            for old_uid in list(_session_cache.keys())[:evict_count]:
+                _session_cache.pop(old_uid, None)
+                _all_buffers.pop(old_uid, None)
+            logger.warning("[db] Session cache penuh, evict %d entri terlama", evict_count)
 
-    _session_cache[user_id] = {
-        "state": state,
-        "data": copy.deepcopy(data)
-    }
+        _session_cache[user_id] = {
+            "state": state,
+            "data": copy.deepcopy(data)
+        }
 
 
 def clear_session(user_id: int):
     """Clear user session"""
-    _session_cache.pop(user_id, None)
+    with _session_cache_lock:
+        _session_cache.pop(user_id, None)
 
 
 def clear_user_ram(user_id: int):
     """Clear user RAM data (session and buffers)"""
-    _session_cache.pop(user_id, None)
-    _all_buffers.pop(user_id, None)
+    with _session_cache_lock:
+        _session_cache.pop(user_id, None)
+        _all_buffers.pop(user_id, None)
 
 
 # ─── BROADCAST LOG ────────────────────────────────────────────────────────────
@@ -597,12 +603,16 @@ def get_db_stats():
         member_count = conn.execute("SELECT COUNT(*) as count FROM users WHERE is_member = 1").fetchone()["count"]
         broadcast_count = conn.execute("SELECT COUNT(*) as count FROM broadcast_log").fetchone()["count"]
         
+        with _session_cache_lock:
+            session_size = len(_session_cache)
+            buffer_size = len(_all_buffers)
+
         return {
             "total_users": user_count,
             "total_members": member_count,
             "total_broadcasts": broadcast_count,
-            "session_cache_size": len(_session_cache),
-            "buffer_cache_size": len(_all_buffers),
+            "session_cache_size": session_size,
+            "buffer_cache_size": buffer_size,
         }
 
 def cleanup_stale_sessions(max_age_hours=24):
@@ -613,7 +623,8 @@ def cleanup_stale_sessions(max_age_hours=24):
     """
     from datetime import datetime, timedelta
     
-    user_ids = list(_session_cache.keys())
+    with _session_cache_lock:
+        user_ids = list(_session_cache.keys())
     if not user_ids:
         return 0
 
@@ -648,10 +659,11 @@ def cleanup_stale_sessions(max_age_hours=24):
         if uid not in found_user_ids:
             stale_users.append(uid)
     
-    for user_id in stale_users:
-        _session_cache.pop(user_id, None)
-        _all_buffers.pop(user_id, None)
-        cleaned += 1
+    with _session_cache_lock:
+        for user_id in stale_users:
+            _session_cache.pop(user_id, None)
+            _all_buffers.pop(user_id, None)
+            cleaned += 1
     
     return cleaned
 
