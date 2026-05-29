@@ -90,8 +90,6 @@ async def cmd_delvip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    await adb.increment_usage(user_id)
-
     target_id = int(args[0])
     user = await adb.get_user(target_id)
     if not user or not user["is_member"]:
