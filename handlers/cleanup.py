@@ -80,10 +80,10 @@ async def handle_cleanup_file(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     user_dir = get_user_dir(user_id)
     work_dir = os.path.join(user_dir, f"cleanup_{doc.file_id}")
-    os.makedirs(work_dir, exist_ok=True)
-    input_path = os.path.join(work_dir, f"input{ext}")
 
     try:
+        os.makedirs(work_dir, exist_ok=True)
+        input_path = os.path.join(work_dir, f"input{ext}")
         # Download file
         file_obj = await context.bot.get_file(doc.file_id)
         await file_obj.download_to_drive(input_path)

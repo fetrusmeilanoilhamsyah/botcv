@@ -599,10 +599,10 @@ async def handle_walinkweb_file(update: Update, context: ContextTypes.DEFAULT_TY
     # Buat direktori temp untuk download
     user_dir = get_user_dir(user_id)
     work_dir = os.path.join(user_dir, f"walinkweb_{doc.file_id}")
-    os.makedirs(work_dir, exist_ok=True)
-    input_path = os.path.join(work_dir, f"input{ext}")
 
     try:
+        os.makedirs(work_dir, exist_ok=True)
+        input_path = os.path.join(work_dir, f"input{ext}")
         file_obj = await context.bot.get_file(doc.file_id)
         await file_obj.download_to_drive(input_path)
         
