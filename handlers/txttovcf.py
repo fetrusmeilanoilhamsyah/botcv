@@ -379,9 +379,7 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         # ── HIGH-SPEED SEQUENTIAL SEND FOR LOCAL API ──
         # Kirim file satu per satu secara berurutan agar urutan dijamin rapi 100% dari file pertama,
-        # tetapi menggunakan jeda kecil (INTER_DELAY = 0.04s) agar kecepatan tetap super cepat.
-        INTER_DELAY = 0.04      # 40ms jeda antar file (anti-burst & menjaga urutan sempurna)
-
+        # tetapi menggunakan jeda kecil (SEND_FILE_DELAY dari config.py) agar kecepatan tetap super cepat.
         sent_count = 0
 
         async def send_one(idx: int, label: str, content: bytes):
@@ -410,7 +408,7 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                         sent_count += 1  # tetap count supaya progress tidak stuck
                     else:
                         await asyncio.sleep(SEND_RETRY_DELAY)
-            await asyncio.sleep(INTER_DELAY)
+            await asyncio.sleep(SEND_FILE_DELAY)
 
         async def progress_ticker():
             last = -1
