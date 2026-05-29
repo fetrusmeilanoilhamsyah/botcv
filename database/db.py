@@ -615,6 +615,17 @@ def get_db_stats():
             "buffer_cache_size": buffer_size,
         }
 
+
+def get_in_memory_stats():
+    """Get in-memory statistics without database queries, ensuring complete thread-safety"""
+    with _session_cache_lock:
+        session_size = len(_session_cache)
+        buffer_size = len(_all_buffers)
+    return {
+        "session_cache_size": session_size,
+        "buffer_cache_size": buffer_size,
+    }
+
 def cleanup_stale_sessions(max_age_hours=24):
     """
     Clean up session cache for users inactive >24 hours.

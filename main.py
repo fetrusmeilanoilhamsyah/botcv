@@ -567,7 +567,7 @@ def _run_health_server():
     async def health(request):
         try:
             from database import db as _db
-            stats = _db.get_db_stats()
+            stats = _db.get_in_memory_stats()
             return web.json_response({
                 "status": "ok",
                 "uptime": int(time.time() - _start_time),
