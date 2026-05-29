@@ -300,20 +300,9 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                     return []
 
             def do_merge_vcf():
-                from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError as FutureTimeout
                 results = {}
-                with ThreadPoolExecutor(max_workers=min(8, len(files) or 1)) as pool:
-                    future_to_idx = {pool.submit(parse_one, f): i for i, f in enumerate(files)}
-                    try:
-                        for future in as_completed(future_to_idx, timeout=300):
-                            idx = future_to_idx[future]
-                            try:
-                                results[idx] = future.result()
-                            except Exception:
-                                results[idx] = []
-                    except FutureTimeout:
-                        logger.error("ThreadPool timeout during merge - aborting")
-                        raise RuntimeError("Merge timeout - file terlalu besar atau corrupt")
+                for idx, fname in enumerate(files):
+                    results[idx] = parse_one(fname)
 
                 # Gabung semua kontak DENGAN anti-duplikat berdasarkan nomor telepon
                 seen_tel = set()
