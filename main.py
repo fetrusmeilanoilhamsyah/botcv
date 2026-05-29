@@ -44,7 +44,7 @@ from handlers.daftar import cmd_daftar
 from handlers.stat import cmd_stat
 from handlers.akun import cmd_akun
 from handlers.addvip import cmd_addvip, cmd_delvip
-from handlers.broadcast import cmd_broadcast, handle_broadcast_msg, STATE as BROADCAST_STATE
+from handlers.broadcast import cmd_broadcast, handle_broadcast_msg, cmd_stop_broadcast, STATE as BROADCAST_STATE
 from handlers.media_broadcast import cmd_media_broadcast, handle_broadcast_media, STATE as MEDIA_BROADCAST_STATE
 from handlers.new_member import cmd_newmember, handle_newmember_id, STATE as NEWMEMBER_STATE
 from handlers.del_member import cmd_delmember, handle_delmember_id, STATE as DELMEMBER_STATE
@@ -671,6 +671,7 @@ def main():
     app.add_handler(CommandHandler("cleanup",                           rate_limiter(cmd_cleanup)))
     app.add_handler(CommandHandler(["broadcast", "brodcast", "Brodcast"], rate_limiter(cmd_broadcast)))
     app.add_handler(CommandHandler("mediabroadcast",                    rate_limiter(cmd_media_broadcast)))
+    app.add_handler(CommandHandler("stopbroadcast",                     rate_limiter(cmd_stop_broadcast)))
     app.add_handler(CommandHandler("newmember",                         rate_limiter(cmd_newmember)))
     app.add_handler(CommandHandler(["delmember", "copotmember"],        rate_limiter(cmd_delmember)))
     app.add_handler(CommandHandler(["referal", "referral"],             rate_limiter(cmd_referral)))
