@@ -22,6 +22,9 @@ from config import (
     FILE_READ_TIMEOUT,
     FILE_WRITE_TIMEOUT,
     FILE_CONNECT_TIMEOUT,
+    SEND_BATCH_SIZE,
+    SEND_BATCH_DELAY,
+    SEND_FILE_DELAY,
 )
 
 logger = logging.getLogger(__name__)
@@ -193,6 +196,11 @@ async def handle_pecah_vcf_file(update: Update, context: ContextTypes.DEFAULT_TY
                     if attempt == SEND_MAX_RETRIES - 1:
                         raise
                     await asyncio.sleep(SEND_RETRY_DELAY)
+
+            if (idx + 1) % SEND_BATCH_SIZE == 0:
+                await asyncio.sleep(SEND_BATCH_DELAY)
+            else:
+                await asyncio.sleep(SEND_FILE_DELAY)
 
         # Update final setelah loop selesai
         try:
