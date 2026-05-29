@@ -2,6 +2,7 @@
 main.py - Entry point DiBot CV FEE
 """
 import logging
+import asyncio
 import os
 import time
 import threading
@@ -157,7 +158,13 @@ global_file_semaphore = Semaphore(GLOBAL_MAX_CONCURRENT_FILE)
 
 _user_last_click: dict = {}
 _error_last_sent: dict = {}
-_job_running = {"expire": False, "cleanup": False, "notify": False}
+_job_locks = {}
+
+def get_job_lock(name: str) -> asyncio.Lock:
+    if name not in _job_locks:
+        _job_locks[name] = asyncio.Lock()
+    return _job_locks[name]
+
 _start_time = time.time()
 
 
@@ -368,23 +375,22 @@ async def cb_show_vip_menu(update: Update, context):
 
 # ── Scheduled jobs ────────────────────────────────────────────────────────────
 async def _job_expire_vip(context):
-    if _job_running["expire"]:
+    lock = get_job_lock("expire")
+    if lock.locked():
         return
-    _job_running["expire"] = True
-    try:
+    async with lock:
         count = await adb.expire_vip_members()
         if count:
             logger.info("[JOB] %d VIP expired", count)
-    finally:
-        _job_running["expire"] = False
 
 
 async def _job_cleanup_sessions(context):
-    if _job_running["cleanup"]:
+    lock = get_job_lock("cleanup")
+    if lock.locked():
         return
-    _job_running["cleanup"] = True
-    MEM_CLEANUP_TIMEOUT = 3600  # 1 jam asinkronus RAM cleanup (anti memory leaks)
+    await lock.acquire()
     try:
+        MEM_CLEANUP_TIMEOUT = 3600  # 1 jam asinkronus RAM cleanup (anti memory leaks)
         from middleware.session import clear_user_dir
         tmp_base = os.path.join("tmp", "sessions")
         if not os.path.exists(tmp_base):
@@ -488,28 +494,30 @@ async def _job_cleanup_sessions(context):
                 logger.info("[JOB] Cleaned %d inactive users from welcome messages and handler locks/timers", len(inactive_ids))
         except Exception as e_cleanup:
             logger.error("[JOB] Error during active users memory cleanup: %s", e_cleanup)
-
     finally:
-        _job_running["cleanup"] = False
+        lock.release()
+
+
 
 
 async def _job_notify_expiry(context):
-    if _job_running["notify"]:
+    lock = get_job_lock("notify")
+    if lock.locked():
         return
-    _job_running["notify"] = True
-    try:
-        for u in await adb.get_users_for_expiry_notif():
-            uid = u["id"]
-            try:
-                await context.bot.send_message(
-                    chat_id=uid,
-                    text="Masa aktif VIP kamu tinggal 24 jam lagi. Perpanjang agar fitur tetap aktif.",
-                )
-                await adb.mark_expiry_notified(uid)
-            except Exception:
-                pass
-    finally:
-        _job_running["notify"] = False
+    async with lock:
+        try:
+            for u in await adb.get_users_for_expiry_notif():
+                uid = u["id"]
+                try:
+                    await context.bot.send_message(
+                        chat_id=uid,
+                        text="Masa aktif VIP kamu tinggal 24 jam lagi. Perpanjang agar fitur tetap aktif.",
+                    )
+                    await adb.mark_expiry_notified(uid)
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
 
 async def job_expire_pending_payments(context):
