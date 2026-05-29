@@ -594,6 +594,18 @@ def main():
 
     async def startup_init(application):
         try:
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
+            import atexit
+            loop = asyncio.get_running_loop()
+            executor = ThreadPoolExecutor(max_workers=128, thread_name_prefix="asyncio-worker")
+            loop.set_default_executor(executor)
+            atexit.register(executor.shutdown, wait=False)
+            logger.info("✅ Event loop default executor configured with 128 threads")
+        except Exception as e:
+            logger.error("Failed to set default executor: %s", e)
+
+        try:
             from database.db_async import adb
             expired = await adb.expire_vip_members()
             if expired:
