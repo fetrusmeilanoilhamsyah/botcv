@@ -157,6 +157,7 @@ global_semaphore      = Semaphore(GLOBAL_MAX_CONCURRENT)
 global_file_semaphore = Semaphore(GLOBAL_MAX_CONCURRENT_FILE)
 
 _user_last_click: dict = {}
+_user_last_active: dict = {}
 _error_last_sent: dict = {}
 _job_locks = {}
 
@@ -174,6 +175,7 @@ def rate_limiter(func):
             return await func(update, context)
 
         user_id = update.effective_user.id
+        _user_last_active[user_id] = time.time()
 
         # Cooldown Anti-Spam (smart debounce) HANYA untuk klik tombol inline (callback query)
         if update.callback_query:
@@ -199,6 +201,9 @@ def file_rate_limiter(func):
     async def wrapper(update: Update, context):
         if not update or not update.effective_user:
             return await func(update, context)
+
+        user_id = update.effective_user.id
+        _user_last_active[user_id] = time.time()
 
         # Hanya gunakan 1 global semaphore — tidak ada antrian per-user untuk file
         # User bisa upload banyak file paralel, yang dibatasi hanya total global
@@ -415,21 +420,30 @@ async def _job_cleanup_sessions(context):
 
         # Cleanup semaphores untuk user lama tidak aktif
         inactive = []
+        now = time.time()
         for uid in list(user_semaphores.keys()):
-            user = db.get_user(uid)
-            if user:
-                try:
-                    from datetime import datetime
-                    last = datetime.fromisoformat(dict(user)["last_active"])
-                    if (datetime.now() - last).total_seconds() > MEM_CLEANUP_TIMEOUT:
-                        inactive.append(uid)
-                except Exception:
-                    pass
+            last_active = _user_last_active.get(uid, 0)
+            if last_active == 0:
+                user = db.get_user(uid)
+                if user:
+                    try:
+                        from datetime import datetime
+                        last_active_dt = datetime.fromisoformat(dict(user)["last_active"])
+                        last_active = last_active_dt.timestamp()
+                    except Exception:
+                        pass
+
+            if now - last_active > MEM_CLEANUP_TIMEOUT:
+                sem = user_semaphores.get(uid)
+                if sem is None or sem._value == MAX_CONCURRENT_PER_USER:
+                    inactive.append(uid)
+
         for uid in inactive:
             user_semaphores.pop(uid, None)
             _user_last_click.pop(uid, None)
+            _user_last_active.pop(uid, None)
         if inactive:
-            logger.info("[JOB] Cleaned %d inactive semaphores and click timers", len(inactive))
+            logger.info("[JOB] Cleaned %d inactive semaphores, click timers, and active trackers", len(inactive))
 
         cleaned_cache = await adb.cleanup_stale_sessions()
         if cleaned_cache:

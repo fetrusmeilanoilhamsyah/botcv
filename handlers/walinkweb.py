@@ -25,6 +25,10 @@ S0 = "WALINKWEB_WAIT_FILE"
 S1 = "WALINKWEB_WAIT_MSG"
 _processing: set[int] = set()
 _button_timers: dict[int, asyncio.Task] = {}
+_user_locks: dict = {}
+
+def _get_lock(user_id: int) -> asyncio.Lock:
+    return _user_locks.setdefault(user_id, asyncio.Lock())
 
 PHONE_REGEX = re.compile(r'\+?(?:\d[\s\-\(\)\.]*){8,16}')
 
@@ -593,8 +597,9 @@ async def handle_walinkweb_file(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text("Format tidak didukung. Kirim file .xlsx, .csv, .txt, atau .vcf.")
         return
 
-    if user_id in _processing:
-        return
+    async with _get_lock(user_id):
+        if user_id in _processing:
+            return
 
     # Buat direktori temp untuk download
     user_dir = get_user_dir(user_id)
@@ -641,9 +646,10 @@ async def handle_walinkweb_msg(update: Update, context: ContextTypes.DEFAULT_TYP
     orig_name = data["file_name"]
     work_dir = data["work_dir"]
 
-    if user_id in _processing:
-        return
-    _processing.add(user_id)
+    async with _get_lock(user_id):
+        if user_id in _processing:
+            return
+        _processing.add(user_id)
     db.clear_session(user_id)
 
     status_msg = await update.message.reply_text(

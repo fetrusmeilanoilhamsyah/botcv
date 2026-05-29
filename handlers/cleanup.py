@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 STATE = "CLEANUP_WAIT_FILE"
 _processing: set[int] = set()
 _button_timers: dict[int, asyncio.Task] = {}
+_user_locks: dict = {}
+
+def _get_lock(user_id: int) -> asyncio.Lock:
+    return _user_locks.setdefault(user_id, asyncio.Lock())
 
 
 def _clean_number(num: str) -> str:
@@ -68,9 +72,10 @@ async def handle_cleanup_file(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text("Format tidak didukung. Kirim file .TXT atau .VCF.")
         return
 
-    if user_id in _processing:
-        return
-    _processing.add(user_id)
+    async with _get_lock(user_id):
+        if user_id in _processing:
+            return
+        _processing.add(user_id)
     db.clear_session(user_id)
 
     status_msg = await update.message.reply_text(
