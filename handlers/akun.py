@@ -18,11 +18,11 @@ async def cmd_akun(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Semua query paralel — tidak serial
     import asyncio
-    row, member, expired_at, ref_count = await asyncio.gather(
+    row, member, expired_at, ref_points = await asyncio.gather(
         adb.get_user(user.id),
         adb.is_member(user.id),
         adb.get_vip_expiry(user.id),
-        adb.get_referral_count(user.id),
+        adb.get_referral_points(user.id),
     )
 
     admin = is_admin(user.id)
@@ -56,13 +56,11 @@ async def cmd_akun(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
 
-    # Referral bar
-    bonus_target = 5
-    progress     = ref_count % bonus_target
-    sisa_ref     = bonus_target - progress if progress != 0 else bonus_target
-    bar          = "█" * progress + "░" * (bonus_target - progress)
+    # Referral points system (konsisten dengan referral.py)
     ref_link     = f"https://t.me/{context.bot.username}?start=ref_{user.id}"
-
+    saldo_poin   = ref_points.get("referral_points", 0)
+    total_poin   = ref_points.get("total_referral_points_earned", 0)
+    
     lines = [
         "INFO AKUN",
         "─" * 24,
@@ -74,8 +72,8 @@ async def cmd_akun(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"Role     : {role_str}",
         f"Pemakaian: {usage}x",
         "─" * 24,
-        f"Referral : {ref_count} orang [{bar}]",
-        f"Undang {sisa_ref} lagi → VIP 7 hari gratis",
+        f"Poin Referral: {saldo_poin}/{total_poin} Poin",
+        f"Tukarkan poin di menu /referral untuk VIP gratis",
         "─" * 24,
         f"Link referral:\n<code>{ref_link}</code>",
     ]

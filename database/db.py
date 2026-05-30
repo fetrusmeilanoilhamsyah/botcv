@@ -342,7 +342,7 @@ def get_user(user_id: int):
     """Get user by ID - FIXED: include expired_at and last_active for VIP check & cleanup"""
     with get_connection() as conn:
         return conn.execute(
-            "SELECT id, username, full_name, is_member, expired_at, last_active FROM users WHERE id = ?",
+            "SELECT id, username, full_name, is_member, expired_at, last_active, usage_count, joined_at FROM users WHERE id = ?",
             (user_id,)
         ).fetchone()
 
