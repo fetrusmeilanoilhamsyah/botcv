@@ -39,14 +39,25 @@ def _get_lock(user_id: int) -> asyncio.Lock:
 
 
 def _clean_number(num: str) -> str:
-    """Bersihkan nomor ke format standard 628xxx."""
+    """Bersihkan nomor dari spasi, tanda hubung, kurung, dan simbol lainnya.
+    Mempertahankan tanda '+' di awal jika ada."""
+    if not num:
+        return ""
+    
+    num = num.strip()
+    has_plus = num.startswith("+")
+    
+    # Ambil hanya digit angka
     digits = re.sub(r'\D', '', num)
-    if digits.startswith("08"):
-        digits = "62" + digits[1:]
-    elif digits.startswith("8"):
-        digits = "62" + digits
-    if 9 <= len(digits) <= 15:
-        return digits
+    
+    if not digits:
+        return ""
+        
+    cleaned = ("+" if has_plus else "") + digits
+    
+    # Batasan panjang nomor telepon standar internasional (7 sampai 17 karakter)
+    if 7 <= len(cleaned) <= 17:
+        return cleaned
     return ""
 
 
@@ -62,7 +73,7 @@ async def cmd_cleanup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Kirim file <b>.TXT</b> atau <b>.VCF</b> sekarang. Format nomor akan dibersihkan dan distandardisasi.",
+        "Kirim file <b>.TXT</b> atau <b>.VCF</b> sekarang. Format nomor dari berbagai negara akan dibersihkan secara otomatis.",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
