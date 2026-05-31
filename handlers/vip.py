@@ -4,7 +4,6 @@ Pembayaran manual (QRIS pending approval Midtrans).
 """
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from database import db
 from database.db_async import adb
 from datetime import datetime
 from config import ADMIN_CONTACT
