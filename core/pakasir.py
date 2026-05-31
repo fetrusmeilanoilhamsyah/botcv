@@ -122,9 +122,9 @@ class PakasirClient:
                 if signature_header and raw_body:
                     # FIX: gunakan hmac.new() dengan keyword arg digestmod agar eksplisit
                     expected_sig = hmac.new(
-                        webhook_secret.encode(),
-                        raw_body,
-                        hashlib.sha256
+                        key=webhook_secret.encode(),
+                        msg=raw_body,
+                        digestmod=hashlib.sha256
                     ).hexdigest()
                     if not hmac.compare_digest(expected_sig, signature_header.lower()):
                         logger.error("[Pakasir] HMAC signature mismatch: %s", expected_order_id)
