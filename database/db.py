@@ -428,15 +428,16 @@ def set_member_vip(user_id: int, days: int, full_name: str = ""):
     expired_at = (datetime.now() + timedelta(days=days)).isoformat()
     with get_connection() as conn:
         conn.execute("""
-            INSERT INTO users (id, username, full_name, is_member, expired_at)
-            VALUES (?, '', ?, 1, ?)
+            INSERT INTO users (id, username, full_name, is_member, expired_at, expiry_notified)
+            VALUES (?, '', ?, 1, ?, 0)
             ON CONFLICT(id) DO UPDATE SET
                 is_member  = 1,
                 expired_at = CASE
                     WHEN expired_at IS NOT NULL AND expired_at > datetime('now')
                     THEN datetime(expired_at, '+' || ? || ' days')
                     ELSE ?
-                END
+                END,
+                expiry_notified = 0
         """, (user_id, full_name, expired_at, days, expired_at))
         conn.commit()
     return expired_at
