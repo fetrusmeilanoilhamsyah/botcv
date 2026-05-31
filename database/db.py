@@ -25,7 +25,6 @@ DB_PATH = os.path.join(os.path.dirname(__file__), "bot.db")
 _conn_pool = queue.Queue(maxsize=32)
 _pool_initialized = False
 _pool_lock = threading.Lock()
-_pool_put_lock = threading.Lock()  # NOTE: Queue.put sudah thread-safe, lock ini redundant tapi dibiarkan untuk kompatibilitas
 
 
 def _init_connection():
