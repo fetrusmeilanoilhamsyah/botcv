@@ -34,14 +34,15 @@ async def cmd_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from config import ADMIN_IDS
     if user_id in ADMIN_IDS:
         keyboard = [
-            [InlineKeyboardButton("⚠️ RESET TOTAL DATABASE", callback_data="admin_db_reset_confirm")]
+            [InlineKeyboardButton("RESET TOTAL DATABASE", callback_data="admin_db_reset_confirm", style="danger")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await context.bot.send_message(
             chat_id=chat_id,
             text=(
-                "<b>ADMIN MENU</b>\n"
-                "Reset total database."
+                "<b>MENU ADMINISTRATOR</b>\n"
+                "━━━━━━━━━━━━━━━━━\n"
+                "Penghapusan total seluruh database."
             ),
             parse_mode="HTML",
             reply_markup=reply_markup
@@ -65,13 +66,17 @@ async def handle_reset_callback(update: Update, context: ContextTypes.DEFAULT_TY
     if data == "admin_db_reset_confirm":
         keyboard = [
             [
-                InlineKeyboardButton("✅ YA, HAPUS SEMUA", callback_data="admin_db_reset_final"),
-                InlineKeyboardButton("❌ BATAL", callback_data="admin_db_reset_cancel")
+                InlineKeyboardButton("YA, HAPUS SEMUA", callback_data="admin_db_reset_final", style="danger"),
+                InlineKeyboardButton("BATAL", callback_data="admin_db_reset_cancel", style="primary")
             ]
         ]
         await query.edit_message_text(
-            "KONFIRMASI\n"
-            "Hapus semua data permanent?",
+            text=(
+                "<b>KONFIRMASI HAPUS</b>\n"
+                "━━━━━━━━━━━━━━━━━\n"
+                "Tindakan ini akan menghapus seluruh data pengguna, data VIP, dan riwayat secara permanen. Apakah Anda yakin?"
+            ),
+            parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
@@ -79,9 +84,23 @@ async def handle_reset_callback(update: Update, context: ContextTypes.DEFAULT_TY
         # Eksekusi Reset Total Database
         await adb.clear_all_db()
         clear_all_sessions()
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
+        ])
         await query.edit_message_text(
-            "Database berhasil direset."
+            text=(
+                "<b>PROSES BERHASIL</b>\n"
+                "━━━━━━━━━━━━━━━━━\n"
+                "Database berhasil direset secara total."
+            ),
+            parse_mode="HTML",
+            reply_markup=keyboard
         )
 
     elif data == "admin_db_reset_cancel":
-        await query.edit_message_text("Reset dibatalkan.")
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
+        from handlers.start import send_fresh_start_menu
+        await send_fresh_start_menu(context.bot, update.effective_user.id, query.message.chat_id, update.effective_user.first_name or "Kawan")
