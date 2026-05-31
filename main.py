@@ -393,8 +393,7 @@ async def _job_cleanup_sessions(context):
     lock = get_job_lock("cleanup")
     if lock.locked():
         return
-    await lock.acquire()
-    try:
+    async with lock:
         MEM_CLEANUP_TIMEOUT = 3600  # 1 jam asinkronus RAM cleanup (anti memory leaks)
         from middleware.session import clear_user_dir
         tmp_base = os.path.join("tmp", "sessions")
@@ -508,8 +507,6 @@ async def _job_cleanup_sessions(context):
                 logger.info("[JOB] Cleaned %d inactive users from welcome messages and handler locks/timers", len(inactive_ids))
         except Exception as e_cleanup:
             logger.error("[JOB] Error during active users memory cleanup: %s", e_cleanup)
-    finally:
-        lock.release()
 
 
 
