@@ -72,9 +72,10 @@ async def handle_reset_callback(update: Update, context: ContextTypes.DEFAULT_TY
         ]
         await query.edit_message_text(
             text=(
-                "<b>KONFIRMASI HAPUS</b>\n"
+                "<b>KONFIRMASI RESET</b>\n"
                 "━━━━━━━━━━━━━━━━━\n"
-                "Tindakan ini akan menghapus seluruh data pengguna, data VIP, dan riwayat secara permanen. Apakah Anda yakin?"
+                "Tindakan ini akan menghapus riwayat broadcast, semua sesi aktif, dan cache file sementara secara permanen.\n\n"
+                "Data pengguna dan status keanggotaan VIP tetap aman dan TIDAK akan dihapus. Apakah Anda yakin?"
             ),
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup(keyboard)
