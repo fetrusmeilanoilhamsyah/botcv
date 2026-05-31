@@ -33,16 +33,48 @@ async def require_member(update, context) -> bool:
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("LIHAT PAKET VIP", callback_data="show_vip_menu", style="success")],
     ])
-    await update.message.reply_text(
-        "Fitur ini khusus member VIP.\n"
-        "Mulai dari Rp 5.000, aktif otomatis via QRIS.",
-        reply_markup=keyboard,
-    )
+    
+    # Cegah crash jika dipanggil dari callback query (di mana update.message adalah None)
+    message = update.effective_message
+    if update.callback_query:
+        try:
+            await update.callback_query.answer("Fitur khusus member VIP.", show_alert=True)
+        except Exception as e:
+            logger.warning(f"Gagal menjawab callback query di require_member: {e}")
+
+    if message:
+        await message.reply_text(
+            "Fitur ini khusus member VIP.\n"
+            "Mulai dari Rp 5.000, aktif otomatis via QRIS.",
+            reply_markup=keyboard,
+        )
+    else:
+        chat_id = update.effective_chat.id if update.effective_chat else user_id
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="Fitur ini khusus member VIP.\n"
+                 "Mulai dari Rp 5.000, aktif otomatis via QRIS.",
+            reply_markup=keyboard,
+        )
     return False
 
 
 async def require_admin(update, context) -> bool:
     if not is_admin(update.effective_user.id):
-        await update.message.reply_text("Perintah ini hanya untuk admin.")
+        message = update.effective_message
+        if update.callback_query:
+            try:
+                await update.callback_query.answer("Perintah ini hanya untuk admin.", show_alert=True)
+            except Exception as e:
+                logger.warning(f"Gagal menjawab callback query di require_admin: {e}")
+
+        if message:
+            await message.reply_text("Perintah ini hanya untuk admin.")
+        else:
+            chat_id = update.effective_chat.id if update.effective_chat else update.effective_user.id
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text="Perintah ini hanya untuk admin."
+            )
         return False
     return True
