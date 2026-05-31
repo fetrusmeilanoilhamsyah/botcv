@@ -42,18 +42,25 @@ async def require_member(update, context) -> bool:
         except Exception as e:
             logger.warning(f"Gagal menjawab callback query di require_member: {e}")
 
+    text = (
+        "<b>AKSES TERBATAS</b>\n"
+        "━━━━━━━━━━━━━━━━━\n"
+        "Fitur ini khusus untuk member VIP.\n"
+        "Mulai dari Rp 2.000, silakan upgrade untuk menikmati semua akses fitur."
+    )
+
     if message:
         await message.reply_text(
-            "Fitur ini khusus member VIP.\n"
-            "Mulai dari Rp 5.000, aktif otomatis via QRIS.",
+            text=text,
+            parse_mode="HTML",
             reply_markup=keyboard,
         )
     else:
         chat_id = update.effective_chat.id if update.effective_chat else user_id
         await context.bot.send_message(
             chat_id=chat_id,
-            text="Fitur ini khusus member VIP.\n"
-                 "Mulai dari Rp 5.000, aktif otomatis via QRIS.",
+            text=text,
+            parse_mode="HTML",
             reply_markup=keyboard,
         )
     return False

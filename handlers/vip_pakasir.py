@@ -96,24 +96,24 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
             exp = datetime.fromisoformat(expired_at)
             sisa = (exp - datetime.now()).days
             status_line = (
-                f"Status: VIP Aktif\n"
-                f"Limit : {exp.strftime('%d/%m/%Y')} ({sisa} hari lagi)\n\n"
+                f"<b>Status:</b> VIP Aktif\n"
+                f"<b>Limit :</b> {exp.strftime('%d/%m/%Y')} ({sisa} hari lagi)\n\n"
             )
         else:
-            status_line = "Status: Member Permanen\n\n"
+            status_line = "<b>Status:</b> Member Permanen\n\n"
 
     # Paket
-    paket_lines = "PAKET VIP:\n"
+    paket_lines = "<b>PAKET LAYANAN VIP</b>\n━━━━━━━━━━━━━━━━━\n"
     for p in PAKET:
-        paket_lines += f"• {p['label']:<8} : {_fmt_price(p['price'])}\n"
-    paket_lines += "\n"
+        paket_lines += f"• {p['label']:<9} : {_fmt_price(p['price'])}\n"
+    paket_lines += "━━━━━━━━━━━━━━━━━\n"
 
     # Info pembayaran
     if QRIS_ENABLED:
         mode = "SANDBOX" if PAKASIR_SANDBOX else "QRIS Otomatis"
-        info = f"Metode: {mode}\nPilih paket di bawah untuk mengaktifkan VIP."
+        info = f"<b>Metode:</b> {mode}\nSilakan pilih paket di bawah untuk pembayaran."
     else:
-        info = f"Metode: Manual\nHubungi {ADMIN_CONTACT} untuk aktivasi."
+        info = f"<b>Metode:</b> Manual\nSilakan hubungi {ADMIN_CONTACT} untuk aktivasi paket Anda."
 
     # Keyboard (Symmetric 3x2 untuk Paket: 3 di kiri, 3 di kanan, warna all biru cerah/primary)
     if QRIS_ENABLED:

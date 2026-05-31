@@ -31,18 +31,18 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
             exp  = datetime.fromisoformat(expired_at)
             sisa = (exp - datetime.now()).days
             status_line = (
-                f"Status: VIP Aktif\n"
-                f"Limit : {exp.strftime('%d/%m/%Y')} ({sisa} hari lagi)\n\n"
+                f"<b>Status:</b> VIP Aktif\n"
+                f"<b>Limit :</b> {exp.strftime('%d/%m/%Y')} ({sisa} hari lagi)\n\n"
             )
         else:
-            status_line = "Status: Member Permanen\n\n"
+            status_line = "<b>Status:</b> Member Permanen\n\n"
 
     lines = []
     for p in PAKET:
-        lines.append(f"• {p['label']:<8} : {p['harga']}")
+        lines.append(f"• {p['label']:<9} : {p['harga']}")
 
     keyboard = [
-        [InlineKeyboardButton("Daftar VIP", url=f"https://t.me/{ADMIN_CONTACT.lstrip('@')}")],
+        [InlineKeyboardButton("HUBUNGI ADMIN", url=f"https://t.me/{ADMIN_CONTACT.lstrip('@')}")],
         [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
     ]
 
@@ -51,10 +51,12 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user.id,
         update.effective_chat.id,
         f"{status_line}"
-        f"PAKET VIP:\n"
+        f"<b>PAKET LAYANAN VIP</b>\n"
+        f"━━━━━━━━━━━━━━━━━\n"
         + "\n".join(lines) +
-        f"\n\nMetode: Manual\n"
-        f"Hubungi {ADMIN_CONTACT} untuk aktivasi manual.",
+        f"\n━━━━━━━━━━━━━━━━━\n"
+        f"<b>Metode:</b> Manual\n"
+        f"Silakan hubungi {ADMIN_CONTACT} untuk aktivasi paket Anda.",
         reply_markup=InlineKeyboardMarkup(keyboard),
         update=update
     )

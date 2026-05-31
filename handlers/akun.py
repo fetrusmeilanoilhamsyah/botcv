@@ -57,31 +57,23 @@ async def cmd_akun(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
 
     # Referral points system (konsisten dengan referral.py)
-    ref_link     = f"https://t.me/{context.bot.username}?start=ref_{user.id}"
-    saldo_poin   = ref_points.get("referral_points", 0)
-    total_poin   = ref_points.get("total_referral_points_earned", 0)
-    
     lines = [
-        "INFO AKUN",
-        "─" * 24,
-        f"Nama     : {user.full_name or user.first_name or '-'}",
-        f"Username : @{user.username}" if user.username else "Username : -",
-        f"ID       : {user.id}",
-        f"Bergabung: {joined}",
-        "─" * 24,
-        f"Role     : {role_str}",
-        f"Pemakaian: {usage}x",
-        "─" * 24,
-        f"Poin Referral: {saldo_poin}/{total_poin} Poin",
-        f"Tukarkan poin di menu /referral untuk VIP gratis",
-        "─" * 24,
-        f"Link referral:\n<code>{ref_link}</code>",
+        "<b>INFORMASI AKUN</b>",
+        "━━━━━━━━━━━━━━━━━",
+        f"• Nama     : {user.full_name or user.first_name or '-'}",
+        f"• Username : @{user.username}" if user.username else "• Username : -",
+        f"• ID User  : {user.id}",
+        f"• Bergabung: {joined}",
+        "━━━━━━━━━━━━━━━━━",
+        "<b>STATUS & PEMAKAIAN</b>",
+        f"• Status   : {role_str}",
+        f"• Pemakaian: {usage}x konversi",
+        "━━━━━━━━━━━━━━━━━",
     ]
 
     rows = []
     if not member:
         rows.append([InlineKeyboardButton("LANGGANAN VIP", callback_data="show_vip_menu", style="success")])
-    rows.append([InlineKeyboardButton("SALIN LINK REFERRAL", switch_inline_query=ref_link, style="primary")])
     rows.append([InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")])
 
     await transition_to_handler(
