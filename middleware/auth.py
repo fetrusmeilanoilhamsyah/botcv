@@ -30,9 +30,10 @@ async def require_member(update, context) -> bool:
     if member:
         return True
 
-    # Keyboard dengan tombol Lihat VIP dan Kembali ke Menu
+    # Keyboard dengan tombol Lihat VIP, VIP Gratis, dan Kembali ke Menu
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("LIHAT PAKET VIP", callback_data="show_vip_menu", style="success")],
+        [InlineKeyboardButton("DAPATKAN VIP GRATIS", callback_data="show_referral_menu", style="primary")],
         [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
     ])
     
@@ -40,7 +41,7 @@ async def require_member(update, context) -> bool:
         "<b>AKSES TERBATAS</b>\n"
         "━━━━━━━━━━━━━━━━━\n"
         "Fitur ini khusus untuk member VIP.\n"
-        "Mulai dari Rp 2.000, silakan upgrade untuk menikmati semua akses fitur."
+        "Silakan upgrade mulai dari Rp 2.000, atau undang teman Anda menggunakan tautan referral untuk mendapatkan akses VIP secara gratis."
     )
 
     # 1. Jika dipanggil dari Callback Query (user klik tombol inline di menu)

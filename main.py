@@ -377,6 +377,25 @@ async def cb_show_vip_menu(update: Update, context):
         await cmd_vip(update, context)
 
 
+# ── show_referral_menu callback ────────────────────────────────────────────────
+async def cb_show_referral_menu(update: Update, context):
+    """
+    Callback dari tombol 'Dapatkan VIP Gratis' di require_member.
+    Jawab query lalu tampilkan halaman referral langsung secara in-place.
+    """
+    query = update.callback_query
+    await query.answer()
+
+    # Hapus pesan peringatan VIP/redirect agar layar tidak menumpuk
+    try:
+        await query.message.delete()
+    except Exception:
+        pass
+
+    from handlers.referral import cmd_referral
+    await cmd_referral(update, context)
+
+
 # ── Scheduled jobs ────────────────────────────────────────────────────────────
 async def _job_expire_vip(context):
     lock = get_job_lock("expire")
@@ -717,6 +736,7 @@ def main():
 
     # ── Callback handlers ──
     app.add_handler(CallbackQueryHandler(rate_limiter(cb_show_vip_menu),       pattern="^show_vip_menu$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(cb_show_referral_menu),  pattern="^show_referral_menu$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_back_to_start),   pattern="^back_to_start$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_duplikat_help_callback), pattern="^show_duplikat_help$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_count_help_callback), pattern="^show_count_help$"))
