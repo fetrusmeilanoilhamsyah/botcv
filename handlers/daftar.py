@@ -50,10 +50,13 @@ async def cmd_daftar(update: Update, context: ContextTypes.DEFAULT_TYPE):
         name     = u["full_name"] or "-"
         uid      = u["id"]
         
+        usage    = u.get("usage_count", 0)
+        
         lines.append(f"{idx:02d}. Nama     : {name}")
         lines.append(f"    Username : {username}")
         lines.append(f"    ID       : {uid}")
         lines.append(f"    Status   : {status}")
+        lines.append(f"    Penggunaan: {usage}x")
         lines.append("") # Baris kosong pemisah
 
     file_content = "\n".join(lines)

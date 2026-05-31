@@ -123,9 +123,10 @@ async def cmd_stat(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             exp_str  = "-"
             sisa_str = "-"
+        usage = u.get("usage_count", 0)
         vip_rows.append(
             f"  {idx}. {name} ({username})\n"
-            f"     {exp_str} — {sisa_str}"
+            f"     {exp_str} — {sisa_str}  |  Penggunaan: {usage}x"
         )
 
     vip_block = "\n".join(vip_rows) if vip_rows else "  Tidak ada."
