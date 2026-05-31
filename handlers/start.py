@@ -110,6 +110,7 @@ def build_menu_text(first_name: str, user_id: int) -> str:
         "• /walinkweb — Link WA HTML\n\n"
         "<b>LAINNYA</b>\n"
         "• /vip — Paket VIP\n"
+        "• /referal — VIP Gratis\n"
         "• /akun — Info akun\n"
         "• /reset — Bersihkan sesi\n"
         "• /done — Selesaikan proses"
