@@ -114,6 +114,7 @@ from handlers.xlsxtovcf import (
     handle_show_xlsxtovcf_help_callback,
     S0 as XTV_S0, S1 as XTV_S1, S2 as XTV_S2, S3 as XTV_S3, S4 as XTV_S4, S5 as XTV_S5,
 )
+from handlers.backup import cmd_backup
 
 # ── VIP handler (Pakasir auto-fallback) ───────────────────────────────────────
 VIP_PAKASIR_MODE = False
@@ -710,6 +711,7 @@ def main():
     app.add_handler(CommandHandler("addvip",                            rate_limiter(cmd_addvip)))
     app.add_handler(CommandHandler("delvip",                            rate_limiter(cmd_delvip)))
     app.add_handler(CommandHandler("stat",                              rate_limiter(cmd_stat)))
+    app.add_handler(CommandHandler("backup",                            rate_limiter(cmd_backup)))
     app.add_handler(CommandHandler("akun",                             rate_limiter(cmd_akun)))
     app.add_handler(CommandHandler("done",                              rate_limiter(done_router)))
 

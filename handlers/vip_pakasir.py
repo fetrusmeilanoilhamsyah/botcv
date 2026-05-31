@@ -375,7 +375,9 @@ async def handle_check_payment(update: Update, context: ContextTypes.DEFAULT_TYP
         if txn and txn.get("status") == "completed":
             was_updated = await adb.complete_payment_if_pending(order_id, datetime.now().isoformat())
             if was_updated:
-                await adb.set_member_vip(user_id=payment["user_id"], days=payment["package_days"])
+                user_row = await adb.get_user(payment["user_id"])
+                full_name = dict(user_row).get("full_name", "") if user_row else ""
+                await adb.set_member_vip(user_id=payment["user_id"], days=payment["package_days"], full_name=full_name)
                 await _delete_qr_message(context.bot, payment)
                 try:
                     await query.message.delete()
