@@ -166,7 +166,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await adb.increment_usage(user.id)
 
             if is_new:
-                # Berikan VIP 30 hari gratis otomatis ke pengguna baru
+                # Berikan VIP 14 hari gratis otomatis ke pengguna baru
                 await adb.set_member_vip(user.id, 14, user.full_name or "New User")
                 try:
                     await context.bot.send_message(

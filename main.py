@@ -162,9 +162,7 @@ _error_last_sent: dict = {}
 _job_locks = {}
 
 def get_job_lock(name: str) -> asyncio.Lock:
-    if name not in _job_locks:
-        _job_locks[name] = asyncio.Lock()
-    return _job_locks[name]
+    return _job_locks.setdefault(name, asyncio.Lock())
 
 _start_time = time.time()
 
