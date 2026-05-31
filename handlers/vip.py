@@ -25,9 +25,9 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     from handlers.start import transition_to_handler
     
-    expired_at  = await adb.get_vip_expiry(user.id)
     status_line = ""
     if await adb.is_member(user.id):
+        expired_at  = await adb.get_vip_expiry(user.id)
         if expired_at:
             exp  = datetime.fromisoformat(expired_at)
             sisa = (exp - datetime.now()).days
