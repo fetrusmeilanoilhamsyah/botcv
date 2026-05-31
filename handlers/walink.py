@@ -24,6 +24,17 @@ _processing: set[int] = set()
 _button_timers: dict[int, asyncio.Task] = {}
 
 
+def cleanup_inactive_users(inactive_ids: list) -> int:
+    cleaned = 0
+    for uid in inactive_ids:
+        _processing.discard(uid)
+        task = _button_timers.pop(uid, None)
+        if task:
+            task.cancel()
+        cleaned += 1
+    return cleaned
+
+
 def _clean_number(num: str) -> str:
     """Bersihkan nomor ke format standard 628xxx."""
     digits = re.sub(r'\D', '', num)

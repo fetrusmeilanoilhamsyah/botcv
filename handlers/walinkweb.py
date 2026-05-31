@@ -27,6 +27,18 @@ _processing: set[int] = set()
 _button_timers: dict[int, asyncio.Task] = {}
 _user_locks: dict = {}
 
+
+def cleanup_inactive_users(inactive_ids: list) -> int:
+    cleaned = 0
+    for uid in inactive_ids:
+        _processing.discard(uid)
+        _user_locks.pop(uid, None)
+        task = _button_timers.pop(uid, None)
+        if task:
+            task.cancel()
+        cleaned += 1
+    return cleaned
+
 def _get_lock(user_id: int) -> asyncio.Lock:
     return _user_locks.setdefault(user_id, asyncio.Lock())
 

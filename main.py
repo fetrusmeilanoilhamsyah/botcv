@@ -461,6 +461,10 @@ async def _job_cleanup_sessions(context):
             import handlers.count
             import handlers.duplikat
             import handlers.rename
+            import handlers.walink
+            import handlers.walinkweb
+            import handlers.xlsxtotxt
+            import handlers.cleanup
 
             active_uids = set(_welcome_messages.keys())
             active_uids.update(handlers.txttovcf._user_locks.keys())
@@ -473,6 +477,11 @@ async def _job_cleanup_sessions(context):
             active_uids.update(handlers.count._user_locks.keys())
             active_uids.update(handlers.duplikat._user_locks.keys())
             active_uids.update(handlers.rename._user_locks.keys())
+            active_uids.update(handlers.walink._processing)
+            active_uids.update(handlers.walinkweb._processing)
+            active_uids.update(handlers.walinkweb._user_locks.keys())
+            active_uids.update(handlers.xlsxtotxt._master_locks.keys())
+            active_uids.update(handlers.cleanup._processing)
 
             inactive_ids = []
             from datetime import datetime
@@ -503,6 +512,10 @@ async def _job_cleanup_sessions(context):
                 handlers.count.cleanup_inactive_users(inactive_ids)
                 handlers.duplikat.cleanup_inactive_users(inactive_ids)
                 handlers.rename.cleanup_inactive_users(inactive_ids)
+                handlers.walink.cleanup_inactive_users(inactive_ids)
+                handlers.walinkweb.cleanup_inactive_users(inactive_ids)
+                handlers.xlsxtotxt.cleanup_inactive_users(inactive_ids)
+                handlers.cleanup.cleanup_inactive_users(inactive_ids)
                 
                 logger.info("[JOB] Cleaned %d inactive users from welcome messages and handler locks/timers", len(inactive_ids))
         except Exception as e_cleanup:

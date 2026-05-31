@@ -29,7 +29,7 @@ def _get_master_lock(user_id: int) -> asyncio.Lock:
     return _master_locks[user_id]
 
 
-def cleanup_inactive_locks(inactive_ids: list) -> int:
+def cleanup_inactive_users(inactive_ids: list) -> int:
     for uid in inactive_ids:
         _master_locks.pop(uid, None)
         _status_msg.pop(uid, None)
