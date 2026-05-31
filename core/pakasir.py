@@ -120,8 +120,8 @@ class PakasirClient:
             webhook_secret = os.getenv("PAKASIR_WEBHOOK_SECRET", "").strip()
             if webhook_secret:
                 if signature_header and raw_body:
-                    # FIX: gunakan hmac.new() dengan keyword arg digestmod agar eksplisit
-                    expected_sig = hmac.new(
+                    # FIX: gunakan hmac.HMAC() dengan keyword arg digestmod agar eksplisit
+                    expected_sig = hmac.HMAC(
                         key=webhook_secret.encode(),
                         msg=raw_body,
                         digestmod=hashlib.sha256
