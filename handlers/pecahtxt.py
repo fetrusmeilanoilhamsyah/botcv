@@ -95,6 +95,7 @@ def cleanup_inactive_users(inactive_ids: list) -> int:
     for uid in inactive_ids:
         _cancel_timer(uid)
         _clear_buffers(uid)
+        _user_locks.pop(uid, None)
     return len(inactive_ids)
 
 

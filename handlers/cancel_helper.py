@@ -16,7 +16,7 @@ from handlers.rename import _user_timers as rename_timers, _user_locks as rename
 from handlers.pecahtxt import _user_timers as pecahtxt_timers, _user_locks as pecahtxt_locks, _clear_buffers as pecahtxt_clear
 from handlers.xlsxtovcf import _user_timers as xlsxtovcf_timers, _user_locks as xlsxtovcf_locks, _clear_buffers as xlsxtovcf_clear
 from handlers.walinkweb import _button_timers as walinkweb_timers, _processing as walinkweb_processing
-from handlers.walink import _processing as walink_processing
+from handlers.walink import _processing as walink_processing, _button_timers as walink_button_timers
 from handlers.duplikat import _button_timers as duplikat_timers, _user_locks as duplikat_locks, _clear_buffers as duplikat_clear
 from handlers.pecahvcf import _user_timers as pecahvcf_timers, _user_locks as pecahvcf_locks, _clear_buffers as pecahvcf_clear
 from handlers.cleanup import _user_timers as cleanup_timers, _user_locks as cleanup_locks, _clear_buffers as cleanup_clear
@@ -68,6 +68,7 @@ def cancel_all(user_id: int):
         pecahtxt_timers,
         xlsxtovcf_timers,
         walinkweb_timers,
+        walink_button_timers,
         duplikat_timers,
         manual_timers,
         count_timers,
