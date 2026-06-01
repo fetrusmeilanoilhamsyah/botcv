@@ -104,14 +104,14 @@ from handlers.txttovcf import (
     cmd_txttovcf,
     handle_ttv_contact_name, handle_ttv_per_file, handle_ttv_file_name,
     handle_ttv_awalan, handle_ttv_file, handle_ttv_done,
-    handle_show_txttovcf_help_callback,
+    handle_show_txttovcf_help_callback, handle_ttv_style_callback,
     S0, S1, S2, S3, S4, S5,
 )
 from handlers.xlsxtovcf import (
     cmd_xlsxtovcf,
     handle_xtv_contact_name, handle_xtv_per_file, handle_xtv_file_name,
     handle_xtv_awalan, handle_xtv_file, handle_xtv_done,
-    handle_show_xlsxtovcf_help_callback,
+    handle_show_xlsxtovcf_help_callback, handle_xtv_style_callback,
     S0 as XTV_S0, S1 as XTV_S1, S2 as XTV_S2, S3 as XTV_S3, S4 as XTV_S4, S5 as XTV_S5,
 )
 from handlers.backup import cmd_backup
@@ -738,6 +738,8 @@ def main():
     app.add_handler(CallbackQueryHandler(rate_limiter(cb_show_vip_menu),       pattern="^show_vip_menu$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(cb_show_referral_menu),  pattern="^show_referral_menu$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_back_to_start),   pattern="^back_to_start$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_ttv_style_callback), pattern="^ttv_style_"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_xtv_style_callback), pattern="^xtv_style_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_duplikat_help_callback), pattern="^show_duplikat_help$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_count_help_callback), pattern="^show_count_help$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_txttovcf_help_callback), pattern="^show_txttovcf_help$"))

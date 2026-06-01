@@ -122,8 +122,42 @@ async def handle_ttv_contact_name(update: Update, context: ContextTypes.DEFAULT_
         return
     data = sess["data"]
     data["contact_name"] = update.message.text.strip()
+    db.set_session(user_id, S1, data)
+    
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("STANDAR", callback_data="ttv_style_standard", style="primary"),
+            InlineKeyboardButton("DENGAN TANGGAL", callback_data="ttv_style_date", style="primary")
+        ],
+        [InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]
+    ])
+    await update.message.reply_text(
+        text=f"Pilih format penamaan untuk kontak <b>{data['contact_name']}</b>:",
+        parse_mode="HTML",
+        reply_markup=keyboard
+    )
+
+
+async def handle_ttv_style_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = query.from_user.id
+    sess = db.get_session(user_id)
+    if not sess or sess["state"] != S1:
+        return
+        
+    data = sess["data"]
+    style = "standard" if query.data == "ttv_style_standard" else "date"
+    data["naming_style"] = style
     db.set_session(user_id, S2, data)
-    await update.message.reply_text("Berapa kontak per file? Contoh: <b>100</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]))
+    
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+    await query.edit_message_text(
+        text="Berapa kontak per file? Contoh: <b>100</b>",
+        parse_mode="HTML",
+        reply_markup=keyboard
+    )
 
 
 async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -347,12 +381,23 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
         contact_counter = 1
         file_counter = awalan
         
+        # Ambil tanggal hari ini di WIB (Jakarta)
+        from datetime import datetime, timezone, timedelta
+        jakarta_tz = timezone(timedelta(hours=7))
+        today_str = datetime.now(jakarta_tz).strftime("%d/%m") # format: DD/MM
+        
+        naming_style = data.get("naming_style", "standard")
+        
         # Build VCF langsung tanpa dict perantara — lebih cepat ~30%
         for i in range(0, len(all_numbers), per_file):
             chunk = all_numbers[i:i + per_file]
             vcf_lines = []
             for j, num in enumerate(chunk):
-                name = f"{contact_name}{contact_counter + j}"
+                idx_num = contact_counter + j
+                if naming_style == "date":
+                    name = f"{contact_name} {today_str} {idx_num}"
+                else:
+                    name = f"{contact_name}{idx_num}"
                 vcf_lines.append(f"BEGIN:VCARD\nVERSION:3.0\nFN:{name}\nTEL;TYPE=CELL:{num}\nEND:VCARD")
             contact_counter += len(chunk)
             label = f"{file_name} {file_counter}"
