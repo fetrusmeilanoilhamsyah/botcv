@@ -744,16 +744,15 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
             register_welcome_messages(user_id, [final_msg.message_id])
 
         else:
-            await context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
-                message_id=status_msg_id,
-                text=(
-                    f"<b>Mengirim file VCF...</b>\n\n"
-                    f"Progress: | 0 / {total_files} VCF\n"
-                    f"[□□□□□□□□□□] 0%"
-                ),
-                parse_mode="HTML"
-            )
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_msg_id,
+                    text="<b>Mengirim file VCF...</b>",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
 
             sent_count = 0
             from config import SEND_PROGRESS_INTERVAL, SEND_BATCH_SIZE
@@ -786,24 +785,7 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                         else:
                             await asyncio.sleep(SEND_RETRY_DELAY)
 
-                if sent_count % SEND_PROGRESS_INTERVAL == 0 or sent_count == total_files:
-                    percent = int((sent_count / total_files) * 100)
-                    spinner = ["|", "/", "-", "\\"][sent_count % 4]
-                    filled_len = int(round(10 * sent_count / total_files))
-                    bar = "■" * filled_len + "□" * (10 - filled_len)
-                    try:
-                        await context.bot.edit_message_text(
-                            chat_id=update.effective_chat.id,
-                            message_id=status_msg_id,
-                            text=(
-                                f"<b>Mengirim file VCF...</b>\n\n"
-                                f"Progress: {spinner} {sent_count} / {total_files} VCF\n"
-                                f"[{bar}] {percent}%"
-                            ),
-                            parse_mode="HTML"
-                        )
-                    except Exception:
-                        pass
+
 
                 if sent_count < total_files:
                     if sent_count % SEND_BATCH_SIZE == 0:

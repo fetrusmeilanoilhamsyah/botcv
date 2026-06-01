@@ -770,11 +770,7 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text=(
-                        f"<b>Mengirim file VCF...</b>\n\n"
-                        f"Progress: | 0 / {total_files} VCF\n"
-                        f"[□□□□□□□□□□] 0%"
-                    ),
+                    text="<b>Mengirim file VCF...</b>",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -812,24 +808,7 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                         else:
                             await asyncio.sleep(SEND_RETRY_DELAY)
 
-                if sent_count % SEND_PROGRESS_INTERVAL == 0 or sent_count == total_files:
-                    percent = int((sent_count / total_files) * 100)
-                    spinner = ["|", "/", "-", "\\"][sent_count % 4]
-                    filled_len = int(round(10 * sent_count / total_files))
-                    bar = "■" * filled_len + "□" * (10 - filled_len)
-                    try:
-                        await context.bot.edit_message_text(
-                            chat_id=update.effective_chat.id,
-                            message_id=status_msg_id,
-                            text=(
-                                f"<b>Mengirim file VCF...</b>\n\n"
-                                f"Progress: {spinner} {sent_count} / {total_files} VCF\n"
-                                f"[{bar}] {percent}%"
-                            ),
-                            parse_mode="HTML"
-                        )
-                    except Exception:
-                        pass
+
 
                 if sent_count < total_files:
                     if sent_count % SEND_BATCH_SIZE == 0:
