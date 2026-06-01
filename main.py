@@ -120,18 +120,12 @@ from handlers.manual import (
     handle_manual_text,
     handle_manual_format_callback,
     handle_manual_contact_name,
-    handle_manual_style_callback,
-    handle_manual_per_file,
     handle_manual_file_name,
-    handle_manual_awalan,
     handle_show_manual_help_callback,
     S_WAIT_TEXT,
     S_WAIT_FORMAT,
     S_WAIT_CONTACTNAME,
-    S_WAIT_STYLE,
-    S_WAIT_PERFILE,
     S_WAIT_FILENAME,
-    S_WAIT_AWALAN,
 )
 
 # ── VIP handler (Pakasir auto-fallback) ───────────────────────────────────────
@@ -298,9 +292,7 @@ async def text_router(update: Update, context):
         XTV_S4:           handle_xtv_awalan,
         S_WAIT_TEXT:      handle_manual_text,
         S_WAIT_CONTACTNAME: handle_manual_contact_name,
-        S_WAIT_PERFILE:   handle_manual_per_file,
         S_WAIT_FILENAME:  handle_manual_file_name,
-        S_WAIT_AWALAN:    handle_manual_awalan,
         WALINKWEB_S1:     handle_walinkweb_msg,
         BROADCAST_STATE:  handle_broadcast_msg,
         NEWMEMBER_STATE:  handle_newmember_id,
@@ -782,7 +774,6 @@ def main():
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_cleanup_help_callback), pattern="^show_cleanup_help$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_manual_help_callback), pattern="^show_manual_help$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_manual_format_callback), pattern="^manual_fmt_"))
-    app.add_handler(CallbackQueryHandler(rate_limiter(handle_manual_style_callback), pattern="^manual_style_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_admin_help_callback), pattern="^show_admin_help$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_reset_callback),  pattern="^admin_db_reset"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_redeem_points),   pattern="^redeem_ref_"))
