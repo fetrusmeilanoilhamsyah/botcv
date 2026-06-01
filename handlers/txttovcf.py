@@ -86,7 +86,7 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     else:
         parts.append("Urutan ○")
         
-    return " ➔ ".join(parts) + "\n━━━━━━━━━━━━━━━━━━━━\n"
+    return " ➔ ".join(parts) + "\n\n━━━━━━━━━━━━━━━━━━━━\n\n"
 
 _user_locks: dict = {}
 _user_timers: dict = {}
@@ -299,7 +299,7 @@ async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text=_get_breadcrumbs(data, 4) + "Nama file? Contoh: <b>FEE</b>",
+        text=_get_breadcrumbs(data, 4) + "Nama file? Contoh: <b>HKTV</b>",
         parse_mode="HTML",
         reply_markup=keyboard
     )
