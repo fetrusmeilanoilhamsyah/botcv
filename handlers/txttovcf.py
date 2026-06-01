@@ -1,5 +1,7 @@
 """
-txttovcf.py — Disk-based, terima paralel, sort by message_id, tampilkan daftar file dulu, lalu kirim semua.
+txttovcf.py — Disk-based, terima paralel, sort by message_id.
+UI/UX Level Dewa: Single-Message Morphing Wizard. Semua teks di-edit di satu pesan bot,
+dan seluruh input/upload user langsung dihapus secara instan agar chat bersih 100%.
 """
 import os
 import shutil
@@ -10,7 +12,7 @@ from database import db
 from database.db_async import adb
 from middleware.auth import require_member
 from middleware.session import get_user_dir
-from core.vcf_parser import add_plus, contacts_to_vcf
+from core.vcf_parser import add_plus
 from core.utils import sanitize_filename
 
 S0 = "TTV_WAIT_FILE"
@@ -19,20 +21,17 @@ S2 = "TTV_PER_FILE"
 S3 = "TTV_FILE_NAME"
 S4 = "TTV_AWALAN"
 S5 = "TTV_COLLECTING"
+S6 = "TTV_DELIVERY"
 
 from config import (
     MAX_FILES_PER_SESSION as MAX_FILES,
     MAX_UPLOAD_SIZE_MB as MAX_SIZE_MB,
     MAX_CONTACTS_PER_FILE,
-    THREAD_POOL_TIMEOUT,
-    SEND_PROGRESS_INTERVAL,
     SEND_MAX_RETRIES,
     SEND_RETRY_DELAY,
     FILE_READ_TIMEOUT,
     FILE_WRITE_TIMEOUT,
     FILE_CONNECT_TIMEOUT,
-    SEND_BATCH_SIZE,
-    SEND_BATCH_DELAY,
     SEND_FILE_DELAY,
 )
 
@@ -64,15 +63,6 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 data = sess["data"]
                 jumlah = data["count"]
                 
-                # Hapus welcome messages lama (hanya sekali saat file pertama masuk)
-                from handlers.start import _welcome_messages
-                welcome_ids = _welcome_messages.pop(user_id, [])
-                for w_id in welcome_ids:
-                    try:
-                        await context.bot.delete_message(chat_id=chat_id, message_id=w_id)
-                    except Exception:
-                        pass
-                
                 text = f"<b>{jumlah}</b> file TXT diterima. Silakan pilih tindakan:"
                 keyboard = InlineKeyboardMarkup([
                     [
@@ -95,7 +85,7 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                     except Exception:
                         pass
                 
-                # Jika belum ada status_msg_id atau edit gagal, kirim pesan baru
+                # Fallback jika edit gagal
                 msg = await context.bot.send_message(
                     chat_id=chat_id,
                     text=text,
@@ -133,6 +123,7 @@ def _clear_buffers(user_id: int):
 
 
 async def cmd_txttovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handler Command /txttovcf"""
     if not await require_member(update, context):
         return
     user_id = update.effective_user.id
@@ -141,19 +132,26 @@ async def cmd_txttovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from handlers.start import transition_to_handler
     _cancel_timer(user_id)
     _clear_buffers(user_id)
+    
     db.set_session(user_id, S0, {"count": 0, "total_size": 0, "total_contacts": 0})
-    await transition_to_handler(
+    
+    msg = await transition_to_handler(
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Kirim file <b>.TXT</b> sekarang. Ketik /done jika sudah.",
+        "Kirim file <b>.TXT</b> sekarang.",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
-
+    
+    if msg:
+        sess = db.get_session(user_id)
+        sess["data"]["status_msg_id"] = msg.message_id
+        db.set_session(user_id, S0, sess["data"])
 
 
 async def handle_ttv_contact_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """User memasukkan nama kontak"""
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
     if sess["state"] != S1:
@@ -162,6 +160,12 @@ async def handle_ttv_contact_name(update: Update, context: ContextTypes.DEFAULT_
     data["contact_name"] = update.message.text.strip()
     db.set_session(user_id, S1, data)
     
+    # Hapus input teks user
+    try:
+        await update.message.delete()
+    except Exception:
+        pass
+    
     keyboard = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("STANDAR", callback_data="ttv_style_standard", style="primary"),
@@ -169,7 +173,11 @@ async def handle_ttv_contact_name(update: Update, context: ContextTypes.DEFAULT_
         ],
         [InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]
     ])
-    await update.message.reply_text(
+    
+    status_msg_id = data.get("status_msg_id")
+    await context.bot.edit_message_text(
+        chat_id=update.effective_chat.id,
+        message_id=status_msg_id,
         text=f"Pilih format penamaan untuk kontak <b>{data['contact_name']}</b>:",
         parse_mode="HTML",
         reply_markup=keyboard
@@ -177,6 +185,7 @@ async def handle_ttv_contact_name(update: Update, context: ContextTypes.DEFAULT_
 
 
 async def handle_ttv_style_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """User memilih format penamaan"""
     query = update.callback_query
     await query.answer()
     
@@ -199,57 +208,163 @@ async def handle_ttv_style_callback(update: Update, context: ContextTypes.DEFAUL
 
 
 async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """User memasukkan jumlah kontak per file"""
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
     if sess["state"] != S2:
         return
+    
     text = update.message.text.strip()
+    
+    # Hapus input teks user
+    try:
+        await update.message.delete()
+    except Exception:
+        pass
+
+    status_msg_id = sess["data"].get("status_msg_id")
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+
     if not text.isdigit():
-        await update.message.reply_text("Masukkan angka. Contoh: 100")
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=status_msg_id,
+            text="⚠️ Harap masukkan angka saja.\n\nBerapa kontak per file? Contoh: <b>100</b>",
+            parse_mode="HTML",
+            reply_markup=keyboard
+        )
         return
     
     per_file = int(text)
     if per_file < 1 or per_file > MAX_CONTACTS_PER_FILE:
-        await update.message.reply_text(f"Harap masukkan angka antara 1 sampai {MAX_CONTACTS_PER_FILE:,}.")
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=status_msg_id,
+            text=f"⚠️ Harap masukkan angka antara 1 sampai {MAX_CONTACTS_PER_FILE:,}.\n\nBerapa kontak per file? Contoh: <b>100</b>",
+            parse_mode="HTML",
+            reply_markup=keyboard
+        )
         return
 
     data = sess["data"]
     data["per_file"] = per_file
     db.set_session(user_id, S3, data)
-    await update.message.reply_text("Nama file? Contoh: <b>FEE</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]))
+    
+    await context.bot.edit_message_text(
+        chat_id=update.effective_chat.id,
+        message_id=status_msg_id,
+        text="Nama file? Contoh: <b>FEE</b>",
+        parse_mode="HTML",
+        reply_markup=keyboard
+    )
 
 
 async def handle_ttv_file_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """User memasukkan nama file"""
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
     if sess["state"] != S3:
         return
+    
+    # Hapus input teks user
+    try:
+        await update.message.delete()
+    except Exception:
+        pass
+
     data = sess["data"]
     data["file_name"] = sanitize_filename(update.message.text.strip())
     db.set_session(user_id, S4, data)
-    await update.message.reply_text("Nomor urut awal? Contoh: <b>1</b>", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]))
+    
+    status_msg_id = data.get("status_msg_id")
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+    await context.bot.edit_message_text(
+        chat_id=update.effective_chat.id,
+        message_id=status_msg_id,
+        text="Nomor urut awal? Contoh: <b>1</b>",
+        parse_mode="HTML",
+        reply_markup=keyboard
+    )
 
 
 async def handle_ttv_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """User memasukkan nomor urut awal"""
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
     if sess["state"] != S4:
         return
+    
+    # Hapus input teks user
+    try:
+        await update.message.delete()
+    except Exception:
+        pass
+
     text = update.message.text.strip()
+    status_msg_id = sess["data"].get("status_msg_id")
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+
     if not text.isdigit() or int(text) < 1:
-        await update.message.reply_text("Input angka valid.")
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=status_msg_id,
+            text="⚠️ Harap masukkan angka valid (minimal 1).\n\nNomor urut awal? Contoh: <b>1</b>",
+            parse_mode="HTML",
+            reply_markup=keyboard
+        )
         return
+        
     data = sess["data"]
     data["awalan"] = int(text)
     
-    # CRITICAL FIX: Save session sebelum call handle_ttv_process
-    db.set_session(user_id, S5, data)
+    db.set_session(user_id, S6, data)
     
-    # Trigger processing immediately
+    deliv_keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("KIRIM SATU PER SATU", callback_data="ttv_deliv_single"),
+            InlineKeyboardButton("KIRIM SEBAGAI ZIP", callback_data="ttv_deliv_zip")
+        ],
+        [InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]
+    ])
+    
+    await context.bot.edit_message_text(
+        chat_id=update.effective_chat.id,
+        message_id=status_msg_id,
+        text="Pilih format pengiriman file VCF:",
+        parse_mode="HTML",
+        reply_markup=deliv_keyboard
+    )
+
+
+async def handle_ttv_delivery_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """User memilih format pengiriman (VCF satu per satu atau ZIP)"""
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = query.from_user.id
+    sess = db.get_session(user_id)
+    if not sess or sess["state"] != S6:
+        return
+        
+    data = sess["data"]
+    mode = "single" if query.data == "ttv_deliv_single" else "zip"
+    data["delivery_mode"] = mode
+    
+    # Pindah ke state pemrosesan S5 dan jalankan handle_ttv_process
+    db.set_session(user_id, S5, data)
     await handle_ttv_process(update, context)
 
 
+async def handle_ttv_delivery_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Hapus chat iseng dari user saat berada di state pemilihan pengiriman"""
+    try:
+        await update.message.delete()
+    except Exception:
+        pass
+
+
 async def handle_ttv_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Menerima kiriman file TXT dari user"""
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     sess = db.get_session(user_id)
@@ -258,7 +373,10 @@ async def handle_ttv_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     doc = update.message.document
     if not doc or not doc.file_name or not doc.file_name.lower().endswith(".txt"):
-        await update.message.reply_text("Kirim file dengan ekstensi .txt.")
+        try:
+            await update.message.delete()
+        except Exception:
+            pass
         return
         
     msg_id = update.message.message_id
@@ -271,11 +389,16 @@ async def handle_ttv_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     try:
         await file_obj.download_to_drive(out_path)
+        
+        # Hapus bubble upload file user agar chat rapi
+        try:
+            await update.message.delete()
+        except Exception:
+            pass
 
         async with get_user_lock(user_id):
             sess = db.get_session(user_id)
             if sess["state"] not in [S0, S5]:
-                # State berubah saat download — hapus file
                 try:
                     if os.path.exists(out_path):
                         os.remove(out_path)
@@ -293,7 +416,6 @@ async def handle_ttv_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
 
             if data["count"] >= MAX_FILES:
-                await update.message.reply_text(f"Batas <b>{MAX_FILES}</b> file. Ketik /done.")
                 try:
                     if os.path.exists(out_path):
                         os.remove(out_path)
@@ -302,7 +424,6 @@ async def handle_ttv_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
 
             if (data["total_size"] + doc.file_size) / (1024 * 1024) > MAX_SIZE_MB:
-                await update.message.reply_text(f"Batas <b>{MAX_SIZE_MB}MB</b>. Ketik /done.")
                 try:
                     if os.path.exists(out_path):
                         os.remove(out_path)
@@ -310,7 +431,7 @@ async def handle_ttv_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     pass
                 return
 
-            # Hitung perkiraan kontak — cepat, hanya hitung baris tidak kosong
+            # Hitung kontak
             lines = 0
             try:
                 with open(out_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -339,6 +460,7 @@ async def handle_ttv_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_ttv_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """User memicu selesai kirim file"""
     user_id = update.effective_user.id
     _cancel_timer(user_id)
 
@@ -347,32 +469,34 @@ async def handle_ttv_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     data = sess["data"]
     
-    # Hapus status message agar tidak menumpuk
-    status_msg_id = data.get("status_msg_id")
-    if status_msg_id:
+    # Hapus input teks 'done' jika user mengetik manual
+    if update.message and update.message.text in ("done", "selesai", "/done"):
         try:
-            await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
+            await update.message.delete()
         except Exception:
             pass
 
+    status_msg_id = data.get("status_msg_id")
+
     if sess["state"] == S0:
         if data["count"] == 0:
-            await update.message.reply_text("Belum ada file yang dikirim.")
             return
         
         db.set_session(user_id, S1, data)
-        await update.message.reply_text(
-            f"{data.get('total_contacts', 0)} kontak terdeteksi. Nama kontak? Contoh: <b>FEE</b>",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+        keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=status_msg_id,
+            text=f"<b>{data.get('total_contacts', 0)}</b> kontak terdeteksi. Nama kontak? Contoh: <b>FEE</b>",
+            parse_mode="HTML",
+            reply_markup=keyboard
         )
         return
 
     if sess["state"] != S5:
         return
     
-    data = sess["data"]
     if data["count"] == 0:
-        await update.message.reply_text("Belum ada file yang dikirim.")
         return
     if data.get("is_processing"):
         return
@@ -383,6 +507,7 @@ async def handle_ttv_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Proses pembuatan berkas VCF"""
     user_id = update.effective_user.id
     from handlers.cancel_helper import register_active_task, unregister_active_task
     register_active_task(user_id, asyncio.current_task())
@@ -390,13 +515,18 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
     sess = db.get_session(user_id)
     data = sess["data"]
     
-    # Check if already processing
     if data.get("is_processing_final"):
         return
     data["is_processing_final"] = True
     db.set_session(user_id, sess["state"], data)
     
-    status_msg = await update.message.reply_text(" Memproses...")
+    status_msg_id = data.get("status_msg_id")
+    await context.bot.edit_message_text(
+        chat_id=update.effective_chat.id,
+        message_id=status_msg_id,
+        text="Memproses...",
+        parse_mode="HTML"
+    )
 
     user_dir = get_user_dir(user_id)
     ttv_dir = os.path.join(user_dir, "txttovcf")
@@ -430,14 +560,12 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
         contact_counter = 1
         file_counter = awalan
         
-        # Ambil tanggal hari ini di WIB (Jakarta)
         from datetime import datetime, timezone, timedelta
         jakarta_tz = timezone(timedelta(hours=7))
-        today_str = datetime.now(jakarta_tz).strftime("%d/%m") # format: DD/MM
+        today_str = datetime.now(jakarta_tz).strftime("%d/%m")
         
         naming_style = data.get("naming_style", "standard")
         
-        # Build VCF langsung tanpa dict perantara — lebih cepat ~30%
         for i in range(0, len(all_numbers), per_file):
             chunk = all_numbers[i:i + per_file]
             vcf_lines = []
@@ -464,101 +592,161 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     try:
         if not results:
-            await status_msg.edit_text("Gagal. Data tidak ditemukan.")
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text="Gagal. Data tidak ditemukan.",
+                parse_mode="HTML"
+            )
             return
 
         total_files = len(results)
+        delivery_mode = data.get("delivery_mode", "single")
 
-        try:
-            await status_msg.edit_text(f"Mengirim <b>0 / {total_files}</b> file VCF...")
-        except Exception:
-            pass
+        if delivery_mode == "zip":
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text="Mengompresi file ke ZIP...",
+                parse_mode="HTML"
+            )
+            
+            import zipfile
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for label, content in results:
+                    zip_file.writestr(f"{label}.vcf", content)
+            zip_buffer.seek(0)
+            zip_filename = f"{file_name}.zip"
 
-        # ── HIGH-SPEED SEQUENTIAL SEND FOR LOCAL API ──
-        # Kirim file satu per satu secara berurutan agar urutan dijamin rapi 100% dari file pertama,
-        # tetapi menggunakan jeda kecil (SEND_FILE_DELAY dari config.py) agar kecepatan tetap super cepat.
-        sent_count = 0
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text="Mengirim file ZIP...",
+                parse_mode="HTML"
+            )
 
-        async def send_one(idx: int, label: str, content: bytes):
-            nonlocal sent_count
-            buf = io.BytesIO(content)
-            buf.name = f"{label}.vcf"
             for attempt in range(SEND_MAX_RETRIES):
                 try:
-                    buf.seek(0)
-                    await update.message.reply_document(
-                        document=buf,
-                        filename=f"{label}.vcf",
+                    zip_buffer.seek(0)
+                    await context.bot.send_document(
+                        chat_id=update.effective_chat.id,
+                        document=zip_buffer,
+                        filename=zip_filename,
                         read_timeout=FILE_READ_TIMEOUT,
                         write_timeout=FILE_WRITE_TIMEOUT,
                         connect_timeout=FILE_CONNECT_TIMEOUT,
                     )
-                    sent_count += 1
                     break
-                except RetryAfter as e:
-                    wait_secs = max(int(e.retry_after), 2) + 1
-                    _logger.warning(f"[TTV] Flood limit {label}.vcf, tunggu {wait_secs}s")
-                    await asyncio.sleep(wait_secs)
                 except Exception as ex:
-                    _logger.error(f"[TTV] Gagal kirim {label}.vcf attempt {attempt+1}: {ex}")
+                    _logger.error(f"[TTV] Gagal kirim ZIP attempt {attempt+1}: {ex}")
                     if attempt == SEND_MAX_RETRIES - 1:
-                        sent_count += 1  # tetap count supaya progress tidak stuck
+                        raise
                     else:
                         await asyncio.sleep(SEND_RETRY_DELAY)
-            await asyncio.sleep(SEND_FILE_DELAY)
 
-        async def progress_ticker():
-            last = -1
-            while sent_count < total_files:
-                if sent_count != last:
-                    last = sent_count
-                    try:
-                        await status_msg.edit_text(
-                            f"Mengirim <b>{sent_count} / {total_files}</b> file VCF..."
-                        )
-                    except Exception:
-                        pass
-                await asyncio.sleep(1.5)  # update tiap 1.5 detik — tidak spam edit
-
-        ticker = asyncio.create_task(progress_ticker())
-        try:
-            for i, (label, content) in enumerate(results):
-                await send_one(i, label, content)
-        finally:
-            ticker.cancel()
-            try:
-                await ticker
-            except asyncio.CancelledError:
-                pass
-
-        # Update final setelah semua selesai
-        try:
-            await status_msg.edit_text(
-                f"Mengirim <b>{total_files} / {total_files}</b> file VCF..."
+            from handlers.start import clear_welcome_messages
+            clear_welcome_messages(user_id)
+            keyboard = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_txttovcf_help", style="success"),
+                    InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
+                ]
+            ])
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text=(
+                    f"Proses selesai.\n"
+                    f"Total file: <b>{total_files} VCF (ZIP)</b>\n"
+                    f"Total kontak: <b>{len(all_numbers)} nomor</b>\n\n"
+                    f"Silakan unduh file ZIP di atas."
+                ),
+                parse_mode="HTML",
+                reply_markup=keyboard
             )
-        except Exception:
-            pass
+        else:
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text=f"Mengirim <b>0 / {total_files}</b> file VCF...",
+                parse_mode="HTML"
+            )
 
-        try:
-            await status_msg.delete()
-        except Exception:
-            pass
+            sent_count = 0
 
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        from handlers.start import clear_welcome_messages
-        clear_welcome_messages(user_id)
-        keyboard = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_txttovcf_help", style="success"),
-                InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
-            ]
-        ])
-        await update.message.reply_text(
-            f"Proses selesai.\n"
-            f"Total file: <b>{total_files} VCF</b>\n"
-            f"Total kontak: <b>{len(all_numbers)} nomor</b>",
-            reply_markup=keyboard
-        )
+            async def send_one(idx: int, label: str, content: bytes):
+                nonlocal sent_count
+                buf = io.BytesIO(content)
+                buf.name = f"{label}.vcf"
+                for attempt in range(SEND_MAX_RETRIES):
+                    try:
+                        buf.seek(0)
+                        await context.bot.send_document(
+                            chat_id=update.effective_chat.id,
+                            document=buf,
+                            filename=f"{label}.vcf",
+                            read_timeout=FILE_READ_TIMEOUT,
+                            write_timeout=FILE_WRITE_TIMEOUT,
+                            connect_timeout=FILE_CONNECT_TIMEOUT,
+                        )
+                        sent_count += 1
+                        break
+                    except Exception as ex:
+                        _logger.error(f"[TTV] Gagal kirim {label}.vcf attempt {attempt+1}: {ex}")
+                        if attempt == SEND_MAX_RETRIES - 1:
+                            sent_count += 1
+                        else:
+                            await asyncio.sleep(SEND_RETRY_DELAY)
+                await asyncio.sleep(SEND_FILE_DELAY)
+
+            async def progress_ticker():
+                last = -1
+                while sent_count < total_files:
+                    if sent_count != last:
+                        last = sent_count
+                        try:
+                            await context.bot.edit_message_text(
+                                chat_id=update.effective_chat.id,
+                                message_id=status_msg_id,
+                                text=f"Mengirim <b>{sent_count} / {total_files}</b> file VCF...",
+                                parse_mode="HTML"
+                            )
+                        except Exception:
+                            pass
+                    await asyncio.sleep(1.5)
+
+            ticker = asyncio.create_task(progress_ticker())
+            try:
+                for i, (label, content) in enumerate(results):
+                    await send_one(i, label, content)
+            finally:
+                ticker.cancel()
+                try:
+                    await ticker
+                except asyncio.CancelledError:
+                    pass
+
+            from handlers.start import clear_welcome_messages
+            clear_welcome_messages(user_id)
+            keyboard = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_txttovcf_help", style="success"),
+                    InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
+                ]
+            ])
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text=(
+                    f"Proses selesai.\n"
+                    f"Total file: <b>{total_files} VCF</b>\n"
+                    f"Total kontak: <b>{len(all_numbers)} nomor</b>\n\n"
+                    f"Silakan unduh file VCF di atas."
+                ),
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
 
     finally:
         unregister_active_task(user_id)
@@ -567,7 +755,7 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 async def handle_show_txttovcf_help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Callback untuk tombol PROSES FILE LAIN (TXT to VCF)"""
+    """Callback untuk tombol PROSES FILE LAIN"""
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
@@ -576,17 +764,25 @@ async def handle_show_txttovcf_help_callback(update: Update, context: ContextTyp
     _clear_buffers(user_id)
     db.set_session(user_id, S0, {"count": 0, "total_size": 0, "total_contacts": 0})
 
+    text = "Kirim file <b>.TXT</b> sekarang."
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+
     try:
-        await query.message.edit_text(
-            text="Kirim file <b>.TXT</b> sekarang. Ketik /done jika sudah."
-        )
+        await query.message.edit_text(text=text, parse_mode="HTML", reply_markup=keyboard)
+        sess = db.get_session(user_id)
+        sess["data"]["status_msg_id"] = query.message.message_id
+        db.set_session(user_id, S0, sess["data"])
     except Exception:
         try:
             await query.message.delete()
         except Exception:
             pass
-        await context.bot.send_message(
+        msg = await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Kirim file <b>.TXT</b> sekarang. Ketik /done jika sudah.",
-            reply_markup=ReplyKeyboardRemove()
+            text=text,
+            parse_mode="HTML",
+            reply_markup=keyboard
         )
+        sess = db.get_session(user_id)
+        sess["data"]["status_msg_id"] = msg.message_id
+        db.set_session(user_id, S0, sess["data"])

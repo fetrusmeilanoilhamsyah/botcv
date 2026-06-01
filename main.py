@@ -105,7 +105,8 @@ from handlers.txttovcf import (
     handle_ttv_contact_name, handle_ttv_per_file, handle_ttv_file_name,
     handle_ttv_awalan, handle_ttv_file, handle_ttv_done,
     handle_show_txttovcf_help_callback, handle_ttv_style_callback,
-    S0, S1, S2, S3, S4, S5,
+    handle_ttv_delivery_callback, handle_ttv_delivery_text,
+    S0, S1, S2, S3, S4, S5, S6,
 )
 from handlers.xlsxtovcf import (
     cmd_xlsxtovcf,
@@ -286,6 +287,7 @@ async def text_router(update: Update, context):
         S2:               handle_ttv_per_file,
         S3:               handle_ttv_file_name,
         S4:               handle_ttv_awalan,
+        S6:               handle_ttv_delivery_text,
         XTV_S1:           handle_xtv_contact_name,
         XTV_S2:           handle_xtv_per_file,
         XTV_S3:           handle_xtv_file_name,
@@ -771,6 +773,7 @@ def main():
     app.add_handler(CallbackQueryHandler(rate_limiter(cb_show_referral_menu),  pattern="^show_referral_menu$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_back_to_start),   pattern="^back_to_start$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_ttv_style_callback), pattern="^ttv_style_"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_ttv_delivery_callback), pattern="^ttv_deliv_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_xtv_style_callback), pattern="^xtv_style_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_duplikat_help_callback), pattern="^show_duplikat_help$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_count_help_callback), pattern="^show_count_help$"))
