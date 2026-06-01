@@ -61,15 +61,49 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
         if _user_timers.get(user_id) is asyncio.current_task():
             sess = db.get_session(user_id)
             if sess and sess.get("state") in [S0, S5]:
-                jumlah = sess["data"]["count"]
+                data = sess["data"]
+                jumlah = data["count"]
+                
+                # Hapus welcome messages lama (hanya sekali saat file pertama masuk)
+                from handlers.start import _welcome_messages
+                welcome_ids = _welcome_messages.pop(user_id, [])
+                for w_id in welcome_ids:
+                    try:
+                        await context.bot.delete_message(chat_id=chat_id, message_id=w_id)
+                    except Exception:
+                        pass
+                
+                text = f"<b>{jumlah}</b> file TXT diterima. Silakan pilih tindakan:"
                 keyboard = InlineKeyboardMarkup([
-                    [InlineKeyboardButton("PROSES SEKARANG", callback_data="done", style="success")]
+                    [
+                        InlineKeyboardButton("PROSES SEKARANG", callback_data="done", style="success"),
+                        InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")
+                    ]
                 ])
-                await context.bot.send_message(
+                
+                status_msg_id = data.get("status_msg_id")
+                if status_msg_id:
+                    try:
+                        await context.bot.edit_message_text(
+                            chat_id=chat_id,
+                            message_id=status_msg_id,
+                            text=text,
+                            reply_markup=keyboard,
+                            parse_mode="HTML"
+                        )
+                        return
+                    except Exception:
+                        pass
+                
+                # Jika belum ada status_msg_id atau edit gagal, kirim pesan baru
+                msg = await context.bot.send_message(
                     chat_id=chat_id,
-                    text=f"{jumlah} file TXT diterima. Ketik /done jika sudah.",
-                    reply_markup=keyboard
+                    text=text,
+                    reply_markup=keyboard,
+                    parse_mode="HTML"
                 )
+                data["status_msg_id"] = msg.message_id
+                db.set_session(user_id, sess["state"], data)
     except asyncio.CancelledError:
         pass
     except Exception as e:
@@ -309,8 +343,19 @@ async def handle_ttv_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _cancel_timer(user_id)
 
     sess = db.get_session(user_id)
+    if not sess:
+        return
+    data = sess["data"]
+    
+    # Hapus status message agar tidak menumpuk
+    status_msg_id = data.get("status_msg_id")
+    if status_msg_id:
+        try:
+            await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
+        except Exception:
+            pass
+
     if sess["state"] == S0:
-        data = sess["data"]
         if data["count"] == 0:
             await update.message.reply_text("Belum ada file yang dikirim.")
             return
