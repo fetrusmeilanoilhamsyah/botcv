@@ -40,6 +40,7 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     count = data.get("count", 0)
     contact_name = data.get("contact_name", "")
     per_file = data.get("per_file", "")
+    file_name = data.get("file_name", "")
     awalan = data.get("awalan", "")
     
     parts = []
@@ -64,13 +65,23 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
         parts.append(f"Jumlah: {per_file}")
     else:
         parts.append("Jumlah ○")
-        
+
     if step == 4:
+        if file_name:
+            parts.append(f"File: {file_name} ●")
+        else:
+            parts.append("File ●")
+    elif step > 4 and file_name:
+        parts.append(f"File: {file_name}")
+    else:
+        parts.append("File ○")
+        
+    if step == 5:
         if awalan:
             parts.append(f"Urutan: {awalan} ●")
         else:
             parts.append("Urutan ●")
-    elif step > 4 and awalan:
+    elif step > 5 and awalan:
         parts.append(f"Urutan: {awalan}")
     else:
         parts.append("Urutan ○")
@@ -316,7 +327,7 @@ async def handle_ttv_file_name(update: Update, context: ContextTypes.DEFAULT_TYP
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text=_get_breadcrumbs(data, 4) + "Nomor urut awal? Contoh: <b>1</b>",
+        text=_get_breadcrumbs(data, 5) + "Nomor urut awal? Contoh: <b>1</b>",
         parse_mode="HTML",
         reply_markup=keyboard
     )
@@ -343,7 +354,7 @@ async def handle_ttv_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text=_get_breadcrumbs(sess["data"], 4) + "⚠️ Harap masukkan angka valid (minimal 1).\n\nNomor urut awal? Contoh: <b>1</b>",
+            text=_get_breadcrumbs(sess["data"], 5) + "⚠️ Harap masukkan angka valid (minimal 1).\n\nNomor urut awal? Contoh: <b>1</b>",
             parse_mode="HTML",
             reply_markup=keyboard
         )
@@ -365,7 +376,7 @@ async def handle_ttv_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text=_get_breadcrumbs(data, 5) + "Pilih format pengiriman file VCF:",
+        text=_get_breadcrumbs(data, 6) + "Pilih format pengiriman file VCF:",
         parse_mode="HTML",
         reply_markup=deliv_keyboard
     )
@@ -620,6 +631,12 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
     _logger = _log.getLogger(__name__)
 
     try:
+        total_input = len(files)
+        contact_name_val = data.get("contact_name", "")
+        per_file_val = data.get("per_file", 0)
+        file_name_val = data.get("file_name", "")
+        awalan_val = data.get("awalan", 1)
+
         if not results:
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
@@ -691,10 +708,14 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
             final_msg = await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=(
-                    f"Proses selesai.\n"
-                    f"Total file: <b>{total_files} VCF (ZIP)</b>\n"
-                    f"Total kontak: <b>{len(all_numbers)} nomor</b>\n\n"
-                    f"Silakan unduh file ZIP di atas."
+                    f"<b>PROSES SELESAI</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━━━\n"
+                    f"• Input: <b>{total_input} TXT</b> ➔ Output: <b>{total_files} VCF (ZIP)</b>\n"
+                    f"• Nama Kontak: <b>{contact_name_val}</b> (Per File: <b>{per_file_val}</b>)\n"
+                    f"• Format File: <b>{file_name_val} [No Urut].vcf</b> (Mulai: <b>{awalan_val}</b>)\n"
+                    f"• Total Kontak: <b>{len(all_numbers):,} nomor</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━━━\n"
+                    f"<i>Silakan unduh file ZIP di atas.</i>"
                 ),
                 parse_mode="HTML",
                 reply_markup=keyboard
@@ -778,10 +799,14 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
             final_msg = await context.bot.send_message(
                 chat_id=update.effective_chat.id,
                 text=(
-                    f"Proses selesai.\n"
-                    f"Total file: <b>{total_files} VCF</b>\n"
-                    f"Total kontak: <b>{len(all_numbers)} nomor</b>\n\n"
-                    f"Silakan unduh file VCF di atas."
+                    f"<b>PROSES SELESAI</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━━━\n"
+                    f"• Input: <b>{total_input} TXT</b> ➔ Output: <b>{total_files} VCF</b>\n"
+                    f"• Nama Kontak: <b>{contact_name_val}</b> (Per File: <b>{per_file_val}</b>)\n"
+                    f"• Format File: <b>{file_name_val} [No Urut].vcf</b> (Mulai: <b>{awalan_val}</b>)\n"
+                    f"• Total Kontak: <b>{len(all_numbers):,} nomor</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━━━\n"
+                    f"<i>Silakan unduh file VCF di atas.</i>"
                 ),
                 parse_mode="HTML",
                 reply_markup=keyboard
