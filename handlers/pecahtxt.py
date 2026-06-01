@@ -524,6 +524,12 @@ async def handle_pecahtxt_process(update: Update, context: ContextTypes.DEFAULT_
                         sent_count += len(chunk_paths)
                         break
                     except Exception as ex:
+                        from telegram.error import RetryAfter
+                        if isinstance(ex, RetryAfter):
+                            wait_secs = max(int(ex.retry_after), 2) + 1
+                            logger.warning(f"[PecahTXT] Flood limit chunk, tunggu {wait_secs}s")
+                            await asyncio.sleep(wait_secs)
+                            continue
                         logger.error(f"[PecahTXT] Gagal kirim chunk TXT attempt {attempt+1}: {ex}")
                         if attempt == SEND_MAX_RETRIES - 1:
                             sent_count += len(chunk_paths)

@@ -741,6 +741,12 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                         sent_count += len(chunk_results)
                         break
                     except Exception as ex:
+                        from telegram.error import RetryAfter
+                        if isinstance(ex, RetryAfter):
+                            wait_secs = max(int(ex.retry_after), 2) + 1
+                            logger.warning(f"[XTV] Flood limit chunk, tunggu {wait_secs}s")
+                            await asyncio.sleep(wait_secs)
+                            continue
                         logger.error(f"[XTV] Gagal kirim chunk VCF attempt {attempt+1}: {ex}")
                         if attempt == SEND_MAX_RETRIES - 1:
                             sent_count += len(chunk_results)

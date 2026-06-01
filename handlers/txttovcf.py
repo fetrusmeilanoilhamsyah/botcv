@@ -708,6 +708,10 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                             )
                         sent_count += len(chunk_results)
                         break
+                    except RetryAfter as e:
+                        wait_secs = max(int(e.retry_after), 2) + 1
+                        _logger.warning(f"[TTV] Flood limit chunk, tunggu {wait_secs}s")
+                        await asyncio.sleep(wait_secs)
                     except Exception as ex:
                         _logger.error(f"[TTV] Gagal kirim chunk VCF attempt {attempt+1}: {ex}")
                         if attempt == SEND_MAX_RETRIES - 1:
