@@ -227,17 +227,30 @@ async def handle_duplikat_file(update: Update, context: ContextTypes.DEFAULT_TYP
                     ]
                 ])
 
+                def _fit(val, max_len=22) -> str:
+                    s = str(val)
+                    if len(s) > max_len:
+                        return s[:max_len-3] + "..."
+                    return s
+
                 from handlers.start import clear_welcome_messages
                 clear_welcome_messages(uid)
+                box_text = (
+                    f"<pre><b>"
+                    f"┌────────────────────────────────────────┐\n"
+                    f"│             PROSES SELESAI             │\n"
+                    f"├────────────────────────────────────────┤\n"
+                    f"│ Total Berkas   : {_fit(f'{count} FILE'):<22} │\n"
+                    f"│ Total Awal     : {_fit(f'{t_awal:,}'):<22} │\n"
+                    f"│ Dihapus (Dup)  : {_fit(f'{t_dup:,}'):<22} │\n"
+                    f"│ Total Unik     : {_fit(f'{t_unik:,}'):<22} │\n"
+                    f"└────────────────────────────────────────┘"
+                    f"</b></pre>\n\n"
+                    f"<i>Pembersihan duplikat selesai!</i>"
+                )
                 await bot.send_message(
                     chat_id=chat_id,
-                    text=(
-                        f"Pembersihan selesai!\n\n"
-                        f"Total file: <b>{count}</b>\n"
-                        f"Total awal: <b>{t_awal:,}</b>\n"
-                        f"Dihapus: <b>{t_dup:,}</b>\n"
-                        f"Total unik: <b>{t_unik:,}</b>"
-                    ),
+                    text=box_text,
                     parse_mode="HTML",
                     reply_markup=keyboard
                 )

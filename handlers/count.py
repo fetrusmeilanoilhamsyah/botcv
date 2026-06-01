@@ -204,16 +204,36 @@ async def handle_count_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")],
-        [InlineKeyboardButton("HITUNG FILE LAIN", callback_data="show_count_help", style="success")]
+        [
+            InlineKeyboardButton("HITUNG FILE LAIN", callback_data="show_count_help", style="success"),
+            InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
+        ]
     ])
+
+    def _fit(val, max_len=22) -> str:
+        s = str(val)
+        if len(s) > max_len:
+            return s[:max_len-3] + "..."
+        return s
 
     from handlers.start import clear_welcome_messages
     clear_welcome_messages(user_id)
+    
+    box_text = (
+        f"<pre><b>"
+        f"┌────────────────────────────────────────┐\n"
+        f"│             PROSES SELESAI             │\n"
+        f"├────────────────────────────────────────┤\n"
+        f"│ Total Berkas   : {_fit(f'{total_file} FILE'):<22} │\n"
+        f"│ Total Kontak   : {_fit(f'{total_kontak:,}'):<22} │\n"
+        f"│ Rerata / Berkas: {_fit(f'{avg:,}'):<22} │\n"
+        f"└────────────────────────────────────────┘"
+        f"</b></pre>\n\n"
+        f"<i>Hitung kontak selesai!</i>"
+    )
     await update.message.reply_text(
-        f"Total file: <b>{total_file}</b>\n"
-        f"Total kontak: <b>{total_kontak:,}</b>\n"
-        f"Rata-rata: <b>{avg:,}/file</b>",
+        text=box_text,
+        parse_mode="HTML",
         reply_markup=keyboard,
     )
 

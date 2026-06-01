@@ -756,6 +756,12 @@ async def handle_walinkweb_msg(update: Update, context: ContextTypes.DEFAULT_TYP
 
         total_cnt, html_buf, excel_buf = await loop.run_in_executor(None, do_process)
 
+        db.set_session(user_id, S0, {
+            "total_cnt": total_cnt,
+            "custom_msg": custom_msg,
+            "file_name": orig_name
+        })
+
         try:
             await status_msg.delete()
         except Exception:
@@ -763,6 +769,7 @@ async def handle_walinkweb_msg(update: Update, context: ContextTypes.DEFAULT_TYP
 
         if total_cnt == 0:
             await update.message.reply_text("Tidak ada nomor HP valid yang ditemukan dalam berkas.")
+            db.clear_session(user_id)
             return
 
         base_name = os.path.splitext(orig_name)[0]
@@ -783,18 +790,6 @@ async def handle_walinkweb_msg(update: Update, context: ContextTypes.DEFAULT_TYP
             read_timeout=120, write_timeout=120, connect_timeout=60
         )
 
-        await update.message.reply_text(
-            f"<b>Dashboard Web WA Links Selesai!</b>\n\n"
-            f"Total kontak: <b>{total_cnt} nomor</b>\n"
-            f"Pesan kustom: <i>{custom_msg if custom_msg else '[KOSONG]'}</i>\n\n"
-            f"<b>Untuk Android / PC:</b>\n"
-            f"Buka file <code>.html</code> di atas langsung di browser.\n\n"
-            f"<b>Untuk iPhone (iOS) - 2 Cara Mudah:</b>\n"
-            f"1. Buka file <code>.xlsx</code> (Excel) di atas yang otomatis didukung native oleh iPhone.\n"
-            f"2. Atau, jika ingin tetap memakai file <code>.html</code>: ketuk file HTML -> ketuk tombol <b>Share/Bagikan</b> di kanan atas -> pilih <b>Safari/Chrome</b> (atau Simpan ke Files lalu buka via Safari).",
-            parse_mode="HTML"
-        )
-
         # Trigger debounced final keyboard
         old_timer = _button_timers.pop(user_id, None)
         if old_timer and not old_timer.done():
@@ -802,19 +797,55 @@ async def handle_walinkweb_msg(update: Update, context: ContextTypes.DEFAULT_TYP
 
         async def _send_buttons_debounced(uid, chat_id, bot):
             await asyncio.sleep(1.5)
+            sess = db.get_session(uid)
+            if not sess or sess.get("state") != S0:
+                return
+            s_data = sess["data"]
+            t_cnt = s_data.get("total_cnt", 0)
+            c_msg = s_data.get("custom_msg", "")
+            fname = s_data.get("file_name", "")
+
             keyboard = InlineKeyboardMarkup([
                 [
                     InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_walinkweb_help", style="success"),
                     InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
                 ]
             ])
+
+            def _fit(val, max_len=22) -> str:
+                s = str(val)
+                if len(s) > max_len:
+                    return s[:max_len-3] + "..."
+                return s
+
             from handlers.start import clear_welcome_messages
             clear_welcome_messages(uid)
+
+            box_text = (
+                f"<pre><b>"
+                f"┌────────────────────────────────────────┐\n"
+                f"│             PROSES SELESAI             │\n"
+                f"├────────────────────────────────────────┤\n"
+                f"│ File Input     : {_fit(fname):<22} │\n"
+                f"│ Berkas Output  : {_fit('HTML & EXCEL'):<22} │\n"
+                f"│ Total Kontak   : {_fit(f'{t_cnt:,}'):<22} │\n"
+                f"│ Pesan Kustom   : {_fit(c_msg if c_msg else '[KOSONG]'):<22} │\n"
+                f"└────────────────────────────────────────┘"
+                f"</b></pre>\n\n"
+                f"<b>Dashboard Web WA Links Selesai!</b>\n\n"
+                f"<b>Untuk Android / PC:</b>\n"
+                f"Buka file <code>.html</code> di atas langsung di browser.\n\n"
+                f"<b>Untuk iPhone (iOS) - 2 Cara Mudah:</b>\n"
+                f"1. Buka file <code>.xlsx</code> (Excel) di atas yang otomatis didukung native oleh iPhone.\n"
+                f"2. Atau, jika ingin tetap memakai file <code>.html</code>: ketuk file HTML -> ketuk tombol <b>Share/Bagikan</b> di kanan atas -> pilih <b>Safari/Chrome</b> (atau Simpan ke Files lalu buka via Safari)."
+            )
             await bot.send_message(
                 chat_id=chat_id,
-                text="Proses selesai. Silakan unduh berkas dashboard HTML di atas.",
+                text=box_text,
+                parse_mode="HTML",
                 reply_markup=keyboard
             )
+            db.clear_session(uid)
 
         task = asyncio.create_task(_send_buttons_debounced(user_id, update.effective_chat.id, context.bot))
         _button_timers[user_id] = task

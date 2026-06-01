@@ -161,6 +161,13 @@ async def handle_cleanup_file(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         total_awal, total_clean, total_dibuang, cleaned_content = await loop.run_in_executor(None, do_cleanup)
 
+        db.set_session(user_id, STATE, {
+            "total_awal": total_awal,
+            "total_clean": total_clean,
+            "total_dibuang": total_dibuang,
+            "file_name": doc.file_name
+        })
+
         # Hapus loading status
         try:
             await status_msg.delete()
@@ -169,6 +176,7 @@ async def handle_cleanup_file(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         if total_clean == 0:
             await update.message.reply_text("Tidak ada nomor HP valid yang ditemukan dalam file.")
+            db.clear_session(user_id)
             return
 
         # Kirim berkas bersih
@@ -180,12 +188,9 @@ async def handle_cleanup_file(update: Update, context: ContextTypes.DEFAULT_TYPE
             document=buf,
             filename=out_name,
             caption=(
-                f"Pembersihan selesai.\n\n"
-                f"Total awal: <b>{total_awal}</b>\n"
-                f"Valid & Unik: <b>{total_clean}</b>\n"
-                f"Dibuang: <b>{total_dibuang}</b>"
+                f"{out_name}\n"
+                f"Total awal: {total_awal:,} | Bersih: {total_clean:,} | Dibuang: {total_dibuang:,}"
             ),
-            parse_mode="HTML"
         )
 
         # Trigger debounced final keyboard
@@ -195,19 +200,51 @@ async def handle_cleanup_file(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         async def _send_buttons_debounced(uid, chat_id, bot):
             await asyncio.sleep(1.5)
+            sess = db.get_session(uid)
+            if not sess or sess.get("state") != STATE:
+                return
+            s_data = sess["data"]
+            t_awal = s_data.get("total_awal", 0)
+            t_clean = s_data.get("total_clean", 0)
+            t_dibuang = s_data.get("total_dibuang", 0)
+            fname = s_data.get("file_name", "")
+
             keyboard = InlineKeyboardMarkup([
                 [
                     InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_cleanup_help", style="success"),
                     InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
                 ]
             ])
+
+            def _fit(val, max_len=22) -> str:
+                s = str(val)
+                if len(s) > max_len:
+                    return s[:max_len-3] + "..."
+                return s
+
             from handlers.start import clear_welcome_messages
             clear_welcome_messages(uid)
+
+            box_text = (
+                f"<pre><b>"
+                f"┌────────────────────────────────────────┐\n"
+                f"│             PROSES SELESAI             │\n"
+                f"├────────────────────────────────────────┤\n"
+                f"│ File Input     : {_fit(fname):<22} │\n"
+                f"│ Total Awal     : {_fit(f'{t_awal:,}'):<22} │\n"
+                f"│ Valid & Unik   : {_fit(f'{t_clean:,}'):<22} │\n"
+                f"│ Dibuang (Smap) : {_fit(f'{t_dibuang:,}'):<22} │\n"
+                f"└────────────────────────────────────────┘"
+                f"</b></pre>\n\n"
+                f"<i>Pembersihan & standardisasi selesai!</i>"
+            )
             await bot.send_message(
                 chat_id=chat_id,
-                text="Proses selesai. Silakan unduh file bersih di atas.",
+                text=box_text,
+                parse_mode="HTML",
                 reply_markup=keyboard
             )
+            db.clear_session(uid)
 
         task = asyncio.create_task(_send_buttons_debounced(user_id, update.effective_chat.id, context.bot))
         _button_timers[user_id] = task

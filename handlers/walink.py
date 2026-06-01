@@ -182,6 +182,11 @@ async def handle_walink_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         total_links, excel_buf = await loop.run_in_executor(None, do_process_xlsx)
 
+        db.set_session(user_id, STATE, {
+            "total_links": total_links,
+            "file_name": doc.file_name
+        })
+
         # Hapus loading status
         try:
             await status_msg.delete()
@@ -190,6 +195,7 @@ async def handle_walink_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         if total_links == 0:
             await update.message.reply_text("Tidak ada nomor HP valid yang ditemukan dalam file.")
+            db.clear_session(user_id)
             return
 
         # Kirim file Excel kembali ke user
@@ -201,10 +207,9 @@ async def handle_walink_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
             document=excel_buf,
             filename=out_name,
             caption=(
-                f"WhatsApp link berhasil dibuat.\n\n"
-                f"Total nomor: <b>{total_links}</b>"
+                f"{out_name}\n"
+                f"Total nomor: {total_links:,}"
             ),
-            parse_mode="HTML"
         )
 
         # Trigger debounced final keyboard
@@ -214,19 +219,48 @@ async def handle_walink_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         async def _send_buttons_debounced(uid, chat_id, bot):
             await asyncio.sleep(1.5)
+            sess = db.get_session(uid)
+            if not sess or sess.get("state") != STATE:
+                return
+            s_data = sess["data"]
+            t_links = s_data.get("total_links", 0)
+            fname = s_data.get("file_name", "")
+
             keyboard = InlineKeyboardMarkup([
                 [
                     InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_walink_help", style="success"),
                     InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
                 ]
             ])
+
+            def _fit(val, max_len=22) -> str:
+                s = str(val)
+                if len(s) > max_len:
+                    return s[:max_len-3] + "..."
+                return s
+
             from handlers.start import clear_welcome_messages
             clear_welcome_messages(uid)
+
+            box_text = (
+                f"<pre><b>"
+                f"┌────────────────────────────────────────┐\n"
+                f"│             PROSES SELESAI             │\n"
+                f"├────────────────────────────────────────┤\n"
+                f"│ File Input     : {_fit(fname):<22} │\n"
+                f"│ Berkas Output  : {_fit('1 EXCEL (.xlsx)'):<22} │\n"
+                f"│ Total Link WA  : {_fit(f'{t_links:,}'):<22} │\n"
+                f"└────────────────────────────────────────┘"
+                f"</b></pre>\n\n"
+                f"<i>Pembuatan WA Link Excel selesai!</i>"
+            )
             await bot.send_message(
                 chat_id=chat_id,
-                text="Proses selesai. Silakan unduh file Excel di atas.",
+                text=box_text,
+                parse_mode="HTML",
                 reply_markup=keyboard
             )
+            db.clear_session(uid)
 
         task = asyncio.create_task(_send_buttons_debounced(user_id, update.effective_chat.id, context.bot))
         _button_timers[user_id] = task
