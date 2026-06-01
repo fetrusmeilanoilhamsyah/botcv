@@ -349,7 +349,15 @@ async def done_router(update: Update, context):
     
     if update.callback_query:
         await update.callback_query.answer()
-        update.message = update.callback_query.message
+        
+        class WrappedUpdate:
+            def __init__(self, original_update, msg):
+                self._update = original_update
+                self.message = msg
+            def __getattr__(self, name):
+                return getattr(self._update, name)
+                
+        update = WrappedUpdate(update, update.callback_query.message)
 
     if not sess or not sess.get("state"):
         await update.message.reply_text("Tidak ada proses aktif.")
