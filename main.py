@@ -91,6 +91,7 @@ from handlers.rename import (
 from handlers.duplikat import (
     cmd_duplikat, handle_duplikat_file, handle_show_duplikat_help_callback,
     STATE as DUPLICAT_STATE,
+    handle_duplikat_done,
 )
 from handlers.walink import (
     cmd_walink, handle_walink_file, handle_show_walink_help_callback,
@@ -337,7 +338,7 @@ async def file_router(update: Update, context):
         S0:             (handle_ttv_file,         "file TXT berupa DOKUMEN"),
         S5:             (handle_ttv_file,         "file TXT berupa DOKUMEN"),
         XTV_S0:         (handle_xtv_file,         "file XLSX/CSV berupa DOKUMEN"),
-        COUNT_STATE:    (handle_count_file,       "file VCF berupa DOKUMEN"),
+        COUNT_STATE:    (handle_count_file,       "file VCF atau TXT berupa DOKUMEN"),
         XLSX2TXT_STATE: (handle_xlsxtotxt_file,   "file XLSX/CSV berupa DOKUMEN"),
         DUPLICAT_STATE: (handle_duplikat_file,    "file VCF atau TXT berupa DOKUMEN"),
         WALINK_STATE:   (handle_walink_file,      "file VCF atau TXT berupa DOKUMEN"),
@@ -388,6 +389,7 @@ async def done_router(update: Update, context):
         XLSX2TXT_STATE: handle_xlsxtotxt_done,
         RENAME_S2:      handle_rename_done,
         CLEANUP_STATE:  handle_cleanup_done,
+        DUPLICAT_STATE: handle_duplikat_done,
     }
     handler = route.get(state)
     if handler:
