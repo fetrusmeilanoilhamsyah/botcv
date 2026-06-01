@@ -346,6 +346,11 @@ async def file_router(update: Update, context):
 async def done_router(update: Update, context):
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
+    
+    if update.callback_query:
+        await update.callback_query.answer()
+        update.message = update.callback_query.message
+
     if not sess or not sess.get("state"):
         await update.message.reply_text("Tidak ada proses aktif.")
         return
@@ -777,6 +782,7 @@ def main():
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_admin_help_callback), pattern="^show_admin_help$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_reset_callback),  pattern="^admin_db_reset"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_redeem_points),   pattern="^redeem_ref_"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(done_router),            pattern="^done$"))
 
     if VIP_PAKASIR_MODE:
         app.add_handler(CallbackQueryHandler(rate_limiter(handle_buy_vip),         pattern="^buy_vip_"))

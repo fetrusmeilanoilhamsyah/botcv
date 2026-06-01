@@ -61,10 +61,13 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
         if _user_timers.get(user_id) is asyncio.current_task():
             sess = db.get_session(user_id)
             if sess and sess.get("state") in [S0, S5]:
-                jumlah = sess["data"]["count"]
+                keyboard = InlineKeyboardMarkup([
+                    [InlineKeyboardButton("PROSES SEKARANG", callback_data="done", style="success")]
+                ])
                 await context.bot.send_message(
                     chat_id=chat_id,
-                    text=f"{jumlah} file TXT diterima. Ketik /done jika sudah."
+                    text=f"{jumlah} file TXT diterima. Ketik /done jika sudah.",
+                    reply_markup=keyboard
                 )
     except asyncio.CancelledError:
         pass
