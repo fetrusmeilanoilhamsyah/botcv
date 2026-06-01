@@ -86,6 +86,7 @@ from handlers.rename import (
     cmd_rename, handle_rename_name, handle_rename_file,
     handle_show_rename_help_callback,
     STATE_NAME as RENAME_S1, STATE_FILE as RENAME_S2,
+    handle_rename_done,
 )
 from handlers.duplikat import (
     cmd_duplikat, handle_duplikat_file, handle_show_duplikat_help_callback,
@@ -103,6 +104,7 @@ from handlers.walinkweb import (
 from handlers.cleanup import (
     cmd_cleanup, handle_cleanup_file, handle_show_cleanup_help_callback,
     STATE as CLEANUP_STATE,
+    handle_cleanup_done,
 )
 from handlers.txttovcf import (
     cmd_txttovcf,
@@ -384,6 +386,8 @@ async def done_router(update: Update, context):
         XTV_S0:         handle_xtv_done,
         COUNT_STATE:    handle_count_done,
         XLSX2TXT_STATE: handle_xlsxtotxt_done,
+        RENAME_S2:      handle_rename_done,
+        CLEANUP_STATE:  handle_cleanup_done,
     }
     handler = route.get(state)
     if handler:
