@@ -33,6 +33,7 @@ from config import (
     FILE_WRITE_TIMEOUT,
     FILE_CONNECT_TIMEOUT,
     SEND_FILE_DELAY,
+    SEND_BATCH_DELAY,
 )
 
 _user_locks: dict = {}
