@@ -80,10 +80,7 @@ def _extract_numbers_sync(filepath: str, ext: str) -> list:
 
 def _status_text(total_file: int, total_kontak: int) -> str:
     return (
-        f"<b>Sedang mengumpulkan...</b>\n\n"
-        f"File diterima: <b>{total_file}</b>\n"
-        f"Nomor unik: <b>{total_kontak:,}</b>\n\n"
-        f"Ketik /done jika sudah selesai."
+        f"<b>{total_file}</b> file Excel/CSV diterima ({total_kontak:,} nomor unik). Silakan pilih tindakan:"
     )
 
 
@@ -99,6 +96,23 @@ def _schedule_move(chat_id: int, bot, user_id: int):
             return
         data = sess["data"]
         text = _status_text(data["total_file"], data["total_kontak"])
+
+        # Hapus welcome messages lama (hanya sekali saat file pertama masuk)
+        from handlers.start import _welcome_messages
+        welcome_ids = _welcome_messages.pop(user_id, [])
+        for w_id in welcome_ids:
+            try:
+                await bot.delete_message(chat_id=chat_id, message_id=w_id)
+            except Exception:
+                pass
+
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("PROSES SEKARANG", callback_data="done", style="success"),
+                InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")
+            ]
+        ])
+
         old = _status_msg.get(user_id)
         if old:
             try:
@@ -106,7 +120,12 @@ def _schedule_move(chat_id: int, bot, user_id: int):
             except Exception:
                 pass
         try:
-            new_msg = await bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
+            new_msg = await bot.send_message(
+                chat_id=chat_id,
+                text=text,
+                reply_markup=keyboard,
+                parse_mode="HTML"
+            )
             _status_msg[user_id] = new_msg
             
             # Perbarui status_msg_id di sesi database agar callback sinkron
