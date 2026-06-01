@@ -753,8 +753,7 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                             sent_count += len(chunk_results)
                         else:
                             await asyncio.sleep(SEND_RETRY_DELAY)
-                await asyncio.sleep(SEND_BATCH_DELAY)
-
+            
             async def progress_ticker():
                 last = -1
                 while sent_count < total_files:
