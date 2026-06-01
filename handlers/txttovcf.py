@@ -6,7 +6,7 @@ dan seluruh input/upload user langsung dihapus secara instan agar chat bersih 10
 import os
 import shutil
 import asyncio
-from telegram import Update, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaDocument
 from telegram.ext import ContextTypes
 from database import db
 from database.db_async import adb
@@ -74,18 +74,11 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 status_msg_id = data.get("status_msg_id")
                 if status_msg_id:
                     try:
-                        await context.bot.edit_message_text(
-                            chat_id=chat_id,
-                            message_id=status_msg_id,
-                            text=text,
-                            reply_markup=keyboard,
-                            parse_mode="HTML"
-                        )
-                        return
+                        await context.bot.delete_message(chat_id=chat_id, message_id=status_msg_id)
                     except Exception:
                         pass
                 
-                # Fallback jika edit gagal
+                # Kirim pesan baru di paling bawah di bawah berkas yang diunggah
                 msg = await context.bot.send_message(
                     chat_id=chat_id,
                     text=text,
@@ -321,8 +314,8 @@ async def handle_ttv_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     deliv_keyboard = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("KIRIM SATU PER SATU", callback_data="ttv_deliv_single"),
-            InlineKeyboardButton("KIRIM SEBAGAI ZIP", callback_data="ttv_deliv_zip")
+            InlineKeyboardButton("KIRIM SATU PER SATU", callback_data="ttv_deliv_single", style="primary"),
+            InlineKeyboardButton("KIRIM SEBAGAI ZIP", callback_data="ttv_deliv_zip", style="primary")
         ],
         [InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]
     ])
@@ -389,12 +382,6 @@ async def handle_ttv_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     try:
         await file_obj.download_to_drive(out_path)
-        
-        # Hapus bubble upload file user agar chat rapi
-        try:
-            await update.message.delete()
-        except Exception:
-            pass
 
         async with get_user_lock(user_id):
             sess = db.get_session(user_id)
@@ -645,6 +632,12 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     else:
                         await asyncio.sleep(SEND_RETRY_DELAY)
 
+            # Hapus status message lama agar laporan sukses berada di paling bawah
+            try:
+                await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
+            except Exception:
+                pass
+
             from handlers.start import clear_welcome_messages
             clear_welcome_messages(user_id)
             keyboard = InlineKeyboardMarkup([
@@ -653,9 +646,8 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
                 ]
             ])
-            await context.bot.edit_message_text(
+            final_msg = await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                message_id=status_msg_id,
                 text=(
                     f"Proses selesai.\n"
                     f"Total file: <b>{total_files} VCF (ZIP)</b>\n"
@@ -665,6 +657,11 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
+            
+            # Daftarkan welcome message baru agar callback berikutnya (batal/proses lain) mengedit pesan ini
+            from handlers.start import register_welcome_messages
+            register_welcome_messages(user_id, [final_msg.message_id])
+
         else:
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
@@ -674,31 +671,49 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
             )
 
             sent_count = 0
+            chunk_size = 10
 
-            async def send_one(idx: int, label: str, content: bytes):
+            async def send_chunk(chunk_results):
                 nonlocal sent_count
-                buf = io.BytesIO(content)
-                buf.name = f"{label}.vcf"
+                media_group = []
+                bio_list = []
+                for label, content in chunk_results:
+                    buf = io.BytesIO(content)
+                    buf.name = f"{label}.vcf"
+                    bio_list.append(buf)
+                    media_group.append(InputMediaDocument(media=buf, filename=f"{label}.vcf"))
+
                 for attempt in range(SEND_MAX_RETRIES):
                     try:
-                        buf.seek(0)
-                        await context.bot.send_document(
-                            chat_id=update.effective_chat.id,
-                            document=buf,
-                            filename=f"{label}.vcf",
-                            read_timeout=FILE_READ_TIMEOUT,
-                            write_timeout=FILE_WRITE_TIMEOUT,
-                            connect_timeout=FILE_CONNECT_TIMEOUT,
-                        )
-                        sent_count += 1
+                        if len(media_group) == 1:
+                            bio_list[0].seek(0)
+                            await context.bot.send_document(
+                                chat_id=update.effective_chat.id,
+                                document=bio_list[0],
+                                filename=f"{chunk_results[0][0]}.vcf",
+                                read_timeout=FILE_READ_TIMEOUT,
+                                write_timeout=FILE_WRITE_TIMEOUT,
+                                connect_timeout=FILE_CONNECT_TIMEOUT,
+                            )
+                        else:
+                            for b in bio_list:
+                                b.seek(0)
+                            await context.bot.send_media_group(
+                                chat_id=update.effective_chat.id,
+                                media=media_group,
+                                read_timeout=120,
+                                write_timeout=120,
+                                connect_timeout=60,
+                            )
+                        sent_count += len(chunk_results)
                         break
                     except Exception as ex:
-                        _logger.error(f"[TTV] Gagal kirim {label}.vcf attempt {attempt+1}: {ex}")
+                        _logger.error(f"[TTV] Gagal kirim chunk VCF attempt {attempt+1}: {ex}")
                         if attempt == SEND_MAX_RETRIES - 1:
-                            sent_count += 1
+                            sent_count += len(chunk_results)
                         else:
                             await asyncio.sleep(SEND_RETRY_DELAY)
-                await asyncio.sleep(SEND_FILE_DELAY)
+                await asyncio.sleep(SEND_BATCH_DELAY)
 
             async def progress_ticker():
                 last = -1
@@ -718,14 +733,21 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
             ticker = asyncio.create_task(progress_ticker())
             try:
-                for i, (label, content) in enumerate(results):
-                    await send_one(i, label, content)
+                for i in range(0, len(results), chunk_size):
+                    chunk_results = results[i:i + chunk_size]
+                    await send_chunk(chunk_results)
             finally:
                 ticker.cancel()
                 try:
                     await ticker
                 except asyncio.CancelledError:
                     pass
+
+            # Hapus status message lama agar laporan sukses berada di paling bawah
+            try:
+                await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
+            except Exception:
+                pass
 
             from handlers.start import clear_welcome_messages
             clear_welcome_messages(user_id)
@@ -735,9 +757,8 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
                 ]
             ])
-            await context.bot.edit_message_text(
+            final_msg = await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                message_id=status_msg_id,
                 text=(
                     f"Proses selesai.\n"
                     f"Total file: <b>{total_files} VCF</b>\n"
@@ -747,6 +768,10 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
+            
+            # Daftarkan welcome message baru agar callback berikutnya (batal/proses lain) mengedit pesan ini
+            from handlers.start import register_welcome_messages
+            register_welcome_messages(user_id, [final_msg.message_id])
 
     finally:
         unregister_active_task(user_id)
