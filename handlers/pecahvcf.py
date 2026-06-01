@@ -488,7 +488,7 @@ async def handle_pecahvcf_process(update: Update, context: ContextTypes.DEFAULT_
             register_welcome_messages(user_id, [final_msg.message_id])
 
         else:
-            # Mode "single" menggunakan send_media_group chunked
+            # Mode "single" menggunakan sequential sending
             try:
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
@@ -500,88 +500,63 @@ async def handle_pecahvcf_process(update: Update, context: ContextTypes.DEFAULT_
                 pass
 
             sent_count = 0
-            chunk_size = 10
+            from telegram.error import RetryAfter
+            from config import SEND_PROGRESS_INTERVAL, SEND_BATCH_SIZE
 
-            async def send_chunk(chunk_paths, idx):
-                await asyncio.sleep(idx * 0.1)
-                nonlocal sent_count
-                media_group = []
-                bio_list = []
-                for out_path in chunk_paths:
+            for idx, out_path in enumerate(output_files):
+                fname = os.path.basename(out_path)
+                try:
                     with open(out_path, "rb") as fd:
                         content = fd.read()
-                    fname = os.path.basename(out_path)
-                    buf = io.BytesIO(content)
-                    buf.name = fname
-                    bio_list.append(buf)
-                    media_group.append(InputMediaDocument(media=buf, filename=fname))
+                except Exception as ex:
+                    logger.error(f"[PecahVCF] Gagal membaca file pecahan {out_path}: {ex}")
+                    sent_count += 1
+                    continue
+
+                buf = io.BytesIO(content)
+                buf.name = fname
 
                 for attempt in range(SEND_MAX_RETRIES):
                     try:
-                        if len(media_group) == 1:
-                            bio_list[0].seek(0)
-                            await context.bot.send_document(
-                                chat_id=update.effective_chat.id,
-                                document=bio_list[0],
-                                filename=chunk_paths[0],
-                                read_timeout=FILE_READ_TIMEOUT,
-                                write_timeout=FILE_WRITE_TIMEOUT,
-                                connect_timeout=FILE_CONNECT_TIMEOUT,
-                            )
-                        else:
-                            for b in bio_list:
-                                b.seek(0)
-                            await context.bot.send_media_group(
-                                chat_id=update.effective_chat.id,
-                                media=media_group,
-                                read_timeout=120,
-                                write_timeout=120,
-                                connect_timeout=60,
-                            )
-                        sent_count += len(chunk_paths)
+                        buf.seek(0)
+                        await context.bot.send_document(
+                            chat_id=update.effective_chat.id,
+                            document=buf,
+                            filename=fname,
+                            read_timeout=FILE_READ_TIMEOUT,
+                            write_timeout=FILE_WRITE_TIMEOUT,
+                            connect_timeout=FILE_CONNECT_TIMEOUT,
+                        )
+                        sent_count += 1
                         break
+                    except RetryAfter as e:
+                        wait_secs = max(int(e.retry_after), 2) + 1
+                        logger.warning(f"[PecahVCF] Flood limit sekuensial, tunggu {wait_secs}s")
+                        await asyncio.sleep(wait_secs)
                     except Exception as ex:
-                        from telegram.error import RetryAfter
-                        if isinstance(ex, RetryAfter):
-                            wait_secs = max(int(ex.retry_after), 2) + 1
-                            logger.warning(f"[PecahVCF] Flood limit chunk, tunggu {wait_secs}s")
-                            await asyncio.sleep(wait_secs)
-                            continue
-                        logger.error(f"[PecahVCF] Gagal kirim chunk VCF attempt {attempt+1}: {ex}")
+                        logger.error(f"[PecahVCF] Gagal kirim file VCF sekuensial {fname} attempt {attempt+1}: {ex}")
                         if attempt == SEND_MAX_RETRIES - 1:
-                            sent_count += len(chunk_paths)
+                            sent_count += 1
                         else:
                             await asyncio.sleep(SEND_RETRY_DELAY)
 
-            async def progress_ticker():
-                last = -1
-                while sent_count < total_parts:
-                    if sent_count != last:
-                        last = sent_count
-                        try:
-                            await context.bot.edit_message_text(
-                                chat_id=update.effective_chat.id,
-                                message_id=status_msg_id,
-                                text=f"Mengirim <b>{sent_count} / {total_parts}</b> file VCF...",
-                                parse_mode="HTML"
-                            )
-                        except Exception:
-                            pass
-                    await asyncio.sleep(1.5)
+                if sent_count % SEND_PROGRESS_INTERVAL == 0 or sent_count == total_parts:
+                    percent = int((sent_count / total_parts) * 100)
+                    try:
+                        await context.bot.edit_message_text(
+                            chat_id=update.effective_chat.id,
+                            message_id=status_msg_id,
+                            text=f"Mengirim <b>{sent_count} / {total_parts}</b> file VCF ({percent}%)...",
+                            parse_mode="HTML"
+                        )
+                    except Exception:
+                        pass
 
-            ticker = asyncio.create_task(progress_ticker())
-            try:
-                tasks = []
-                for i in range(0, len(output_files), chunk_size):
-                    chunk_paths = output_files[i:i + chunk_size]
-                    tasks.append(send_chunk(chunk_paths, i // chunk_size))
-                await asyncio.gather(*tasks)
-            finally:
-                ticker.cancel()
-                try:
-                    await ticker
-                except asyncio.CancelledError:
-                    pass
+                if sent_count < total_parts:
+                    if sent_count % SEND_BATCH_SIZE == 0:
+                        await asyncio.sleep(SEND_BATCH_DELAY)
+                    else:
+                        await asyncio.sleep(SEND_FILE_DELAY)
 
             try:
                 await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
