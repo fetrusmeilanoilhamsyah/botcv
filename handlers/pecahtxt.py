@@ -50,23 +50,26 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     
     parts = []
     if step == 1:
-        parts.append(f"» Berkas: {count} file «" if count else "» Berkas «")
+        parts.append(f"<b>» BERKAS: {count} FILE «</b>" if count else "<b>» BERKAS «</b>")
     else:
         parts.append(f"Berkas: {count} file" if count else "Berkas ○")
         
     if step == 2:
-        parts.append(f"» Jumlah: {per_file} «" if per_file else "» Jumlah «")
+        if per_file:
+            parts.append(f"<b>» JUMLAH: {per_file} «</b>")
+        else:
+            parts.append("<b>» JUMLAH «</b>")
     elif step > 2 and per_file:
         parts.append(f"Jumlah: {per_file}")
     else:
         parts.append("Jumlah ○")
         
     if step == 3:
-        parts.append("» Kirim «")
+        parts.append("<b>» KIRIM «</b>")
     else:
         parts.append("Kirim ○")
         
-    return " ➔ ".join(parts) + "\n\n━━━━━━━━━━━━━━━━━━━━\n\n"
+    return " ➔ ".join(parts) + "\n\n"
 
 _user_timers: dict = {}
 _user_locks: dict  = {}
@@ -487,7 +490,7 @@ async def handle_pecahtxt_process(update: Update, context: ContextTypes.DEFAULT_
                 ]
             ])
             box_text = (
-                f"<pre>"
+                f"<pre><b>"
                 f"┌────────────────────────────────────────┐\n"
                 f"│             PROSES SELESAI             │\n"
                 f"├────────────────────────────────────────┤\n"
@@ -496,7 +499,7 @@ async def handle_pecahtxt_process(update: Update, context: ContextTypes.DEFAULT_
                 f"│ Nomor / File   : {_fit(per_file):<22} │\n"
                 f"│ Total Nomor    : {_fit(f'{total_nomor:,}'):<22} │\n"
                 f"└────────────────────────────────────────┘\n"
-                f"</pre>\n\n"
+                f"</b></pre>\n\n"
                 f"<i>Silakan unduh file ZIP di atas.</i>"
             )
             final_msg = await context.bot.send_message(
@@ -604,7 +607,7 @@ async def handle_pecahtxt_process(update: Update, context: ContextTypes.DEFAULT_
                 ]
             ])
             box_text = (
-                f"<pre>"
+                f"<pre><b>"
                 f"┌────────────────────────────────────────┐\n"
                 f"│             PROSES SELESAI             │\n"
                 f"├────────────────────────────────────────┤\n"
@@ -613,7 +616,7 @@ async def handle_pecahtxt_process(update: Update, context: ContextTypes.DEFAULT_
                 f"│ Nomor / File   : {_fit(per_file):<22} │\n"
                 f"│ Total Nomor    : {_fit(f'{total_nomor:,}'):<22} │\n"
                 f"└────────────────────────────────────────┘\n"
-                f"</pre>\n\n"
+                f"</b></pre>\n\n"
                 f"<i>Silakan unduh file TXT di atas.</i>"
             )
             final_msg = await context.bot.send_message(

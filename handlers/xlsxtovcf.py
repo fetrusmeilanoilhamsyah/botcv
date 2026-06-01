@@ -60,39 +60,51 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     
     parts = []
     if step == 1:
-        parts.append(f"» Berkas: {count} file «" if count else "» Berkas «")
+        parts.append(f"<b>» BERKAS: {count} FILE «</b>" if count else "<b>» BERKAS «</b>")
     else:
         parts.append(f"Berkas: {count} file" if count else "Berkas ○")
         
     if step == 2:
-        parts.append(f"» Nama: {contact_name} «" if contact_name else "» Nama «")
+        if contact_name:
+            parts.append(f"<b>» NAMA: {contact_name.upper()} «</b>")
+        else:
+            parts.append("<b>» NAMA «</b>")
     elif step > 2 and contact_name:
         parts.append(f"Nama: {contact_name}")
     else:
         parts.append("Nama ○")
         
     if step == 3:
-        parts.append(f"» Jumlah: {per_file} «" if per_file else "» Jumlah «")
+        if per_file:
+            parts.append(f"<b>» JUMLAH: {per_file} «</b>")
+        else:
+            parts.append("<b>» JUMLAH «</b>")
     elif step > 3 and per_file:
         parts.append(f"Jumlah: {per_file}")
     else:
         parts.append("Jumlah ○")
         
     if step == 4:
-        parts.append(f"» File: {file_name} «" if file_name else "» File «")
+        if file_name:
+            parts.append(f"<b>» FILE: {file_name.upper()} «</b>")
+        else:
+            parts.append("<b>» FILE «</b>")
     elif step > 4 and file_name:
         parts.append(f"File: {file_name}")
     else:
         parts.append("File ○")
         
     if step == 5:
-        parts.append(f"» Urutan: {awalan} «" if awalan else "» Urutan «")
+        if awalan:
+            parts.append(f"<b>» URUTAN: {awalan} «</b>")
+        else:
+            parts.append("<b>» URUTAN «</b>")
     elif step > 5 and awalan:
         parts.append(f"Urutan: {awalan}")
     else:
         parts.append("Urutan ○")
         
-    return " ➔ ".join(parts) + "\n\n━━━━━━━━━━━━━━━━━━━━\n\n"
+    return " ➔ ".join(parts) + "\n\n"
 
 _user_locks: dict = {}
 _user_timers: dict = {}
@@ -728,7 +740,7 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
             ])
             total_contacts_str = f"{len(all_numbers):,}"
             box_text = (
-                f"<pre>"
+                f"<pre><b>"
                 f"┌────────────────────────────────────────┐\n"
                 f"│             PROSES SELESAI             │\n"
                 f"├────────────────────────────────────────┤\n"
@@ -740,7 +752,7 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 f"│ Urutan Mulai   : {_fit(awalan):<22} │\n"
                 f"│ Total Kontak   : {_fit(total_contacts_str):<22} │\n"
                 f"└────────────────────────────────────────┘"
-                f"</pre>\n\n"
+                f"</b></pre>\n\n"
                 f"<i>Silakan unduh file ZIP di atas.</i>"
             )
             final_msg = await context.bot.send_message(
@@ -842,7 +854,7 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
             ])
             total_contacts_str = f"{len(all_numbers):,}"
             box_text = (
-                f"<pre>"
+                f"<pre><b>"
                 f"┌────────────────────────────────────────┐\n"
                 f"│             PROSES SELESAI             │\n"
                 f"├────────────────────────────────────────┤\n"
@@ -854,7 +866,7 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 f"│ Urutan Mulai   : {_fit(awalan):<22} │\n"
                 f"│ Total Kontak   : {_fit(total_contacts_str):<22} │\n"
                 f"└────────────────────────────────────────┘"
-                f"</pre>\n\n"
+                f"</b></pre>\n\n"
                 f"<i>Silakan unduh file VCF di atas.</i>"
             )
             final_msg = await context.bot.send_message(

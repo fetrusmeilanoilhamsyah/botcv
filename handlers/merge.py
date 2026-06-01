@@ -441,7 +441,7 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
             clear_welcome_messages(user_id)
             
             box_text = (
-                f"<pre>"
+                f"<pre><b>"
                 f"┌────────────────────────────────────────┐\n"
                 f"│             PROSES SELESAI             │\n"
                 f"├────────────────────────────────────────┤\n"
@@ -450,7 +450,7 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                 f"│ Nama File Hasil: {_fit(file_name):<22} │\n"
                 f"│ Total Kontak   : {_fit(f'{len(all_contacts):,}'):<22} │\n"
                 f"└────────────────────────────────────────┘\n"
-                f"</pre>\n\n"
+                f"</b></pre>\n\n"
                 f"<i>Silakan unduh file VCF di atas.</i>"
             )
             final_msg = await context.bot.send_message(
@@ -528,7 +528,7 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
             clear_welcome_messages(user_id)
             
             box_text = (
-                f"<pre>"
+                f"<pre><b>"
                 f"┌────────────────────────────────────────┐\n"
                 f"│             PROSES SELESAI             │\n"
                 f"├────────────────────────────────────────┤\n"
@@ -537,7 +537,7 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                 f"│ Nama File Hasil: {_fit(file_name):<22} │\n"
                 f"│ Total Nomor    : {_fit(f'{len(numbers):,}'):<22} │\n"
                 f"└────────────────────────────────────────┘\n"
-                f"</pre>\n\n"
+                f"</b></pre>\n\n"
                 f"<i>Silakan unduh file TXT di atas.</i>"
             )
             final_msg = await context.bot.send_message(

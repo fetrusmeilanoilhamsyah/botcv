@@ -46,23 +46,23 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     
     parts = []
     if step == 1:
-        parts.append(f"» Berkas: {count} VCF «" if count else "» Berkas «")
+        parts.append(f"<b>» BERKAS: {count} VCF «</b>" if count else "<b>» BERKAS «</b>")
     else:
         parts.append(f"Berkas: {count} VCF" if count else "Berkas ○")
         
     if step == 2:
-        parts.append(f"» Nama: {file_name} «" if file_name else "» Nama «")
+        parts.append(f"<b>» NAMA: {file_name.upper()} «</b>" if file_name else "<b>» NAMA «</b>")
     elif step > 2 and file_name:
         parts.append(f"Nama: {file_name}")
     else:
         parts.append("Nama ○")
         
     if step == 3:
-        parts.append("» Kirim «")
+        parts.append("<b>» KIRIM «</b>")
     else:
         parts.append("Kirim ○")
         
-    return " ➔ ".join(parts) + "\n\n━━━━━━━━━━━━━━━━━━━━\n\n"
+    return " ➔ ".join(parts) + "\n\n"
 
 _user_locks: dict = {}
 _user_timers: dict = {}
@@ -548,7 +548,7 @@ async def handle_vcftotxt_process(update: Update, context: ContextTypes.DEFAULT_
             ])
             total_contacts = data.get("total_contacts", 0)
             box_text = (
-                f"<pre>"
+                f"<pre><b>"
                 f"┌────────────────────────────────────────┐\n"
                 f"│             PROSES SELESAI             │\n"
                 f"├────────────────────────────────────────┤\n"
@@ -557,7 +557,7 @@ async def handle_vcftotxt_process(update: Update, context: ContextTypes.DEFAULT_
                 f"│ Nama File TXT  : {_fit(file_name):<22} │\n"
                 f"│ Total Kontak   : {_fit(f'{total_contacts:,}'):<22} │\n"
                 f"└────────────────────────────────────────┘"
-                f"</pre>\n\n"
+                f"</b></pre>\n\n"
                 f"<i>Silakan unduh file ZIP di atas.</i>"
             )
             final_msg = await context.bot.send_message(
@@ -658,7 +658,7 @@ async def handle_vcftotxt_process(update: Update, context: ContextTypes.DEFAULT_
             ])
             total_contacts = data.get("total_contacts", 0)
             box_text = (
-                f"<pre>"
+                f"<pre><b>"
                 f"┌────────────────────────────────────────┐\n"
                 f"│             PROSES SELESAI             │\n"
                 f"├────────────────────────────────────────┤\n"
@@ -667,7 +667,7 @@ async def handle_vcftotxt_process(update: Update, context: ContextTypes.DEFAULT_
                 f"│ Nama File TXT  : {_fit(file_name):<22} │\n"
                 f"│ Total Kontak   : {_fit(f'{total_contacts:,}'):<22} │\n"
                 f"└────────────────────────────────────────┘"
-                f"</pre>\n\n"
+                f"</b></pre>\n\n"
                 f"<i>Silakan unduh file TXT di atas.</i>"
             )
             final_msg = await context.bot.send_message(

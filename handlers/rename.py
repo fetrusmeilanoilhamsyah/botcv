@@ -186,7 +186,7 @@ async def handle_rename_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 from handlers.start import clear_welcome_messages
                 clear_welcome_messages(user_id)
                 box_text = (
-                    f"<pre>"
+                    f"<pre><b>"
                     f"┌────────────────────────────────────────┐\n"
                     f"│             PROSES SELESAI             │\n"
                     f"├────────────────────────────────────────┤\n"
@@ -195,7 +195,7 @@ async def handle_rename_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     f"│ Format Nama    : {_fit(base):<22} │\n"
                     f"│ Range Urutan   : {_fit(f'{start_cnt + 1} - {end_counter}'):<22} │\n"
                     f"└────────────────────────────────────────┘\n"
-                    f"</pre>\n\n"
+                    f"</b></pre>\n\n"
                     f"<i>Rename selesai! Silakan unduh file di atas.</i>"
                 )
                 await bot.send_message(
