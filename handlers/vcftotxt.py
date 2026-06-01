@@ -545,7 +545,8 @@ async def handle_vcftotxt_process(update: Update, context: ContextTypes.DEFAULT_
             sent_count = 0
             chunk_size = 10
 
-            async def send_chunk(chunk_results):
+            async def send_chunk(chunk_results, idx):
+                await asyncio.sleep(idx * 0.1)
                 nonlocal sent_count
                 media_group = []
                 bio_list = []
@@ -611,9 +612,11 @@ async def handle_vcftotxt_process(update: Update, context: ContextTypes.DEFAULT_
 
             ticker = asyncio.create_task(progress_ticker())
             try:
+                tasks = []
                 for i in range(0, len(results_files), chunk_size):
                     chunk_results = results_files[i:i + chunk_size]
-                    await send_chunk(chunk_results)
+                    tasks.append(send_chunk(chunk_results, i // chunk_size))
+                await asyncio.gather(*tasks)
             finally:
                 ticker.cancel()
                 try:
