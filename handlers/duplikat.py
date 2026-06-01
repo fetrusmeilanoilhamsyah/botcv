@@ -215,11 +215,6 @@ async def handle_duplikat_file(update: Update, context: ContextTypes.DEFAULT_TYP
             data["total_size"] += doc.file_size
             db.set_session(user_id, STATE, data)
 
-        try:
-            await update.message.delete()
-        except Exception:
-            pass
-
         _reset_timer(user_id, context, chat_id)
         
     except Exception as e:
