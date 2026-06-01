@@ -44,9 +44,14 @@ def _extract_numbers_sync(filepath: str, ext: str) -> list:
     seen = set()
     try:
         def process_cell(cell_value):
-            if not cell_value:
+            if cell_value is None:
                 return
-            text = str(cell_value)
+            if isinstance(cell_value, float):
+                if cell_value.is_integer():
+                    cell_value = int(cell_value)
+                else:
+                    cell_value = f"{cell_value:.0f}"
+            text = str(cell_value).strip()
             for m in PHONE_REGEX.findall(text):
                 clean_num = re.sub(r'[^0-9]', '', m)
                 if clean_num.startswith("08"):
