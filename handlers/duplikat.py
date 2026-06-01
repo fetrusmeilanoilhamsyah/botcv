@@ -25,6 +25,8 @@ MAX_SIZE_MB = 50
 
 _user_locks: dict = {}
 _user_timers: dict = {}
+_button_timers = _user_timers
+_active_requests: dict = {}
 
 def _get_lock(user_id: int) -> asyncio.Lock:
     return _user_locks.setdefault(user_id, asyncio.Lock())

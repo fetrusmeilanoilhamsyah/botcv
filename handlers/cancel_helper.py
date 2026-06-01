@@ -16,10 +16,10 @@ from handlers.rename import _user_timers as rename_timers, _user_locks as rename
 from handlers.pecahtxt import _user_timers as pecahtxt_timers, _user_locks as pecahtxt_locks, _clear_buffers as pecahtxt_clear
 from handlers.xlsxtovcf import _user_timers as xlsxtovcf_timers, _user_locks as xlsxtovcf_locks, _clear_buffers as xlsxtovcf_clear
 from handlers.walinkweb import _button_timers as walinkweb_timers, _processing as walinkweb_processing
-from handlers.duplikat import _button_timers as duplikat_timers, _user_locks as duplikat_locks, _active_requests as duplikat_requests
+from handlers.duplikat import _button_timers as duplikat_timers, _user_locks as duplikat_locks, _active_requests as duplikat_requests, _clear_buffers as duplikat_clear
 
 # Handler bantu lainnya untuk kelengkapan
-from handlers.count import _user_locks as count_locks
+from handlers.count import _user_locks as count_locks, _user_timers as count_timers, _clear_buffers as count_clear
 from handlers.admin_navy import _user_locks as admin_navy_locks
 from handlers.manual import _user_timers as manual_timers, _user_locks as manual_locks
 
@@ -65,7 +65,8 @@ def cancel_all(user_id: int):
         xlsxtovcf_timers,
         walinkweb_timers,
         duplikat_timers,
-        manual_timers
+        manual_timers,
+        count_timers
     ]
     for timers in timers_list:
         try:
@@ -81,7 +82,9 @@ def cancel_all(user_id: int):
         vcf2txt_clear,
         ttv_clear,
         pecahtxt_clear,
-        xlsxtovcf_clear
+        xlsxtovcf_clear,
+        duplikat_clear,
+        count_clear
     ]
     for clear_func in clear_funcs:
         try:
