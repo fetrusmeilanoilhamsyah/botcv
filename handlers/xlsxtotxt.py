@@ -108,6 +108,10 @@ def _schedule_move(chat_id: int, bot, user_id: int):
         try:
             new_msg = await bot.send_message(chat_id=chat_id, text=text, parse_mode="HTML")
             _status_msg[user_id] = new_msg
+            
+            # Perbarui status_msg_id di sesi database agar callback sinkron
+            sess["data"]["status_msg_id"] = new_msg.message_id
+            db.set_session(user_id, STATE, sess["data"])
         except Exception:
             pass
 
@@ -145,7 +149,11 @@ async def cmd_xlsxtotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         update=update
     )
 
-    _status_msg[user_id] = msg
+    if msg:
+        sess = db.get_session(user_id)
+        sess["data"]["status_msg_id"] = msg.message_id
+        db.set_session(user_id, STATE, sess["data"])
+        _status_msg[user_id] = msg
 
 
 async def handle_xlsxtotxt_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -227,6 +235,13 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
     if not sess or sess.get("state") != STATE:
         return
 
+    # Hapus input teks 'done' jika user mengetik manual
+    if update.message and update.message.text in ("done", "selesai", "/done"):
+        try:
+            await update.message.delete()
+        except Exception:
+            pass
+
     data = sess["data"]
     total = data.get("total_kontak", 0)
 
@@ -237,17 +252,25 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
         except Exception:
             pass
 
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_xlsxtotxt_help", style="success"),
+            InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
+        ]
+    ])
+
     if total == 0:
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        keyboard = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_xlsxtotxt_help", style="success"),
-                InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
-            ]
-        ])
-        from handlers.start import clear_welcome_messages
+        from handlers.start import clear_welcome_messages, register_welcome_messages
         clear_welcome_messages(user_id)
-        await update.message.reply_text("Tidak ada nomor yang ditemukan dari file yang dikirim.", reply_markup=keyboard)
+        
+        final_msg = await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Tidak ada nomor yang ditemukan dari file yang dikirim.",
+            reply_markup=keyboard
+        )
+        register_welcome_messages(user_id, [final_msg.message_id])
+        
         db.clear_session(user_id)
         import shutil
         shutil.rmtree(os.path.join(get_user_dir(user_id), "xlsxtotxt"), ignore_errors=True)
@@ -257,20 +280,17 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
     master_txt = os.path.join(xlsx_dir, "extracted_numbers.txt")
 
     try:
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        keyboard = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_xlsxtotxt_help", style="success"),
-                InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
-            ]
-        ])
         with open(master_txt, 'rb') as f:
             buffer = BytesIO(f.read())
             buffer.name = "Hasil_Ekstrak.txt"
 
         total_file = data.get("total_file", 0)
-        await update.message.reply_document(
+        
+        # Kirim berkas teks hasil ekstraksi
+        await context.bot.send_document(
+            chat_id=update.effective_chat.id,
             document=buffer,
+            filename="Hasil_Ekstrak.txt",
             caption=(
                 f"Ekstraksi selesai!\n\n"
                 f"File diproses: <b>{total_file}</b>\n"
@@ -278,15 +298,24 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
             ),
             parse_mode="HTML",
         )
-        from handlers.start import clear_welcome_messages
+        
+        from handlers.start import clear_welcome_messages, register_welcome_messages
         clear_welcome_messages(user_id)
-        await update.message.reply_text(
-            "Proses selesai. Silakan unduh file hasil ekstraksi di atas.",
+        
+        # Kirim laporan sukses baru di paling bawah chat
+        final_msg = await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Proses selesai. Silakan unduh file hasil ekstraksi di atas.",
             reply_markup=keyboard
         )
+        register_welcome_messages(user_id, [final_msg.message_id])
+        
     except Exception as e:
         logger.error("Error kirim hasil xlsx: %s", e)
-        await update.message.reply_text("Gagal mengirim hasil. Coba ulangi.")
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Gagal mengirim hasil. Coba ulangi."
+        )
     finally:
         db.clear_session(user_id)
         import shutil

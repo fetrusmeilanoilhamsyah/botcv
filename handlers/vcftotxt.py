@@ -4,7 +4,8 @@ vcftotxt.py — Disk-based approach to prevent OOM.
 import os
 import shutil
 import asyncio
-from telegram import Update, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
+import io
+from telegram import Update, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaDocument
 from telegram.ext import ContextTypes
 from database import db
 from database.db_async import adb
@@ -13,8 +14,10 @@ from middleware.session import get_user_dir
 from core.vcf_parser import parse_vcf_file
 from core.utils import sanitize_filename
 
-STATE        = "VCF2TXT_COLLECTING"
-STATE_NAMING = "VCF2TXT_NAMING"
+STATE            = "VCF2TXT_COLLECTING"
+STATE_NAMING     = "VCF2TXT_NAMING"
+STATE_DELIVERY   = "VCF2TXT_DELIVERY"
+STATE_PROCESSING = "VCF2TXT_PROCESSING"
 
 from config import (
     MAX_FILES_PER_SESSION as MAX_FILES,
@@ -80,18 +83,11 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 status_msg_id = data.get("status_msg_id")
                 if status_msg_id:
                     try:
-                        await context.bot.edit_message_text(
-                            chat_id=chat_id,
-                            message_id=status_msg_id,
-                            text=text,
-                            reply_markup=keyboard,
-                            parse_mode="HTML"
-                        )
-                        return
+                        await context.bot.delete_message(chat_id=chat_id, message_id=status_msg_id)
                     except Exception:
                         pass
                 
-                # Jika belum ada status_msg_id atau edit gagal, kirim pesan baru
+                # Kirim pesan baru di paling bawah di bawah berkas yang baru dikirim
                 msg = await context.bot.send_message(
                     chat_id=chat_id,
                     text=text,
@@ -138,15 +134,18 @@ async def cmd_vcftotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     db.set_session(user_id, STATE, {"count": 0, "total_size": 0, "total_contacts": 0})
-    await transition_to_handler(
+    msg = await transition_to_handler(
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Kirim file <b>.VCF</b> sekarang. Ketik /done jika sudah.",
+        "Kirim file <b>.VCF</b> sekarang.",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
-
+    if msg:
+        sess = db.get_session(user_id)
+        sess["data"]["status_msg_id"] = msg.message_id
+        db.set_session(user_id, STATE, sess["data"])
 
 
 async def handle_vcftotxt_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -176,7 +175,7 @@ async def handle_vcftotxt_file(update: Update, context: ContextTypes.DEFAULT_TYP
     try:
         await file_obj.download_to_drive(out_path)
 
-        # Hitung jumlah kontak DI LUAR lock — file sudah di disk, aman dibaca
+        # Hitung jumlah kontak DI LUAR lock
         c = 0
         try:
             with open(out_path, "r", encoding="utf-8", errors="ignore") as f:
@@ -189,7 +188,6 @@ async def handle_vcftotxt_file(update: Update, context: ContextTypes.DEFAULT_TYP
         async with get_user_lock(user_id):
             sess = db.get_session(user_id)
             if sess["state"] != STATE:
-                # State berubah saat download — hapus file
                 try:
                     if os.path.exists(out_path):
                         os.remove(out_path)
@@ -208,7 +206,7 @@ async def handle_vcftotxt_file(update: Update, context: ContextTypes.DEFAULT_TYP
                 return
 
             if data["count"] >= MAX_FILES:
-                await update.message.reply_text(f"Batas <b>{MAX_FILES}</b> file. Ketik /done.")
+                await update.message.reply_text(f"Batas <b>{MAX_FILES}</b> file. Silakan ketik selesai atau klik PROSES SEKARANG.")
                 try:
                     if os.path.exists(out_path):
                         os.remove(out_path)
@@ -217,7 +215,7 @@ async def handle_vcftotxt_file(update: Update, context: ContextTypes.DEFAULT_TYP
                 return
 
             if (data.get("total_size", 0) + doc.file_size) / (1024 * 1024) > MAX_SIZE_MB:
-                await update.message.reply_text(f"Batas <b>{MAX_SIZE_MB}MB</b>. Ketik /done.")
+                await update.message.reply_text(f"Batas <b>{MAX_SIZE_MB}MB</b>. Silakan ketik selesai atau klik PROSES SEKARANG.")
                 try:
                     if os.path.exists(out_path):
                         os.remove(out_path)
@@ -253,48 +251,121 @@ async def handle_vcftotxt_done(update: Update, context: ContextTypes.DEFAULT_TYP
         return
     data = sess["data"]
 
-    # Hapus status message agar tidak menumpuk
-    status_msg_id = data.get("status_msg_id")
-    if status_msg_id:
+    # Hapus input teks 'done' jika user mengetik manual
+    if update.message and update.message.text in ("done", "selesai", "/done"):
         try:
-            await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
+            await update.message.delete()
         except Exception:
             pass
 
     if data["count"] == 0:
-        await update.message.reply_text("Belum ada file yang dikirim.")
         return
 
     db.set_session(user_id, STATE_NAMING, data)
-    await update.message.reply_text(
-        f"{data['count']} file ({data.get('total_contacts', 0)} kontak). Nama file TXT? Contoh: <b>FEE</b>",
-        reply_markup=ReplyKeyboardRemove()
+    
+    status_msg_id = data.get("status_msg_id")
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+    await context.bot.edit_message_text(
+        chat_id=update.effective_chat.id,
+        message_id=status_msg_id,
+        text=f"{data['count']} file ({data.get('total_contacts', 0)} kontak) terdeteksi. Nama file TXT? Contoh: <b>FEE</b>",
+        parse_mode="HTML",
+        reply_markup=keyboard
     )
 
 
 async def handle_vcftotxt_naming(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    sess = db.get_session(user_id)
+    if not sess or sess["state"] != STATE_NAMING:
+        return
+    data = sess["data"]
+    
+    # Hapus input teks dari user
+    try:
+        await update.message.delete()
+    except Exception:
+        pass
+        
+    file_name = sanitize_filename(update.message.text.strip())
+    if not file_name:
+        file_name = "EXPORT"
+        
+    data["file_name"] = file_name
+    db.set_session(user_id, STATE_DELIVERY, data)
+    
+    deliv_keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("KIRIM SATU PER SATU", callback_data="v2t_deliv_single", style="primary"),
+            InlineKeyboardButton("KIRIM SEBAGAI ZIP", callback_data="v2t_deliv_zip", style="primary")
+        ],
+        [InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]
+    ])
+    
+    status_msg_id = data.get("status_msg_id")
+    await context.bot.edit_message_text(
+        chat_id=update.effective_chat.id,
+        message_id=status_msg_id,
+        text="Pilih format pengiriman file TXT:",
+        parse_mode="HTML",
+        reply_markup=deliv_keyboard
+    )
+
+
+async def handle_v2t_delivery_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = query.from_user.id
+    sess = db.get_session(user_id)
+    if not sess or sess["state"] != STATE_DELIVERY:
+        return
+        
+    data = sess["data"]
+    mode = "single" if query.data == "v2t_deliv_single" else "zip"
+    data["delivery_mode"] = mode
+    
+    db.set_session(user_id, STATE_PROCESSING, data)
+    await handle_vcftotxt_process(update, context)
+
+
+async def handle_v2t_delivery_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        await update.message.delete()
+    except Exception:
+        pass
+
+
+async def handle_vcftotxt_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
     import logging
     logger = logging.getLogger(__name__)
 
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
-    if sess["state"] != STATE_NAMING:
+    if not sess or sess["state"] != STATE_PROCESSING:
         return
     data = dict(sess["data"])
     if data.get("is_processing"):
         return
     data["is_processing"] = True
-    db.set_session(user_id, STATE_NAMING, data)
+    db.set_session(user_id, STATE_PROCESSING, data)
 
     from handlers.cancel_helper import register_active_task, unregister_active_task
     register_active_task(user_id, asyncio.current_task())
 
-    file_name   = sanitize_filename(update.message.text.strip())
+    file_name = data.get("file_name", "EXPORT")
     total_files = data["count"]
+    status_msg_id = data.get("status_msg_id")
 
-    progress_msg = await update.message.reply_text(
-        f"Memproses {total_files} file... 0%"
-    )
+    try:
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=status_msg_id,
+            text=f"Memproses {total_files} file... 0%",
+            parse_mode="HTML"
+        )
+    except Exception:
+        pass
 
     user_dir = get_user_dir(user_id)
     v2t_dir  = os.path.join(user_dir, "vcftotxt")
@@ -350,7 +421,12 @@ async def handle_vcftotxt_naming(update: Update, context: ContextTypes.DEFAULT_T
 
     async def update_progress(pct: int):
         try:
-            await progress_msg.edit_text(f"Memproses {total_files} file... {pct}%")
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text=f"Memproses {total_files} file... {pct}%",
+                parse_mode="HTML"
+            )
         except Exception:
             pass
 
@@ -362,88 +438,209 @@ async def handle_vcftotxt_naming(update: Update, context: ContextTypes.DEFAULT_T
 
         await update_progress(90)
 
-        import io
-        from telegram.error import RetryAfter
-        import time as _time
-
         total_created = len(results_files)
 
         if total_created == 0:
-            await progress_msg.edit_text("Gagal. Nomor tidak ditemukan.")
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_msg_id,
+                    text="Gagal. Nomor tidak ditemukan.",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
             return
 
-        # ── SEQUENTIAL SEND FOR LOCAL API ──
-        # Tanpa batching/delay, kirim secepat mungkin.
-        # Update progress tiap 10 file untuk menghindari client choke / message queue overflow.
-        for idx, (label, content) in enumerate(results_files):
-            buf = io.BytesIO(content)
-            buf.name = f"{label}.txt"
+        delivery_mode = data.get("delivery_mode", "single")
 
-            if idx % SEND_PROGRESS_INTERVAL == 0:
-                progress_pct = int(((idx + 1) / total_created) * 100)
-                try:
-                    await progress_msg.edit_text(
-                        f"Mengirim <b>{idx + 1} / {total_created}</b> file ({progress_pct}%)",
-                        parse_mode="HTML"
-                    )
-                except Exception:
-                    pass
+        if delivery_mode == "zip":
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_msg_id,
+                    text="Mengompresi file ke ZIP...",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
+            
+            import zipfile
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for label, content in results_files:
+                    zip_file.writestr(f"{label}.txt", content)
+            zip_buffer.seek(0)
+            zip_filename = f"{file_name}.zip"
+
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_msg_id,
+                    text="Mengirim file ZIP...",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
 
             for attempt in range(SEND_MAX_RETRIES):
                 try:
-                    buf.seek(0)
-                    await update.message.reply_document(
-                        document=buf,
-                        filename=f"{label}.txt",
+                    zip_buffer.seek(0)
+                    await context.bot.send_document(
+                        chat_id=update.effective_chat.id,
+                        document=zip_buffer,
+                        filename=zip_filename,
                         read_timeout=FILE_READ_TIMEOUT,
                         write_timeout=FILE_WRITE_TIMEOUT,
-                        connect_timeout=FILE_CONNECT_TIMEOUT
+                        connect_timeout=FILE_CONNECT_TIMEOUT,
                     )
                     break
-                except RetryAfter as e:
-                    wait_secs = max(int(e.retry_after), 2) + 1
-                    logger.warning(f"[V2T] Flood limit file {label}.txt, tunggu {wait_secs}s")
-                    await asyncio.sleep(wait_secs)
                 except Exception as ex:
-                    logger.error(f"[V2T] Gagal kirim file {label}.txt attempt {attempt+1}: {ex}")
+                    logger.error(f"[V2T] Gagal kirim ZIP attempt {attempt+1}: {ex}")
                     if attempt == SEND_MAX_RETRIES - 1:
                         raise
-                    await asyncio.sleep(SEND_RETRY_DELAY)
+                    else:
+                        await asyncio.sleep(SEND_RETRY_DELAY)
 
-            if (idx + 1) % SEND_BATCH_SIZE == 0:
-                await asyncio.sleep(SEND_BATCH_DELAY)
-            else:
-                await asyncio.sleep(SEND_FILE_DELAY)
+            # Hapus status message lama agar laporan sukses berada di paling bawah
+            try:
+                await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
+            except Exception:
+                pass
 
-        # Update final setelah loop selesai
-        try:
-            await progress_msg.edit_text(
-                f"Mengirim <b>{total_created} / {total_created}</b> file (100%)",
-                parse_mode="HTML"
+            from handlers.start import clear_welcome_messages
+            clear_welcome_messages(user_id)
+            keyboard = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_vcftotxt_help", style="success"),
+                    InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
+                ]
+            ])
+            final_msg = await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=(
+                    f"Proses selesai.\n"
+                    f"Total file: <b>{total_files} VCF (ZIP)</b>\n"
+                    f"Total TXT: <b>{total_created} file</b>\n\n"
+                    f"Silakan unduh file ZIP di atas."
+                ),
+                parse_mode="HTML",
+                reply_markup=keyboard
             )
-        except Exception:
-            pass
+            from handlers.start import register_welcome_messages
+            register_welcome_messages(user_id, [final_msg.message_id])
 
-        try:
-            await progress_msg.delete()
-        except Exception:
-            pass
+        else:
+            # Mode "single" menggunakan send_media_group chunked
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_msg_id,
+                    text=f"Mengirim <b>0 / {total_created}</b> file TXT...",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
 
-        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
-        from handlers.start import clear_welcome_messages
-        clear_welcome_messages(user_id)
-        keyboard = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_vcftotxt_help", style="success"),
-                InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
-            ]
-        ])
-        await update.message.reply_text(
-            f"Proses selesai.\n"
-            f"Total VCF: <b>{total_files}</b>\n"
-            f"Total TXT: <b>{total_created}</b>",
-            reply_markup=keyboard
-        )
+            sent_count = 0
+            chunk_size = 10
+
+            async def send_chunk(chunk_results):
+                nonlocal sent_count
+                media_group = []
+                bio_list = []
+                for label, content in chunk_results:
+                    buf = io.BytesIO(content)
+                    buf.name = f"{label}.txt"
+                    bio_list.append(buf)
+                    media_group.append(InputMediaDocument(media=buf, filename=f"{label}.txt"))
+
+                for attempt in range(SEND_MAX_RETRIES):
+                    try:
+                        if len(media_group) == 1:
+                            bio_list[0].seek(0)
+                            await context.bot.send_document(
+                                chat_id=update.effective_chat.id,
+                                document=bio_list[0],
+                                filename=f"{chunk_results[0][0]}.txt",
+                                read_timeout=FILE_READ_TIMEOUT,
+                                write_timeout=FILE_WRITE_TIMEOUT,
+                                connect_timeout=FILE_CONNECT_TIMEOUT,
+                            )
+                        else:
+                            for b in bio_list:
+                                b.seek(0)
+                            await context.bot.send_media_group(
+                                chat_id=update.effective_chat.id,
+                                media=media_group,
+                                read_timeout=120,
+                                write_timeout=120,
+                                connect_timeout=60,
+                            )
+                        sent_count += len(chunk_results)
+                        break
+                    except Exception as ex:
+                        logger.error(f"[V2T] Gagal kirim chunk TXT attempt {attempt+1}: {ex}")
+                        if attempt == SEND_MAX_RETRIES - 1:
+                            sent_count += len(chunk_results)
+                        else:
+                            await asyncio.sleep(SEND_RETRY_DELAY)
+                await asyncio.sleep(SEND_BATCH_DELAY)
+
+            async def progress_ticker():
+                last = -1
+                while sent_count < total_created:
+                    if sent_count != last:
+                        last = sent_count
+                        try:
+                            await context.bot.edit_message_text(
+                                chat_id=update.effective_chat.id,
+                                message_id=status_msg_id,
+                                text=f"Mengirim <b>{sent_count} / {total_created}</b> file TXT...",
+                                parse_mode="HTML"
+                            )
+                        except Exception:
+                            pass
+                    await asyncio.sleep(1.5)
+
+            ticker = asyncio.create_task(progress_ticker())
+            try:
+                for i in range(0, len(results_files), chunk_size):
+                    chunk_results = results_files[i:i + chunk_size]
+                    await send_chunk(chunk_results)
+            finally:
+                ticker.cancel()
+                try:
+                    await ticker
+                except asyncio.CancelledError:
+                    pass
+
+            # Hapus status message lama
+            try:
+                await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
+            except Exception:
+                pass
+
+            from handlers.start import clear_welcome_messages
+            clear_welcome_messages(user_id)
+            keyboard = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_vcftotxt_help", style="success"),
+                    InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
+                ]
+            ])
+            final_msg = await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=(
+                    f"Proses selesai.\n"
+                    f"Total VCF: <b>{total_files}</b>\n"
+                    f"Total TXT: <b>{total_created} file</b>"
+                ),
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+            from handlers.start import register_welcome_messages
+            register_welcome_messages(user_id, [final_msg.message_id])
 
     finally:
         unregister_active_task(user_id)
@@ -463,7 +660,7 @@ async def handle_show_vcftotxt_help_callback(update: Update, context: ContextTyp
 
     try:
         await query.message.edit_text(
-            text="Kirim file <b>.VCF</b> sekarang. Ketik /done jika sudah."
+            text="Kirim file <b>.VCF</b> sekarang."
         )
     except Exception:
         try:
@@ -472,6 +669,6 @@ async def handle_show_vcftotxt_help_callback(update: Update, context: ContextTyp
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Kirim file <b>.VCF</b> sekarang. Ketik /done jika sudah.",
+            text="Kirim file <b>.VCF</b> sekarang.",
             reply_markup=ReplyKeyboardRemove()
         )

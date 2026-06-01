@@ -59,6 +59,8 @@ from handlers.vcftotxt import (
     cmd_vcftotxt, handle_vcftotxt_file, handle_vcftotxt_done, handle_vcftotxt_naming,
     handle_show_vcftotxt_help_callback,
     STATE as VCF2TXT_STATE, STATE_NAMING as VCF2TXT_NAMING,
+    STATE_DELIVERY as VCF2TXT_DELIVERY, STATE_PROCESSING as VCF2TXT_PROCESSING,
+    handle_v2t_delivery_callback, handle_v2t_delivery_text,
 )
 from handlers.count import (
     cmd_count, handle_count_file, handle_count_done, handle_show_count_help_callback, STATE as COUNT_STATE,
@@ -69,14 +71,16 @@ from handlers.xlsxtotxt import (
     STATE as XLSX2TXT_STATE,
 )
 from handlers.pecahvcf import (
-    cmd_pecahvcf, handle_pecah_per_file, handle_pecah_vcf_file,
-    handle_show_pecahvcf_help_callback,
-    STATE_PER_FILE as PECAH_S1, STATE_WAIT_VCF as PECAH_S2,
+    cmd_pecahvcf, handle_pecahvcf_per_file, handle_pecahvcf_file,
+    handle_pecahvcf_done, handle_show_pecahvcf_help_callback,
+    handle_pecahvcf_delivery_callback, handle_pecahvcf_delivery_text,
+    S0 as PECAH_S0, S1 as PECAH_S1, S2 as PECAH_S2, S3 as PECAH_S3,
 )
 from handlers.pecahtxt import (
     cmd_pecahtxt, handle_pecahtxt_per_file, handle_pecahtxt_file,
     handle_pecahtxt_done, handle_show_pecahtxt_help_callback,
-    STATE_PER_FILE as PECAHTXT_S1, STATE_COLLECTING as PECAHTXT_S2,
+    handle_pecahtxt_delivery_callback, handle_pecahtxt_delivery_text,
+    S0 as PECAHTXT_S0, S1 as PECAHTXT_S1, S2 as PECAHTXT_S2, S3 as PECAHTXT_S3,
 )
 from handlers.rename import (
     cmd_rename, handle_rename_name, handle_rename_file,
@@ -113,7 +117,8 @@ from handlers.xlsxtovcf import (
     handle_xtv_contact_name, handle_xtv_per_file, handle_xtv_file_name,
     handle_xtv_awalan, handle_xtv_file, handle_xtv_done,
     handle_show_xlsxtovcf_help_callback, handle_xtv_style_callback,
-    S0 as XTV_S0, S1 as XTV_S1, S2 as XTV_S2, S3 as XTV_S3, S4 as XTV_S4, S5 as XTV_S5,
+    handle_xtv_delivery_callback, handle_xtv_delivery_text,
+    S0 as XTV_S0, S1 as XTV_S1, S2 as XTV_S2, S3 as XTV_S3, S4 as XTV_S4, S5 as XTV_S5, S6 as XTV_S6,
 )
 from handlers.backup import cmd_backup
 from handlers.manual import (
@@ -280,8 +285,11 @@ async def text_router(update: Update, context):
         **{v: handle_admin_navy for v in AN_STATES.values()},
         MERGE_NAMING:     handle_merge_naming,
         VCF2TXT_NAMING:   handle_vcftotxt_naming,
-        PECAH_S1:         handle_pecah_per_file,
+        VCF2TXT_DELIVERY: handle_v2t_delivery_text,
+        PECAH_S1:         handle_pecahvcf_per_file,
+        PECAH_S2:         handle_pecahvcf_delivery_text,
         PECAHTXT_S1:      handle_pecahtxt_per_file,
+        PECAHTXT_S2:      handle_pecahtxt_delivery_text,
         RENAME_S1:        handle_rename_name,
         S1:               handle_ttv_contact_name,
         S2:               handle_ttv_per_file,
@@ -292,6 +300,7 @@ async def text_router(update: Update, context):
         XTV_S2:           handle_xtv_per_file,
         XTV_S3:           handle_xtv_file_name,
         XTV_S4:           handle_xtv_awalan,
+        XTV_S6:           handle_xtv_delivery_text,
         S_WAIT_TEXT:      handle_manual_text,
         S_WAIT_CONTACTNAME: handle_manual_contact_name,
         S_WAIT_FILENAME:  handle_manual_file_name,
@@ -320,13 +329,12 @@ async def file_router(update: Update, context):
     doc_states = {
         MERGE_STATE:    (handle_merge_file,       "file VCF atau TXT berupa DOKUMEN"),
         VCF2TXT_STATE:  (handle_vcftotxt_file,    "file VCF berupa DOKUMEN"),
-        PECAH_S2:       (handle_pecah_vcf_file,   "file VCF berupa DOKUMEN"),
-        PECAHTXT_S2:    (handle_pecahtxt_file,    "file TXT berupa DOKUMEN"),
+        PECAH_S0:       (handle_pecahvcf_file,    "file VCF berupa DOKUMEN"),
+        PECAHTXT_S0:    (handle_pecahtxt_file,    "file TXT berupa DOKUMEN"),
         RENAME_S2:      (handle_rename_file,      "file VCF berupa DOKUMEN"),
         S0:             (handle_ttv_file,         "file TXT berupa DOKUMEN"),
         S5:             (handle_ttv_file,         "file TXT berupa DOKUMEN"),
         XTV_S0:         (handle_xtv_file,         "file XLSX/CSV berupa DOKUMEN"),
-        XTV_S5:         (handle_xtv_file,         "file XLSX/CSV berupa DOKUMEN"),
         COUNT_STATE:    (handle_count_file,       "file VCF berupa DOKUMEN"),
         XLSX2TXT_STATE: (handle_xlsxtotxt_file,   "file XLSX/CSV berupa DOKUMEN"),
         DUPLICAT_STATE: (handle_duplikat_file,    "file VCF atau TXT berupa DOKUMEN"),
@@ -369,11 +377,11 @@ async def done_router(update: Update, context):
     route = {
         MERGE_STATE:    handle_merge_done,
         VCF2TXT_STATE:  handle_vcftotxt_done,
-        PECAHTXT_S2:    handle_pecahtxt_done,
+        PECAH_S0:       handle_pecahvcf_done,
+        PECAHTXT_S0:    handle_pecahtxt_done,
         S0:             handle_ttv_done,
         S5:             handle_ttv_done,
         XTV_S0:         handle_xtv_done,
-        XTV_S5:         handle_xtv_done,
         COUNT_STATE:    handle_count_done,
         XLSX2TXT_STATE: handle_xlsxtotxt_done,
     }
@@ -775,6 +783,10 @@ def main():
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_ttv_style_callback), pattern="^ttv_style_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_ttv_delivery_callback), pattern="^ttv_deliv_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_xtv_style_callback), pattern="^xtv_style_"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_xtv_delivery_callback), pattern="^xtv_deliv_"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_v2t_delivery_callback), pattern="^v2t_deliv_"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_pecahtxt_delivery_callback), pattern="^pecahtxt_deliv_"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_pecahvcf_delivery_callback), pattern="^pecahvcf_deliv_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_duplikat_help_callback), pattern="^show_duplikat_help$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_count_help_callback), pattern="^show_count_help$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_txttovcf_help_callback), pattern="^show_txttovcf_help$"))
