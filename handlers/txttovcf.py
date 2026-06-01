@@ -36,6 +36,47 @@ from config import (
     SEND_BATCH_DELAY,
 )
 
+def _get_breadcrumbs(data: dict, step: int) -> str:
+    count = data.get("count", 0)
+    contact_name = data.get("contact_name", "")
+    per_file = data.get("per_file", "")
+    awalan = data.get("awalan", "")
+    
+    parts = []
+    parts.append(f"Berkas: {count} file" if count else "Berkas ○")
+    
+    if step == 2:
+        if contact_name:
+            parts.append(f"Nama: {contact_name} ●")
+        else:
+            parts.append("Nama ●")
+    elif step > 2 and contact_name:
+        parts.append(f"Nama: {contact_name}")
+    else:
+        parts.append("Nama ○")
+        
+    if step == 3:
+        if per_file:
+            parts.append(f"Jumlah: {per_file} ●")
+        else:
+            parts.append("Jumlah ●")
+    elif step > 3 and per_file:
+        parts.append(f"Jumlah: {per_file}")
+    else:
+        parts.append("Jumlah ○")
+        
+    if step == 4:
+        if awalan:
+            parts.append(f"Urutan: {awalan} ●")
+        else:
+            parts.append("Urutan ●")
+    elif step > 4 and awalan:
+        parts.append(f"Urutan: {awalan}")
+    else:
+        parts.append("Urutan ○")
+        
+    return " ➔ ".join(parts) + "\n━━━━━━━━━━━━━━━━━━━━\n"
+
 _user_locks: dict = {}
 _user_timers: dict = {}
 
@@ -64,7 +105,7 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 data = sess["data"]
                 jumlah = data["count"]
                 
-                text = f"<b>{jumlah}</b> file TXT diterima. Silakan pilih tindakan:"
+                text = _get_breadcrumbs(data, 1) + f"<b>{jumlah}</b> file TXT diterima. Silakan pilih tindakan:"
                 keyboard = InlineKeyboardMarkup([
                     [
                         InlineKeyboardButton("PROSES SEKARANG", callback_data="done", style="success"),
@@ -133,7 +174,7 @@ async def cmd_txttovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Kirim file <b>.TXT</b> sekarang.",
+        _get_breadcrumbs({"count": 0}, 1) + "Kirim file <b>.TXT</b> sekarang.",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
@@ -172,7 +213,7 @@ async def handle_ttv_contact_name(update: Update, context: ContextTypes.DEFAULT_
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text=f"Pilih format penamaan untuk kontak <b>{data['contact_name']}</b>:",
+        text=_get_breadcrumbs(data, 2) + f"Pilih format penamaan untuk kontak <b>{data['contact_name']}</b>:",
         parse_mode="HTML",
         reply_markup=keyboard
     )
@@ -195,7 +236,7 @@ async def handle_ttv_style_callback(update: Update, context: ContextTypes.DEFAUL
     
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
     await query.edit_message_text(
-        text="Berapa kontak per file? Contoh: <b>100</b>",
+        text=_get_breadcrumbs(data, 3) + "Berapa kontak per file? Contoh: <b>100</b>",
         parse_mode="HTML",
         reply_markup=keyboard
     )
@@ -223,7 +264,7 @@ async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text="⚠️ Harap masukkan angka saja.\n\nBerapa kontak per file? Contoh: <b>100</b>",
+            text=_get_breadcrumbs(sess["data"], 3) + "⚠️ Harap masukkan angka saja.\n\nBerapa kontak per file? Contoh: <b>100</b>",
             parse_mode="HTML",
             reply_markup=keyboard
         )
@@ -234,7 +275,7 @@ async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text=f"⚠️ Harap masukkan angka antara 1 sampai {MAX_CONTACTS_PER_FILE:,}.\n\nBerapa kontak per file? Contoh: <b>100</b>",
+            text=_get_breadcrumbs(sess["data"], 3) + f"⚠️ Harap masukkan angka antara 1 sampai {MAX_CONTACTS_PER_FILE:,}.\n\nBerapa kontak per file? Contoh: <b>100</b>",
             parse_mode="HTML",
             reply_markup=keyboard
         )
@@ -247,7 +288,7 @@ async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text="Nama file? Contoh: <b>FEE</b>",
+        text=_get_breadcrumbs(data, 4) + "Nama file? Contoh: <b>FEE</b>",
         parse_mode="HTML",
         reply_markup=keyboard
     )
@@ -275,7 +316,7 @@ async def handle_ttv_file_name(update: Update, context: ContextTypes.DEFAULT_TYP
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text="Nomor urut awal? Contoh: <b>1</b>",
+        text=_get_breadcrumbs(data, 4) + "Nomor urut awal? Contoh: <b>1</b>",
         parse_mode="HTML",
         reply_markup=keyboard
     )
@@ -302,7 +343,7 @@ async def handle_ttv_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text="⚠️ Harap masukkan angka valid (minimal 1).\n\nNomor urut awal? Contoh: <b>1</b>",
+            text=_get_breadcrumbs(sess["data"], 4) + "⚠️ Harap masukkan angka valid (minimal 1).\n\nNomor urut awal? Contoh: <b>1</b>",
             parse_mode="HTML",
             reply_markup=keyboard
         )
@@ -324,7 +365,7 @@ async def handle_ttv_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text="Pilih format pengiriman file VCF:",
+        text=_get_breadcrumbs(data, 5) + "Pilih format pengiriman file VCF:",
         parse_mode="HTML",
         reply_markup=deliv_keyboard
     )
@@ -475,7 +516,7 @@ async def handle_ttv_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text=f"<b>{data.get('total_contacts', 0)}</b> kontak terdeteksi. Nama kontak? Contoh: <b>FEE</b>",
+            text=_get_breadcrumbs(data, 2) + f"<b>{data.get('total_contacts', 0)}</b> kontak terdeteksi. Nama kontak? Contoh: <b>FEE</b>",
             parse_mode="HTML",
             reply_markup=keyboard
         )
@@ -766,7 +807,7 @@ async def handle_show_txttovcf_help_callback(update: Update, context: ContextTyp
     _clear_buffers(user_id)
     db.set_session(user_id, S0, {"count": 0, "total_size": 0, "total_contacts": 0})
 
-    text = "Kirim file <b>.TXT</b> sekarang."
+    text = _get_breadcrumbs({"count": 0}, 1) + "Kirim file <b>.TXT</b> sekarang."
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
 
     try:
