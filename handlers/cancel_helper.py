@@ -21,6 +21,7 @@ from handlers.duplikat import _button_timers as duplikat_timers, _user_locks as 
 # Handler bantu lainnya untuk kelengkapan
 from handlers.count import _user_locks as count_locks
 from handlers.admin_navy import _user_locks as admin_navy_locks
+from handlers.manual import _user_timers as manual_timers, _user_locks as manual_locks
 
 
 _active_tasks: dict = {}
@@ -63,7 +64,8 @@ def cancel_all(user_id: int):
         pecahtxt_timers,
         xlsxtovcf_timers,
         walinkweb_timers,
-        duplikat_timers
+        duplikat_timers,
+        manual_timers
     ]
     for timers in timers_list:
         try:
@@ -109,7 +111,8 @@ def cancel_all(user_id: int):
         xlsxtovcf_locks,
         duplikat_locks,
         count_locks,
-        admin_navy_locks
+        admin_navy_locks,
+        manual_locks
     ]
     for locks in locks_list:
         try:

@@ -106,6 +106,7 @@ def build_menu_text(first_name: str, user_id: int) -> str:
         "• /rename — Ganti nama VCF\n"
         "• /duplikat — Bersihkan duplikat\n"
         "• /cleanup — Bersihkan format nomor\n"
+        "• /manual — Buat kontak manual\n"
         "• /walink — Link WA Excel\n"
         "• /walinkweb — Link WA HTML\n\n"
         "<b>LAINNYA</b>\n"

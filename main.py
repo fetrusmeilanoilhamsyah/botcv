@@ -115,6 +115,24 @@ from handlers.xlsxtovcf import (
     S0 as XTV_S0, S1 as XTV_S1, S2 as XTV_S2, S3 as XTV_S3, S4 as XTV_S4, S5 as XTV_S5,
 )
 from handlers.backup import cmd_backup
+from handlers.manual import (
+    cmd_manual,
+    handle_manual_text,
+    handle_manual_format_callback,
+    handle_manual_contact_name,
+    handle_manual_style_callback,
+    handle_manual_per_file,
+    handle_manual_file_name,
+    handle_manual_awalan,
+    handle_show_manual_help_callback,
+    S_WAIT_TEXT,
+    S_WAIT_FORMAT,
+    S_WAIT_CONTACTNAME,
+    S_WAIT_STYLE,
+    S_WAIT_PERFILE,
+    S_WAIT_FILENAME,
+    S_WAIT_AWALAN,
+)
 
 # ── VIP handler (Pakasir auto-fallback) ───────────────────────────────────────
 VIP_PAKASIR_MODE = False
@@ -278,6 +296,11 @@ async def text_router(update: Update, context):
         XTV_S2:           handle_xtv_per_file,
         XTV_S3:           handle_xtv_file_name,
         XTV_S4:           handle_xtv_awalan,
+        S_WAIT_TEXT:      handle_manual_text,
+        S_WAIT_CONTACTNAME: handle_manual_contact_name,
+        S_WAIT_PERFILE:   handle_manual_per_file,
+        S_WAIT_FILENAME:  handle_manual_file_name,
+        S_WAIT_AWALAN:    handle_manual_awalan,
         WALINKWEB_S1:     handle_walinkweb_msg,
         BROADCAST_STATE:  handle_broadcast_msg,
         NEWMEMBER_STATE:  handle_newmember_id,
@@ -483,6 +506,7 @@ async def _job_cleanup_sessions(context):
             import handlers.walinkweb
             import handlers.xlsxtotxt
             import handlers.cleanup
+            import handlers.manual
 
             active_uids = set(_welcome_messages.keys())
             active_uids.update(handlers.txttovcf._user_locks.keys())
@@ -500,6 +524,7 @@ async def _job_cleanup_sessions(context):
             active_uids.update(handlers.walinkweb._user_locks.keys())
             active_uids.update(handlers.xlsxtotxt._master_locks.keys())
             active_uids.update(handlers.cleanup._processing)
+            active_uids.update(handlers.manual._user_locks.keys())
 
             inactive_ids = []
             from datetime import datetime
@@ -534,6 +559,7 @@ async def _job_cleanup_sessions(context):
                 handlers.walinkweb.cleanup_inactive_users(inactive_ids)
                 handlers.xlsxtotxt.cleanup_inactive_users(inactive_ids)
                 handlers.cleanup.cleanup_inactive_users(inactive_ids)
+                handlers.manual.cleanup_inactive_users(inactive_ids)
                 
                 logger.info("[JOB] Cleaned %d inactive users from welcome messages and handler locks/timers", len(inactive_ids))
         except Exception as e_cleanup:
@@ -719,6 +745,7 @@ def main():
     app.add_handler(CommandHandler("walink",                            rate_limiter(cmd_walink)))
     app.add_handler(CommandHandler("walinkweb",                         rate_limiter(cmd_walinkweb)))
     app.add_handler(CommandHandler("cleanup",                           rate_limiter(cmd_cleanup)))
+    app.add_handler(CommandHandler("manual",                            rate_limiter(cmd_manual)))
     app.add_handler(CommandHandler(["broadcast", "brodcast", "Brodcast"], rate_limiter(cmd_broadcast)))
     app.add_handler(CommandHandler("mediabroadcast",                    rate_limiter(cmd_media_broadcast)))
     app.add_handler(CommandHandler("stopbroadcast",                     rate_limiter(cmd_stop_broadcast)))
@@ -753,6 +780,9 @@ def main():
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_walink_help_callback), pattern="^show_walink_help$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_walinkweb_help_callback), pattern="^show_walinkweb_help$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_cleanup_help_callback), pattern="^show_cleanup_help$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_manual_help_callback), pattern="^show_manual_help$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_manual_format_callback), pattern="^manual_fmt_"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_manual_style_callback), pattern="^manual_style_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_admin_help_callback), pattern="^show_admin_help$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_reset_callback),  pattern="^admin_db_reset"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_redeem_points),   pattern="^redeem_ref_"))
