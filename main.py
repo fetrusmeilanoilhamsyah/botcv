@@ -532,7 +532,7 @@ async def _job_cleanup_sessions(context):
             active_uids = set(_welcome_messages.keys())
             active_uids.update(handlers.txttovcf._user_locks.keys())
             active_uids.update(handlers.pecahtxt._user_locks.keys())
-            active_uids.update(handlers.pecahvcf._processing)
+            active_uids.update(handlers.pecahvcf._user_locks.keys())
             active_uids.update(handlers.vcftotxt._user_locks.keys())
             active_uids.update(handlers.xlsxtovcf._user_locks.keys())
             active_uids.update(handlers.merge._user_locks.keys())
@@ -544,7 +544,7 @@ async def _job_cleanup_sessions(context):
             active_uids.update(handlers.walinkweb._processing)
             active_uids.update(handlers.walinkweb._user_locks.keys())
             active_uids.update(handlers.xlsxtotxt._master_locks.keys())
-            active_uids.update(handlers.cleanup._processing)
+            active_uids.update(handlers.cleanup._user_locks.keys())
             active_uids.update(handlers.manual._user_locks.keys())
 
             inactive_ids = []

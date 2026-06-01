@@ -16,7 +16,10 @@ from handlers.rename import _user_timers as rename_timers, _user_locks as rename
 from handlers.pecahtxt import _user_timers as pecahtxt_timers, _user_locks as pecahtxt_locks, _clear_buffers as pecahtxt_clear
 from handlers.xlsxtovcf import _user_timers as xlsxtovcf_timers, _user_locks as xlsxtovcf_locks, _clear_buffers as xlsxtovcf_clear
 from handlers.walinkweb import _button_timers as walinkweb_timers, _processing as walinkweb_processing
-from handlers.duplikat import _button_timers as duplikat_timers, _user_locks as duplikat_locks, _active_requests as duplikat_requests, _clear_buffers as duplikat_clear
+from handlers.walink import _processing as walink_processing
+from handlers.duplikat import _button_timers as duplikat_timers, _user_locks as duplikat_locks, _clear_buffers as duplikat_clear
+from handlers.pecahvcf import _user_timers as pecahvcf_timers, _user_locks as pecahvcf_locks, _clear_buffers as pecahvcf_clear
+from handlers.cleanup import _user_timers as cleanup_timers, _user_locks as cleanup_locks, _clear_buffers as cleanup_clear
 
 # Handler bantu lainnya untuk kelengkapan
 from handlers.count import _user_locks as count_locks, _user_timers as count_timers, _clear_buffers as count_clear
@@ -60,13 +63,15 @@ def cancel_all(user_id: int):
         vcf2txt_timers,
         ttv_timers,
         pecah_timers,
+        pecahvcf_timers,
         rename_timers,
         pecahtxt_timers,
         xlsxtovcf_timers,
         walinkweb_timers,
         duplikat_timers,
         manual_timers,
-        count_timers
+        count_timers,
+        cleanup_timers
     ]
     for timers in timers_list:
         try:
@@ -82,9 +87,11 @@ def cancel_all(user_id: int):
         vcf2txt_clear,
         ttv_clear,
         pecahtxt_clear,
+        pecahvcf_clear,
         xlsxtovcf_clear,
         duplikat_clear,
-        count_clear
+        count_clear,
+        cleanup_clear
     ]
     for clear_func in clear_funcs:
         try:
@@ -100,9 +107,10 @@ def cancel_all(user_id: int):
         logger.warning("Error discarding walinkweb processing for user %s: %s", user_id, e)
 
     try:
-        duplikat_requests.pop(user_id, None)
+        if user_id in walink_processing:
+            walink_processing.discard(user_id)
     except Exception as e:
-        logger.warning("Error popping duplikat requests for user %s: %s", user_id, e)
+        logger.warning("Error discarding walink processing for user %s: %s", user_id, e)
 
     # 4. Hapus semua lock
     locks_list = [
@@ -111,9 +119,11 @@ def cancel_all(user_id: int):
         ttv_locks,
         rename_locks,
         pecahtxt_locks,
+        pecahvcf_locks,
         xlsxtovcf_locks,
         duplikat_locks,
         count_locks,
+        cleanup_locks,
         admin_navy_locks,
         manual_locks
     ]
