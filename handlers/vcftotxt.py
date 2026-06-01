@@ -34,6 +34,36 @@ from config import (
     SEND_FILE_DELAY,
 )
 
+def _fit(val, max_len=22) -> str:
+    s = str(val)
+    if len(s) > max_len:
+        return s[:max_len-3] + "..."
+    return s
+
+def _get_breadcrumbs(data: dict, step: int) -> str:
+    count = data.get("count", 0)
+    file_name = data.get("file_name", "")
+    
+    parts = []
+    if step == 1:
+        parts.append(f"» Berkas: {count} VCF «" if count else "» Berkas «")
+    else:
+        parts.append(f"Berkas: {count} VCF" if count else "Berkas ○")
+        
+    if step == 2:
+        parts.append(f"» Nama: {file_name} «" if file_name else "» Nama «")
+    elif step > 2 and file_name:
+        parts.append(f"Nama: {file_name}")
+    else:
+        parts.append("Nama ○")
+        
+    if step == 3:
+        parts.append("» Kirim «")
+    else:
+        parts.append("Kirim ○")
+        
+    return " ➔ ".join(parts) + "\n\n━━━━━━━━━━━━━━━━━━━━\n\n"
+
 _user_locks: dict = {}
 _user_timers: dict = {}
 
@@ -72,7 +102,7 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                     except Exception:
                         pass
                 
-                text = f"<b>{jumlah_file}</b> file diterima ({jumlah_kontak} kontak). Silakan pilih tindakan:"
+                text = _get_breadcrumbs(data, 1) + f"<b>{jumlah_file}</b> file VCF diterima ({jumlah_kontak} kontak). Silakan pilih tindakan:"
                 keyboard = InlineKeyboardMarkup([
                     [
                         InlineKeyboardButton("PROSES SEKARANG", callback_data="done", style="success"),
@@ -138,7 +168,7 @@ async def cmd_vcftotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Kirim file <b>.VCF</b> sekarang.",
+        _get_breadcrumbs({"count": 0}, 1) + "Kirim file <b>.VCF</b> sekarang.",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
@@ -268,7 +298,7 @@ async def handle_vcftotxt_done(update: Update, context: ContextTypes.DEFAULT_TYP
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text=f"{data['count']} file ({data.get('total_contacts', 0)} kontak) terdeteksi. Nama file TXT? Contoh: <b>FEE</b>",
+        text=_get_breadcrumbs(data, 2) + f"<b>{data['count']}</b> file ({data.get('total_contacts', 0)} kontak) terdeteksi. Nama file TXT? Contoh: <b>FEE</b>",
         parse_mode="HTML",
         reply_markup=keyboard
     )
@@ -306,7 +336,7 @@ async def handle_vcftotxt_naming(update: Update, context: ContextTypes.DEFAULT_T
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text="Pilih format pengiriman file TXT:",
+        text=_get_breadcrumbs(data, 3) + "Pilih format pengiriman file TXT:",
         parse_mode="HTML",
         reply_markup=deliv_keyboard
     )
@@ -516,14 +546,23 @@ async def handle_vcftotxt_process(update: Update, context: ContextTypes.DEFAULT_
                     InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
                 ]
             ])
+            total_contacts = data.get("total_contacts", 0)
+            box_text = (
+                f"<pre>"
+                f"┌────────────────────────────────────────┐\n"
+                f"│             PROSES SELESAI             │\n"
+                f"├────────────────────────────────────────┤\n"
+                f"│ Total Berkas   : {_fit(f'{total_files} VCF'):<22} │\n"
+                f"│ Berkas Output  : {_fit(f'{total_created} TXT (ZIP)'):<22} │\n"
+                f"│ Nama File TXT  : {_fit(file_name):<22} │\n"
+                f"│ Total Kontak   : {_fit(f'{total_contacts:,}'):<22} │\n"
+                f"└────────────────────────────────────────┘"
+                f"</pre>\n\n"
+                f"<i>Silakan unduh file ZIP di atas.</i>"
+            )
             final_msg = await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=(
-                    f"Proses selesai.\n"
-                    f"Total file: <b>{total_files} VCF (ZIP)</b>\n"
-                    f"Total TXT: <b>{total_created} file</b>\n\n"
-                    f"Silakan unduh file ZIP di atas."
-                ),
+                text=box_text,
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -536,7 +575,11 @@ async def handle_vcftotxt_process(update: Update, context: ContextTypes.DEFAULT_
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text=f"Mengirim <b>0 / {total_created}</b> file TXT...",
+                    text=(
+                        f"<b>Mengirim file TXT...</b>\n\n"
+                        f"Progress: | 0 / {total_created} TXT\n"
+                        f"[□□□□□□□□□□] 0%"
+                    ),
                     parse_mode="HTML"
                 )
             except Exception:
@@ -576,11 +619,18 @@ async def handle_vcftotxt_process(update: Update, context: ContextTypes.DEFAULT_
 
                 if sent_count % SEND_PROGRESS_INTERVAL == 0 or sent_count == total_created:
                     percent = int((sent_count / total_created) * 100)
+                    spinner = ["|", "/", "-", "\\"][sent_count % 4]
+                    filled_len = int(round(10 * sent_count / total_created))
+                    bar = "■" * filled_len + "□" * (10 - filled_len)
                     try:
                         await context.bot.edit_message_text(
                             chat_id=update.effective_chat.id,
                             message_id=status_msg_id,
-                            text=f"Mengirim <b>{sent_count} / {total_created}</b> file TXT ({percent}%)...",
+                            text=(
+                                f"<b>Mengirim file TXT...</b>\n\n"
+                                f"Progress: {spinner} {sent_count} / {total_created} TXT\n"
+                                f"[{bar}] {percent}%"
+                            ),
                             parse_mode="HTML"
                         )
                     except Exception:
@@ -606,13 +656,23 @@ async def handle_vcftotxt_process(update: Update, context: ContextTypes.DEFAULT_
                     InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
                 ]
             ])
+            total_contacts = data.get("total_contacts", 0)
+            box_text = (
+                f"<pre>"
+                f"┌────────────────────────────────────────┐\n"
+                f"│             PROSES SELESAI             │\n"
+                f"├────────────────────────────────────────┤\n"
+                f"│ Total Berkas   : {_fit(f'{total_files} VCF'):<22} │\n"
+                f"│ Berkas Output  : {_fit(f'{total_created} TXT'):<22} │\n"
+                f"│ Nama File TXT  : {_fit(file_name):<22} │\n"
+                f"│ Total Kontak   : {_fit(f'{total_contacts:,}'):<22} │\n"
+                f"└────────────────────────────────────────┘"
+                f"</pre>\n\n"
+                f"<i>Silakan unduh file TXT di atas.</i>"
+            )
             final_msg = await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=(
-                    f"Proses selesai.\n"
-                    f"Total VCF: <b>{total_files}</b>\n"
-                    f"Total TXT: <b>{total_created} file</b>"
-                ),
+                text=box_text,
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -637,7 +697,8 @@ async def handle_show_vcftotxt_help_callback(update: Update, context: ContextTyp
 
     try:
         await query.message.edit_text(
-            text="Kirim file <b>.VCF</b> sekarang."
+            text=_get_breadcrumbs({"count": 0}, 1) + "Kirim file <b>.VCF</b> sekarang.",
+            parse_mode="HTML"
         )
     except Exception:
         try:
@@ -646,6 +707,7 @@ async def handle_show_vcftotxt_help_callback(update: Update, context: ContextTyp
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Kirim file <b>.VCF</b> sekarang.",
-            reply_markup=ReplyKeyboardRemove()
+            text=_get_breadcrumbs({"count": 0}, 1) + "Kirim file <b>.VCF</b> sekarang.",
+            reply_markup=ReplyKeyboardRemove(),
+            parse_mode="HTML"
         )

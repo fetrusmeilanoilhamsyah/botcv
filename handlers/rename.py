@@ -18,6 +18,12 @@ from core.vcf_parser import parse_vcf_file, contacts_to_vcf
 logger = logging.getLogger(__name__)
 
 STATE_NAME = "RENAME_WAIT_NAME"
+
+def _fit(val, max_len=22) -> str:
+    s = str(val)
+    if len(s) > max_len:
+        return s[:max_len-3] + "..."
+    return s
 STATE_FILE = "RENAME_WAIT_FILE"
 
 _user_locks: dict[int, asyncio.Lock] = {}
@@ -179,14 +185,22 @@ async def handle_rename_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
                 from handlers.start import clear_welcome_messages
                 clear_welcome_messages(user_id)
+                box_text = (
+                    f"<pre>"
+                    f"┌────────────────────────────────────────┐\n"
+                    f"│             PROSES SELESAI             │\n"
+                    f"├────────────────────────────────────────┤\n"
+                    f"│ Total Berkas   : {_fit(f'{count} VCF'):<22} │\n"
+                    f"│ Total Kontak   : {_fit(f'{t_renamed:,}'):<22} │\n"
+                    f"│ Format Nama    : {_fit(base):<22} │\n"
+                    f"│ Range Urutan   : {_fit(f'{start_cnt + 1} - {end_counter}'):<22} │\n"
+                    f"└────────────────────────────────────────┘\n"
+                    f"</pre>\n\n"
+                    f"<i>Rename selesai! Silakan unduh file di atas.</i>"
+                )
                 await bot.send_message(
                     chat_id=chat_id,
-                    text=(
-                        f"Rename selesai!\n\n"
-                        f"Total file: <b>{count}</b>\n"
-                        f"Total kontak: <b>{t_renamed:,} nama diubah</b>\n"
-                        f"Label baru: <b>{base} {start_cnt + 1} - {base} {end_counter}</b>"
-                    ),
+                    text=box_text,
                     parse_mode="HTML",
                     reply_markup=keyboard
                 )

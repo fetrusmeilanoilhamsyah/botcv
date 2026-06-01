@@ -36,6 +36,12 @@ from config import (
     SEND_BATCH_DELAY,
 )
 
+def _fit(val, max_len=22) -> str:
+    s = str(val)
+    if len(s) > max_len:
+        return s[:max_len-3] + "..."
+    return s
+
 def _get_breadcrumbs(data: dict, step: int) -> str:
     count = data.get("count", 0)
     contact_name = data.get("contact_name", "")
@@ -44,13 +50,17 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     awalan = data.get("awalan", "")
     
     parts = []
-    parts.append(f"Berkas: {count} file" if count else "Berkas ○")
+    
+    if step == 1:
+        parts.append(f"» Berkas: {count} file «" if count else "» Berkas «")
+    else:
+        parts.append(f"Berkas: {count} file" if count else "Berkas ○")
     
     if step == 2:
         if contact_name:
-            parts.append(f"Nama: {contact_name} ●")
+            parts.append(f"» Nama: {contact_name} «")
         else:
-            parts.append("Nama ●")
+            parts.append("» Nama «")
     elif step > 2 and contact_name:
         parts.append(f"Nama: {contact_name}")
     else:
@@ -58,9 +68,9 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
         
     if step == 3:
         if per_file:
-            parts.append(f"Jumlah: {per_file} ●")
+            parts.append(f"» Jumlah: {per_file} «")
         else:
-            parts.append("Jumlah ●")
+            parts.append("» Jumlah «")
     elif step > 3 and per_file:
         parts.append(f"Jumlah: {per_file}")
     else:
@@ -68,9 +78,9 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
 
     if step == 4:
         if file_name:
-            parts.append(f"File: {file_name} ●")
+            parts.append(f"» File: {file_name} «")
         else:
-            parts.append("File ●")
+            parts.append("» File «")
     elif step > 4 and file_name:
         parts.append(f"File: {file_name}")
     else:
@@ -78,9 +88,9 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
         
     if step == 5:
         if awalan:
-            parts.append(f"Urutan: {awalan} ●")
+            parts.append(f"» Urutan: {awalan} «")
         else:
-            parts.append("Urutan ●")
+            parts.append("» Urutan «")
     elif step > 5 and awalan:
         parts.append(f"Urutan: {awalan}")
     else:
@@ -705,18 +715,26 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
                 ]
             ])
+            total_contacts_str = f"{len(all_numbers):,}"
+            box_text = (
+                f"<pre>"
+                f"┌────────────────────────────────────────┐\n"
+                f"│             PROSES SELESAI             │\n"
+                f"├────────────────────────────────────────┤\n"
+                f"│ Total Berkas   : {_fit(f'{total_input} TXT'):<22} │\n"
+                f"│ Berkas Output  : {_fit(f'{total_files} VCF (ZIP)'):<22} │\n"
+                f"│ Nama Kontak    : {_fit(contact_name_val):<22} │\n"
+                f"│ Jumlah / File  : {_fit(per_file_val):<22} │\n"
+                f"│ Nama File VCF  : {_fit(file_name_val):<22} │\n"
+                f"│ Urutan Mulai   : {_fit(awalan_val):<22} │\n"
+                f"│ Total Kontak   : {_fit(total_contacts_str):<22} │\n"
+                f"└────────────────────────────────────────┘"
+                f"</pre>\n\n"
+                f"<i>Silakan unduh file ZIP di atas.</i>"
+            )
             final_msg = await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=(
-                    f"<b>PROSES SELESAI</b>\n"
-                    f"━━━━━━━━━━━━━━━━━━━━\n"
-                    f"• Input: <b>{total_input} TXT</b> ➔ Output: <b>{total_files} VCF (ZIP)</b>\n"
-                    f"• Nama Kontak: <b>{contact_name_val}</b> (Per File: <b>{per_file_val}</b>)\n"
-                    f"• Format File: <b>{file_name_val} [No Urut].vcf</b> (Mulai: <b>{awalan_val}</b>)\n"
-                    f"• Total Kontak: <b>{len(all_numbers):,} nomor</b>\n"
-                    f"━━━━━━━━━━━━━━━━━━━━\n"
-                    f"<i>Silakan unduh file ZIP di atas.</i>"
-                ),
+                text=box_text,
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -729,7 +747,11 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=f"Mengirim <b>0 / {total_files}</b> file VCF...",
+                text=(
+                    f"<b>Mengirim file VCF...</b>\n\n"
+                    f"Progress: | 0 / {total_files} VCF\n"
+                    f"[□□□□□□□□□□] 0%"
+                ),
                 parse_mode="HTML"
             )
 
@@ -766,11 +788,18 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
                 if sent_count % SEND_PROGRESS_INTERVAL == 0 or sent_count == total_files:
                     percent = int((sent_count / total_files) * 100)
+                    spinner = ["|", "/", "-", "\\"][sent_count % 4]
+                    filled_len = int(round(10 * sent_count / total_files))
+                    bar = "■" * filled_len + "□" * (10 - filled_len)
                     try:
                         await context.bot.edit_message_text(
                             chat_id=update.effective_chat.id,
                             message_id=status_msg_id,
-                            text=f"Mengirim <b>{sent_count} / {total_files}</b> file VCF ({percent}%)...",
+                            text=(
+                                f"<b>Mengirim file VCF...</b>\n\n"
+                                f"Progress: {spinner} {sent_count} / {total_files} VCF\n"
+                                f"[{bar}] {percent}%"
+                            ),
                             parse_mode="HTML"
                         )
                     except Exception:
@@ -796,18 +825,26 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
                 ]
             ])
+            total_contacts_str = f"{len(all_numbers):,}"
+            box_text = (
+                f"<pre>"
+                f"┌────────────────────────────────────────┐\n"
+                f"│             PROSES SELESAI             │\n"
+                f"├────────────────────────────────────────┤\n"
+                f"│ Total Berkas   : {_fit(f'{total_input} TXT'):<22} │\n"
+                f"│ Berkas Output  : {_fit(f'{total_files} VCF'):<22} │\n"
+                f"│ Nama Kontak    : {_fit(contact_name_val):<22} │\n"
+                f"│ Jumlah / File  : {_fit(per_file_val):<22} │\n"
+                f"│ Nama File VCF  : {_fit(file_name_val):<22} │\n"
+                f"│ Urutan Mulai   : {_fit(awalan_val):<22} │\n"
+                f"│ Total Kontak   : {_fit(total_contacts_str):<22} │\n"
+                f"└────────────────────────────────────────┘"
+                f"</pre>\n\n"
+                f"<i>Silakan unduh file VCF di atas.</i>"
+            )
             final_msg = await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=(
-                    f"<b>PROSES SELESAI</b>\n"
-                    f"━━━━━━━━━━━━━━━━━━━━\n"
-                    f"• Input: <b>{total_input} TXT</b> ➔ Output: <b>{total_files} VCF</b>\n"
-                    f"• Nama Kontak: <b>{contact_name_val}</b> (Per File: <b>{per_file_val}</b>)\n"
-                    f"• Format File: <b>{file_name_val} [No Urut].vcf</b> (Mulai: <b>{awalan_val}</b>)\n"
-                    f"• Total Kontak: <b>{len(all_numbers):,} nomor</b>\n"
-                    f"━━━━━━━━━━━━━━━━━━━━\n"
-                    f"<i>Silakan unduh file VCF di atas.</i>"
-                ),
+                text=box_text,
                 parse_mode="HTML",
                 reply_markup=keyboard
             )

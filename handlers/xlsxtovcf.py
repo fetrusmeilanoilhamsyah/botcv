@@ -45,6 +45,55 @@ from config import (
     SEND_FILE_DELAY,
 )
 
+def _fit(val, max_len=22) -> str:
+    s = str(val)
+    if len(s) > max_len:
+        return s[:max_len-3] + "..."
+    return s
+
+def _get_breadcrumbs(data: dict, step: int) -> str:
+    count = data.get("count", 0)
+    contact_name = data.get("contact_name", "")
+    per_file = data.get("per_file", "")
+    file_name = data.get("file_name", "")
+    awalan = data.get("awalan", "")
+    
+    parts = []
+    if step == 1:
+        parts.append(f"» Berkas: {count} file «" if count else "» Berkas «")
+    else:
+        parts.append(f"Berkas: {count} file" if count else "Berkas ○")
+        
+    if step == 2:
+        parts.append(f"» Nama: {contact_name} «" if contact_name else "» Nama «")
+    elif step > 2 and contact_name:
+        parts.append(f"Nama: {contact_name}")
+    else:
+        parts.append("Nama ○")
+        
+    if step == 3:
+        parts.append(f"» Jumlah: {per_file} «" if per_file else "» Jumlah «")
+    elif step > 3 and per_file:
+        parts.append(f"Jumlah: {per_file}")
+    else:
+        parts.append("Jumlah ○")
+        
+    if step == 4:
+        parts.append(f"» File: {file_name} «" if file_name else "» File «")
+    elif step > 4 and file_name:
+        parts.append(f"File: {file_name}")
+    else:
+        parts.append("File ○")
+        
+    if step == 5:
+        parts.append(f"» Urutan: {awalan} «" if awalan else "» Urutan «")
+    elif step > 5 and awalan:
+        parts.append(f"Urutan: {awalan}")
+    else:
+        parts.append("Urutan ○")
+        
+    return " ➔ ".join(parts) + "\n\n━━━━━━━━━━━━━━━━━━━━\n\n"
+
 _user_locks: dict = {}
 _user_timers: dict = {}
 
@@ -84,7 +133,7 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                     except Exception:
                         pass
                 
-                text = f"<b>{jumlah}</b> file Excel/CSV diterima. Silakan pilih tindakan:"
+                text = _get_breadcrumbs(data, 1) + f"<b>{jumlah}</b> file Excel/CSV diterima. Silakan pilih tindakan:"
                 keyboard = InlineKeyboardMarkup([
                     [
                         InlineKeyboardButton("PROSES SEKARANG", callback_data="done", style="success"),
@@ -191,7 +240,7 @@ async def cmd_xlsxtovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Kirim file <b>.xlsx</b> atau <b>.csv</b> sekarang.",
+        _get_breadcrumbs({"count": 0}, 1) + "Kirim file <b>.xlsx</b> atau <b>.csv</b> sekarang.",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
@@ -228,7 +277,7 @@ async def handle_xtv_contact_name(update: Update, context: ContextTypes.DEFAULT_
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text=f"Pilih format penamaan untuk kontak <b>{data['contact_name']}</b>:",
+        text=_get_breadcrumbs(data, 2) + f"Pilih format penamaan untuk kontak <b>{data['contact_name']}</b>:",
         parse_mode="HTML",
         reply_markup=keyboard
     )
@@ -250,7 +299,7 @@ async def handle_xtv_style_callback(update: Update, context: ContextTypes.DEFAUL
     
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
     await query.edit_message_text(
-        text="Berapa kontak per file? Contoh: <b>100</b>",
+        text=_get_breadcrumbs(data, 3) + "Berapa kontak per file? Contoh: <b>100</b>",
         parse_mode="HTML",
         reply_markup=keyboard
     )
@@ -276,7 +325,7 @@ async def handle_xtv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text="⚠️ Harap masukkan angka saja.\n\nBerapa kontak per file? Contoh: <b>100</b>",
+            text=_get_breadcrumbs(sess["data"], 3) + "⚠️ Harap masukkan angka saja.\n\nBerapa kontak per file? Contoh: <b>100</b>",
             parse_mode="HTML",
             reply_markup=keyboard
         )
@@ -287,7 +336,7 @@ async def handle_xtv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text=f"⚠️ Harap masukkan angka antara 1 sampai {MAX_CONTACTS_PER_FILE:,}.\n\nBerapa kontak per file? Contoh: <b>100</b>",
+            text=_get_breadcrumbs(sess["data"], 3) + f"⚠️ Harap masukkan angka antara 1 sampai {MAX_CONTACTS_PER_FILE:,}.\n\nBerapa kontak per file? Contoh: <b>100</b>",
             parse_mode="HTML",
             reply_markup=keyboard
         )
@@ -300,7 +349,7 @@ async def handle_xtv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text="Nama file? Contoh: <b>FEE</b>",
+        text=_get_breadcrumbs(data, 4) + "Nama file? Contoh: <b>FEE</b>",
         parse_mode="HTML",
         reply_markup=keyboard
     )
@@ -326,7 +375,7 @@ async def handle_xtv_file_name(update: Update, context: ContextTypes.DEFAULT_TYP
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text="Nomor urut awal? Contoh: <b>1</b>",
+        text=_get_breadcrumbs(data, 5) + "Nomor urut awal? Contoh: <b>1</b>",
         parse_mode="HTML",
         reply_markup=keyboard
     )
@@ -352,7 +401,7 @@ async def handle_xtv_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text="⚠️ Harap masukkan angka valid (minimal 1).\n\nNomor urut awal? Contoh: <b>1</b>",
+            text=_get_breadcrumbs(sess["data"], 5) + "⚠️ Harap masukkan angka valid (minimal 1).\n\nNomor urut awal? Contoh: <b>1</b>",
             parse_mode="HTML",
             reply_markup=keyboard
         )
@@ -373,7 +422,7 @@ async def handle_xtv_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text="Pilih format pengiriman file VCF:",
+        text=_get_breadcrumbs(data, 6) + "Pilih format pengiriman file VCF:",
         parse_mode="HTML",
         reply_markup=deliv_keyboard
     )
@@ -510,7 +559,7 @@ async def handle_xtv_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text=f"{data['count']} file Excel/CSV diterima. Nama kontak? Contoh: <b>FEE</b>",
+            text=_get_breadcrumbs(data, 2) + f"<b>{data['count']}</b> file Excel/CSV diterima. Nama kontak? Contoh: <b>FEE</b>",
             parse_mode="HTML",
             reply_markup=keyboard
         )
@@ -677,14 +726,26 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
                 ]
             ])
+            total_contacts_str = f"{len(all_numbers):,}"
+            box_text = (
+                f"<pre>"
+                f"┌────────────────────────────────────────┐\n"
+                f"│             PROSES SELESAI             │\n"
+                f"├────────────────────────────────────────┤\n"
+                f"│ Total Berkas   : {_fit(f'{len(files)} XLSX/CSV'):<22} │\n"
+                f"│ Berkas Output  : {_fit(f'{total_files} VCF (ZIP)'):<22} │\n"
+                f"│ Nama Kontak    : {_fit(contact_name):<22} │\n"
+                f"│ Jumlah / File  : {_fit(per_file):<22} │\n"
+                f"│ Nama File VCF  : {_fit(file_name):<22} │\n"
+                f"│ Urutan Mulai   : {_fit(awalan):<22} │\n"
+                f"│ Total Kontak   : {_fit(total_contacts_str):<22} │\n"
+                f"└────────────────────────────────────────┘"
+                f"</pre>\n\n"
+                f"<i>Silakan unduh file ZIP di atas.</i>"
+            )
             final_msg = await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=(
-                    f"Proses selesai.\n"
-                    f"Total file: <b>{total_files} VCF (ZIP)</b>\n"
-                    f"Total kontak: <b>{len(all_numbers)} nomor</b>\n\n"
-                    f"Silakan unduh file ZIP di atas."
-                ),
+                text=box_text,
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -697,7 +758,11 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text=f"Mengirim <b>0 / {total_files}</b> file VCF...",
+                    text=(
+                        f"<b>Mengirim file VCF...</b>\n\n"
+                        f"Progress: | 0 / {total_files} VCF\n"
+                        f"[□□□□□□□□□□] 0%"
+                    ),
                     parse_mode="HTML"
                 )
             except Exception:
@@ -737,11 +802,18 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
                 if sent_count % SEND_PROGRESS_INTERVAL == 0 or sent_count == total_files:
                     percent = int((sent_count / total_files) * 100)
+                    spinner = ["|", "/", "-", "\\"][sent_count % 4]
+                    filled_len = int(round(10 * sent_count / total_files))
+                    bar = "■" * filled_len + "□" * (10 - filled_len)
                     try:
                         await context.bot.edit_message_text(
                             chat_id=update.effective_chat.id,
                             message_id=status_msg_id,
-                            text=f"Mengirim <b>{sent_count} / {total_files}</b> file VCF ({percent}%)...",
+                            text=(
+                                f"<b>Mengirim file VCF...</b>\n\n"
+                                f"Progress: {spinner} {sent_count} / {total_files} VCF\n"
+                                f"[{bar}] {percent}%"
+                            ),
                             parse_mode="HTML"
                         )
                     except Exception:
@@ -768,13 +840,26 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
                 ]
             ])
+            total_contacts_str = f"{len(all_numbers):,}"
+            box_text = (
+                f"<pre>"
+                f"┌────────────────────────────────────────┐\n"
+                f"│             PROSES SELESAI             │\n"
+                f"├────────────────────────────────────────┤\n"
+                f"│ Total Berkas   : {_fit(f'{len(files)} XLSX/CSV'):<22} │\n"
+                f"│ Berkas Output  : {_fit(f'{total_files} VCF'):<22} │\n"
+                f"│ Nama Kontak    : {_fit(contact_name):<22} │\n"
+                f"│ Jumlah / File  : {_fit(per_file):<22} │\n"
+                f"│ Nama File VCF  : {_fit(file_name):<22} │\n"
+                f"│ Urutan Mulai   : {_fit(awalan):<22} │\n"
+                f"│ Total Kontak   : {_fit(total_contacts_str):<22} │\n"
+                f"└────────────────────────────────────────┘"
+                f"</pre>\n\n"
+                f"<i>Silakan unduh file VCF di atas.</i>"
+            )
             final_msg = await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=(
-                    f"Proses selesai.\n"
-                    f"Total file: <b>{total_files} VCF</b>\n"
-                    f"Total kontak: <b>{len(all_numbers)} nomor</b>"
-                ),
+                text=box_text,
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -799,7 +884,8 @@ async def handle_show_xlsxtovcf_help_callback(update: Update, context: ContextTy
 
     try:
         await query.message.edit_text(
-            text="Kirim file <b>.xlsx</b> atau <b>.csv</b> sekarang."
+            text=_get_breadcrumbs({"count": 0}, 1) + "Kirim file <b>.xlsx</b> atau <b>.csv</b> sekarang.",
+            parse_mode="HTML"
         )
     except Exception:
         try:
@@ -808,6 +894,7 @@ async def handle_show_xlsxtovcf_help_callback(update: Update, context: ContextTy
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Kirim file <b>.xlsx</b> atau <b>.csv</b> sekarang.",
-            reply_markup=ReplyKeyboardRemove()
+            text=_get_breadcrumbs({"count": 0}, 1) + "Kirim file <b>.xlsx</b> atau <b>.csv</b> sekarang.",
+            reply_markup=ReplyKeyboardRemove(),
+            parse_mode="HTML"
         )

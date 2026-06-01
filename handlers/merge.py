@@ -17,6 +17,13 @@ from core.vcf_parser import parse_vcf_file, contacts_to_vcf
 from core.utils import sanitize_filename
 
 STATE        = "MERGE_COLLECTING"
+
+def _fit(val, max_len=22) -> str:
+    s = str(val)
+    if len(s) > max_len:
+        return s[:max_len-3] + "..."
+    return s
+
 STATE_NAMING = "MERGE_NAMING"
 
 from config import MAX_FILES_PER_SESSION as MAX_FILES, MAX_UPLOAD_SIZE_MB as MAX_SIZE_MB
@@ -433,14 +440,22 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
             from handlers.start import clear_welcome_messages
             clear_welcome_messages(user_id)
             
+            box_text = (
+                f"<pre>"
+                f"┌────────────────────────────────────────┐\n"
+                f"│             PROSES SELESAI             │\n"
+                f"├────────────────────────────────────────┤\n"
+                f"│ Total Berkas   : {_fit(f'{total_files} VCF'):<22} │\n"
+                f"│ Berkas Output  : {_fit('1 VCF'):<22} │\n"
+                f"│ Nama File Hasil: {_fit(file_name):<22} │\n"
+                f"│ Total Kontak   : {_fit(f'{len(all_contacts):,}'):<22} │\n"
+                f"└────────────────────────────────────────┘\n"
+                f"</pre>\n\n"
+                f"<i>Silakan unduh file VCF di atas.</i>"
+            )
             final_msg = await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=(
-                    f"Proses selesai.\n"
-                    f"Total file input: <b>{total_files} VCF</b>\n"
-                    f"Total kontak: <b>{len(all_contacts)}</b>\n\n"
-                    f"Silakan unduh file VCF di atas."
-                ),
+                text=box_text,
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -512,14 +527,22 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
             from handlers.start import clear_welcome_messages
             clear_welcome_messages(user_id)
             
+            box_text = (
+                f"<pre>"
+                f"┌────────────────────────────────────────┐\n"
+                f"│             PROSES SELESAI             │\n"
+                f"├────────────────────────────────────────┤\n"
+                f"│ Total Berkas   : {_fit(f'{total_files} TXT'):<22} │\n"
+                f"│ Berkas Output  : {_fit('1 TXT'):<22} │\n"
+                f"│ Nama File Hasil: {_fit(file_name):<22} │\n"
+                f"│ Total Nomor    : {_fit(f'{len(numbers):,}'):<22} │\n"
+                f"└────────────────────────────────────────┘\n"
+                f"</pre>\n\n"
+                f"<i>Silakan unduh file TXT di atas.</i>"
+            )
             final_msg = await context.bot.send_message(
                 chat_id=update.effective_chat.id,
-                text=(
-                    f"Proses selesai.\n"
-                    f"Total file input: <b>{total_files} TXT</b>\n"
-                    f"Total nomor: <b>{len(numbers)}</b>\n\n"
-                    f"Silakan unduh file TXT di atas."
-                ),
+                text=box_text,
                 parse_mode="HTML",
                 reply_markup=keyboard
             )

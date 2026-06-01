@@ -14,6 +14,12 @@ logger = logging.getLogger(__name__)
 
 STATE = "XLSX2TXT_COLLECTING"
 
+def _fit(val, max_len=22) -> str:
+    s = str(val)
+    if len(s) > max_len:
+        return s[:max_len-3] + "..."
+    return s
+
 _master_locks: dict[int, asyncio.Lock] = {}
 _status_msg: dict = {}
 _debounce_tasks: dict[int, asyncio.Task] = {}
@@ -321,10 +327,22 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
         from handlers.start import clear_welcome_messages, register_welcome_messages
         clear_welcome_messages(user_id)
         
+        box_text = (
+            f"<pre>"
+            f"┌────────────────────────────────────────┐\n"
+            f"│             PROSES SELESAI             │\n"
+            f"├────────────────────────────────────────┤\n"
+            f"│ Total Berkas   : {_fit(f'{total_file} EXCEL/CSV'):<22} │\n"
+            f"│ Total Kontak   : {_fit(f'{total:,}'):<22} │\n"
+            f"└────────────────────────────────────────┘\n"
+            f"</pre>\n\n"
+            f"<i>Silakan unduh file hasil ekstraksi di atas.</i>"
+        )
         # Kirim laporan sukses baru di paling bawah chat
         final_msg = await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Proses selesai. Silakan unduh file hasil ekstraksi di atas.",
+            text=box_text,
+            parse_mode="HTML",
             reply_markup=keyboard
         )
         register_welcome_messages(user_id, [final_msg.message_id])
