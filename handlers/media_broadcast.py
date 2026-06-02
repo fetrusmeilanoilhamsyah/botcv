@@ -89,6 +89,7 @@ async def handle_broadcast_media(update: Update, context: ContextTypes.DEFAULT_T
                 
                 await asyncio.sleep(0.05)  # Anti rate-limit
                 
+            await adb.log_broadcast(user_id, f"[MEDIA:{media_type}] {caption[:100]}", success, fail)
             await update.message.reply_text(f"<b>Broadcast selesai.</b>\nBerhasil: <b>{success}</b>\nGagal: <b>{fail}</b>", parse_mode="HTML")
         except asyncio.CancelledError:
             await update.message.reply_text(

@@ -94,6 +94,9 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         expired_at = await adb.get_vip_expiry(user.id)
         if expired_at:
             exp = datetime.fromisoformat(expired_at)
+            # Strip timezone agar bisa dibandingkan dengan datetime.now() (naive)
+            if exp.tzinfo is not None:
+                exp = exp.replace(tzinfo=None)
             sisa = (exp - datetime.now()).days
             status_line = (
                 f"<b>Status:</b> VIP Aktif\n"

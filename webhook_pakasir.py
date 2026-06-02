@@ -6,9 +6,9 @@ sebelum proses apapun. Header: X-Pakasir-Signature
 
 Setup:
 1. Set PAKASIR_WEBHOOK_SECRET di .env (wajib untuk produksi)
-2. Set WEBHOOK_PORT di .env (default: 8080)
-3. Buka port di firewall VPS: ufw allow 8080
-4. Set URL di dashboard Pakasir: http://IP_VPS:8080/webhook/pakasir
+2. Set WEBHOOK_PORT di .env (default: 8081)
+3. Buka port di firewall VPS: ufw allow 8081
+4. Set URL di dashboard Pakasir: http://IP_VPS:8081/webhook/pakasir
    atau gunakan domain + reverse proxy nginx
 """
 import asyncio
