@@ -128,7 +128,7 @@ def build_menu_text(first_name: str, user_id: int) -> str:
             "• /resetdatabase — Bersihkan cache"
         )
 
-    header_text = "          <b>« Haifee CV »</b>\n"
+    header_text = "               <b>«  H A I F E E   C V  »</b>\n\n"
     return (
         f"{header_text}"
         f"Halo <b>{first_name}</b>! Selamat datang di <b>Haifee CV</b>.\n\n"
