@@ -104,7 +104,14 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     else:
         parts.append("Urutan ○")
         
-    return " ➔ ".join(parts) + "\n\n"
+    breadcrumbs = " ➔ ".join(parts)
+    return (
+        "<b>[ EXCEL ➔ VCF CV ]</b>\n"
+        "────────────────────────────\n"
+        f"{breadcrumbs}\n"
+        "────────────────────────────\n\n"
+    )
+
 
 _user_locks: dict = {}
 _user_timers: dict = {}
@@ -252,7 +259,7 @@ async def cmd_xlsxtovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        _get_breadcrumbs({"count": 0}, 1) + "Kirim file <b>.xlsx</b> atau <b>.csv</b> sekarang.",
+        _get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.xlsx</b> atau <b>.csv</b> sekarang.",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
@@ -875,7 +882,7 @@ async def handle_show_xlsxtovcf_help_callback(update: Update, context: ContextTy
 
     try:
         await query.message.edit_text(
-            text=_get_breadcrumbs({"count": 0}, 1) + "Kirim file <b>.xlsx</b> atau <b>.csv</b> sekarang.",
+            text=_get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.xlsx</b> atau <b>.csv</b> sekarang.",
             parse_mode="HTML"
         )
     except Exception:
@@ -885,7 +892,7 @@ async def handle_show_xlsxtovcf_help_callback(update: Update, context: ContextTy
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text=_get_breadcrumbs({"count": 0}, 1) + "Kirim file <b>.xlsx</b> atau <b>.csv</b> sekarang.",
+            text=_get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.xlsx</b> atau <b>.csv</b> sekarang.",
             reply_markup=ReplyKeyboardRemove(),
             parse_mode="HTML"
         )

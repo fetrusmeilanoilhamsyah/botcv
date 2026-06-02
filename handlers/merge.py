@@ -133,7 +133,7 @@ async def cmd_merge(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Kirim file <b>.VCF</b> atau <b>.TXT</b>. Ketik /done jika sudah.",
+        "<b>[ FILE MERGE CV ]</b>\n────────────────────────────\n<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.VCF</b> atau <b>.TXT</b> sekarang. Ketik /done jika sudah.",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
@@ -592,7 +592,8 @@ async def handle_show_merge_help_callback(update: Update, context: ContextTypes.
     # Edit the message in-place instead of deleting it to provide a smooth morphing transition
     try:
         await query.message.edit_text(
-            text="Kirim file <b>.VCF</b> atau <b>.TXT</b>. Ketik /done jika sudah."
+            text="<b>[ FILE MERGE CV ]</b>\n────────────────────────────\n<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.VCF</b> atau <b>.TXT</b> sekarang. Ketik /done jika sudah.",
+            parse_mode="HTML"
         )
     except Exception:
         # Fallback if editing fails
@@ -602,6 +603,7 @@ async def handle_show_merge_help_callback(update: Update, context: ContextTypes.
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Kirim file <b>.VCF</b> atau <b>.TXT</b>. Ketik /done jika sudah.",
+            text="<b>[ FILE MERGE CV ]</b>\n────────────────────────────\n<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.VCF</b> atau <b>.TXT</b> sekarang. Ketik /done jika sudah.",
+            parse_mode="HTML",
             reply_markup=ReplyKeyboardRemove()
         )

@@ -169,7 +169,7 @@ async def cmd_xlsxtotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Kirim file <b>.xlsx</b> atau <b>.csv</b> sekarang. Ketik /done jika sudah selesai.",
+        "<b>[ EXCEL ➔ TXT CV ]</b>\n────────────────────────────\n<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.xlsx</b> atau <b>.csv</b> sekarang. Ketik /done jika sudah selesai.",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
@@ -380,7 +380,7 @@ async def handle_show_xlsxtotxt_help_callback(update: Update, context: ContextTy
     # Edit the message in-place instead of deleting it to provide a smooth morphing transition
     try:
         await query.message.edit_text(
-            text="Kirim file <b>.xlsx</b> atau <b>.csv</b> sekarang. Ketik /done jika sudah selesai.",
+            text="<b>[ EXCEL ➔ TXT CV ]</b>\n────────────────────────────\n<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.xlsx</b> atau <b>.csv</b> sekarang. Ketik /done jika sudah selesai.",
             parse_mode="HTML"
         )
     except Exception:
@@ -391,7 +391,7 @@ async def handle_show_xlsxtotxt_help_callback(update: Update, context: ContextTy
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Kirim file <b>.xlsx</b> atau <b>.csv</b> sekarang. Ketik /done jika sudah selesai.",
+            text="<b>[ EXCEL ➔ TXT CV ]</b>\n────────────────────────────\n<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.xlsx</b> atau <b>.csv</b> sekarang. Ketik /done jika sudah selesai.",
             parse_mode="HTML",
             reply_markup=ReplyKeyboardRemove()
         )

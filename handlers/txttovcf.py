@@ -96,7 +96,14 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     else:
         parts.append("Urutan ○")
         
-    return " ➔ ".join(parts) + "\n\n"
+    breadcrumbs = " ➔ ".join(parts)
+    return (
+        "<b>[ TXT ➔ VCF CV ]</b>\n"
+        "────────────────────────────\n"
+        f"{breadcrumbs}\n"
+        "────────────────────────────\n\n"
+    )
+
 
 _user_locks: dict = {}
 _user_timers: dict = {}
@@ -195,7 +202,7 @@ async def cmd_txttovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        _get_breadcrumbs({"count": 0}, 1) + "Kirim file <b>.TXT</b> sekarang.",
+        _get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> sekarang.",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
@@ -851,7 +858,7 @@ async def handle_show_txttovcf_help_callback(update: Update, context: ContextTyp
     _clear_buffers(user_id)
     db.set_session(user_id, S0, {"count": 0, "total_size": 0, "total_contacts": 0})
 
-    text = _get_breadcrumbs({"count": 0}, 1) + "Kirim file <b>.TXT</b> sekarang."
+    text = _get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> sekarang."
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
 
     try:

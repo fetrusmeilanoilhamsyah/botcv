@@ -50,7 +50,14 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     else:
         parts.append("Kirim ○")
         
-    return " ➔ ".join(parts) + "\n\n"
+    breadcrumbs = " ➔ ".join(parts)
+    return (
+        "<b>[ NUMBER CLEANUP CV ]</b>\n"
+        "────────────────────────────\n"
+        f"{breadcrumbs}\n"
+        "────────────────────────────\n\n"
+    )
+
 
 def _clean_number(num: str) -> str:
     """Bersihkan nomor dari spasi, tanda hubung, kurung, dan simbol lainnya."""
@@ -150,7 +157,7 @@ async def cmd_cleanup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        _get_breadcrumbs({"count": 0}, 1) + "Kirim file <b>.TXT</b> atau <b>.VCF</b> sekarang.",
+        _get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> atau <b>.VCF</b> sekarang.",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
@@ -255,7 +262,7 @@ async def handle_show_cleanup_help_callback(update: Update, context: ContextType
     
     try:
         await query.message.edit_text(
-            text=_get_breadcrumbs({"count": 0}, 1) + "Kirim file <b>.TXT</b> atau <b>.VCF</b> sekarang.",
+            text=_get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> atau <b>.VCF</b> sekarang.",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
         )
@@ -270,7 +277,7 @@ async def handle_show_cleanup_help_callback(update: Update, context: ContextType
             pass
         msg = await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text=_get_breadcrumbs({"count": 0}, 1) + "Kirim file <b>.TXT</b> atau <b>.VCF</b> sekarang.",
+            text=_get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> atau <b>.VCF</b> sekarang.",
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
         )

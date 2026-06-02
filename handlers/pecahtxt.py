@@ -69,7 +69,14 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     else:
         parts.append("Kirim ○")
         
-    return " ➔ ".join(parts) + "\n\n"
+    breadcrumbs = " ➔ ".join(parts)
+    return (
+        "<b>[ TXT SPLIT CV ]</b>\n"
+        "────────────────────────────\n"
+        f"{breadcrumbs}\n"
+        "────────────────────────────\n\n"
+    )
+
 
 _user_timers: dict = {}
 _user_locks: dict  = {}
@@ -169,7 +176,7 @@ async def cmd_pecahtxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        _get_breadcrumbs({"count": 0}, 1) + "Kirim file <b>.TXT</b> sekarang.",
+        _get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> sekarang.",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
@@ -636,7 +643,7 @@ async def handle_show_pecahtxt_help_callback(update: Update, context: ContextTyp
 
     try:
         await query.message.edit_text(
-            text=_get_breadcrumbs({"count": 0}, 1) + "Kirim file <b>.TXT</b> sekarang.",
+            text=_get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> sekarang.",
             parse_mode="HTML"
         )
     except Exception:
@@ -646,7 +653,7 @@ async def handle_show_pecahtxt_help_callback(update: Update, context: ContextTyp
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text=_get_breadcrumbs({"count": 0}, 1) + "Kirim file <b>.TXT</b> sekarang.",
+            text=_get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> sekarang.",
             reply_markup=ReplyKeyboardRemove(),
             parse_mode="HTML"
         )
