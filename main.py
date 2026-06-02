@@ -406,12 +406,6 @@ async def cb_show_vip_menu(update: Update, context):
     query = update.callback_query
     await query.answer()
 
-    # Hapus pesan peringatan VIP/redirect agar layar tidak menumpuk
-    try:
-        await query.message.delete()
-    except Exception:
-        pass
-
     if VIP_PAKASIR_MODE:
         from handlers.vip_pakasir import cmd_vip
         await cmd_vip(update, context)
@@ -428,12 +422,6 @@ async def cb_show_referral_menu(update: Update, context):
     """
     query = update.callback_query
     await query.answer()
-
-    # Hapus pesan peringatan VIP/redirect agar layar tidak menumpuk
-    try:
-        await query.message.delete()
-    except Exception:
-        pass
 
     from handlers.referral import cmd_referral
     await cmd_referral(update, context)
