@@ -28,7 +28,6 @@ from config import (
     JOB_EXPIRE_VIP_INTERVAL,
     JOB_NOTIFY_EXPIRY_INTERVAL,
     JOB_CLEANUP_DISK_INTERVAL,
-    SESSION_INACTIVE_TIMEOUT,
     SESSION_STUCK_TIMEOUT,
     HEALTH_PORT,       # FIX: import dari config agar konsisten
     WEBHOOK_PORT,      # FIX: import dari config agar konsisten (default 8081 ≠ 8080)
@@ -456,7 +455,7 @@ async def _job_cleanup_sessions(context):
     if lock.locked():
         return
     async with lock:
-        MEM_CLEANUP_TIMEOUT = 3600  # 1 jam asinkronus RAM cleanup (anti memory leaks)
+        MEM_CLEANUP_TIMEOUT = SESSION_STUCK_TIMEOUT  # Dari config.py (default 4 jam)
         from middleware.session import clear_user_dir
         tmp_base = os.path.join("tmp", "sessions")
         if not os.path.exists(tmp_base):

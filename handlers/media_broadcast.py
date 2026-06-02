@@ -92,10 +92,14 @@ async def handle_broadcast_media(update: Update, context: ContextTypes.DEFAULT_T
             await adb.log_broadcast(user_id, f"[MEDIA:{media_type}] {caption[:100]}", success, fail)
             await update.message.reply_text(f"<b>Broadcast selesai.</b>\nBerhasil: <b>{success}</b>\nGagal: <b>{fail}</b>", parse_mode="HTML")
         except asyncio.CancelledError:
+            sent_so_far = success + fail
+            not_sent = total - sent_so_far
+            await adb.log_broadcast(user_id, f"[BATAL][MEDIA:{media_type}] {caption[:100]}", success, fail)
             await update.message.reply_text(
                 f"🛑 <b>Broadcast media dibatalkan oleh admin.</b>\n"
-                f"Berhasil terkirim: <b>{success}</b>\n"
-                f"Gagal/Belum terkirim: <b>{total - success}</b>",
+                f"Berhasil: <b>{success}</b>\n"
+                f"Gagal: <b>{fail}</b>\n"
+                f"Belum terkirim: <b>{not_sent}</b>",
                 parse_mode="HTML"
             )
             raise

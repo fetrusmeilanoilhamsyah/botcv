@@ -675,7 +675,12 @@ def cleanup_stale_sessions(max_age_hours=24):
             _session_cache.pop(user_id, None)
             _all_buffers.pop(user_id, None)
             cleaned += 1
-    
+
+    # Bersihkan _vip_cache untuk user stale agar tidak ada cache VIP yang bocor di RAM
+    with _vip_cache_lock:
+        for user_id in stale_users:
+            _vip_cache.pop(user_id, None)
+
     return cleaned
 
 
