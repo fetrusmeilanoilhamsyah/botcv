@@ -260,14 +260,11 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     fee = payment.get("fee", 0)
     caption = (
-        f"QRIS PEMBAYARAN\n"
-        f"• {'Paket':<5} : {package['label']}\n"
-        f"• {'Harga':<5} : {_fmt_price(original_amount)}\n"
-        f"• {'Fee':<5} : {_fmt_price(fee)}\n"
-        f"• {'Total':<5} : {_fmt_price(total_payment)}\n"
-        f"• {'Limit':<5} : {exp_text}\n"
-        f"• {'Order':<5} : {order_id}\n\n"
-        f"Scan QR di atas untuk mengaktifkan VIP otomatis."
+        f"          <b>« QRIS Payment »</b>\n\n"
+        f"<b>Paket:</b> {package['label']} | <b>Total:</b> {_fmt_price(total_payment)}\n"
+        f"<b>Limit:</b> {exp_text}\n"
+        f"<b>Order:</b> <code>{order_id}</code>\n\n"
+        f"Scan QR untuk aktivasi otomatis."
     )
 
     kb = InlineKeyboardMarkup([
@@ -287,7 +284,7 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
             # FIX: kirim foto DULU, delete loading message SETELAH berhasil
             # (urutan lama: delete dulu → kalau send_photo crash → msg sudah hilang, fallback crash)
             sent = await context.bot.send_photo(
-                chat_id=user.id, photo=buf, caption=caption, reply_markup=kb
+                chat_id=user.id, photo=buf, caption=caption, parse_mode="HTML", reply_markup=kb
             )
             try:
                 await msg.delete()  # hapus loading message setelah foto berhasil terkirim
@@ -302,8 +299,8 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Fallback: msg loading masih ada, edit jadi teks QRIS
         try:
             sent = await msg.edit_text(
-                f"{caption}\n\nQRIS String:\n`{qr_string}`",
-                parse_mode="Markdown",
+                f"{caption}\n\nQRIS String:\n<code>{qr_string}</code>",
+                parse_mode="HTML",
                 reply_markup=kb,
             )
         except Exception as exc:
@@ -311,8 +308,8 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.warning("[VIP] Fallback edit_text gagal, kirim pesan baru: %s", exc)
             sent = await context.bot.send_message(
                 chat_id=user.id,
-                text=f"{caption}\n\nQRIS String:\n`{qr_string}`",
-                parse_mode="Markdown",
+                text=f"{caption}\n\nQRIS String:\n<code>{qr_string}</code>",
+                parse_mode="HTML",
                 reply_markup=kb,
             )
         qr_chat_id    = sent.chat_id
