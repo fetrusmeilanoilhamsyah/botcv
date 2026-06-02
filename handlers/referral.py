@@ -7,10 +7,7 @@ from database import db
 from database.db_async import adb
 
 def _get_referral_text(pts: dict, count: int, link: str) -> str:
-    header_text = (
-        "<b>[ REFERRAL CV ]</b>\n"
-        "────────────────────────────\n"
-    )
+    header_text = "          <b>« Referral CV »</b>\n\n"
     
     body = (
         "Undang teman & dapatkan VIP Gratis instan!\n"
@@ -32,8 +29,7 @@ def _get_referral_text(pts: dict, count: int, link: str) -> str:
         "<b>Statistik Kamu:</b>\n"
         f"• Saldo Poin: <b>{pts['referral_points']} Poin</b>\n"
         f"• Akumulasi: <b>{pts['total_referral_points_earned']}/50 Poin</b>\n"
-        f"• Total Teman: <b>{count} orang</b>\n"
-        "────────────────────────────\n\n"
+        f"• Total Teman: <b>{count} orang</b>\n\n"
         "<b>Toko Penukaran VIP:</b>\n"
         "Pilih paket VIP di bawah untuk menukarkan poin Anda:"
     )

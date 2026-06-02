@@ -56,21 +56,17 @@ async def cmd_akun(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
 
-    header_text = (
-        "<b>[ USER PROFILE CV ]</b>\n"
-        "────────────────────────────\n"
-    )
+    header_text = "          <b>« User Profile CV »</b>\n\n"
 
     lines = [
         f"• Nama     : {user.full_name or user.first_name or '-'}",
         f"• Username : @{user.username}" if user.username else "• Username : -",
         f"• ID User  : {user.id}",
         f"• Bergabung: {joined}",
-        "────────────────────────────",
+        "",
         "<b>STATUS & PEMAKAIAN</b>",
         f"• Status   : {role_str}",
         f"• Pemakaian: {usage}x konversi",
-        "────────────────────────────",
     ]
 
     rows = []
