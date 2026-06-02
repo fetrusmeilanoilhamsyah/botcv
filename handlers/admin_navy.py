@@ -210,7 +210,7 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text=_get_breadcrumbs(data, 5) + "Masukkan nama file hasil? Contoh: <b>FEE</b>",
+                    text=_get_breadcrumbs(data, 5) + "Masukkan nama file hasil? Contoh: <b>ADMIN NAVY</b>",
                     parse_mode="HTML",
                     reply_markup=keyboard
                 )

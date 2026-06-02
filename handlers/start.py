@@ -129,10 +129,15 @@ def build_menu_text(first_name: str, user_id: int) -> str:
             "• /resetdatabase — Bersihkan cache"
         )
 
+    header_text = (
+        "<b>[ MAIN MENU CV ]</b>\n"
+        "────────────────────────────\n"
+    )
     return (
-        f"<b>Halo {first_name}!</b> Selamat datang di bot konversi kontak.\n\n"
+        f"{header_text}"
+        f"Halo <b>{first_name}</b>! Selamat datang di layanan kelola kontak.\n\n"
         f"{fitur}\n"
-        f"━━━━━━━━━━━━━━━━━\n"
+        f"────────────────────────────\n"
         f"<b>Owner:</b> {ADMIN_CONTACT}"
     )
 

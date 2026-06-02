@@ -56,19 +56,21 @@ async def cmd_akun(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
 
-    # Referral points system (konsisten dengan referral.py)
+    header_text = (
+        "<b>[ USER PROFILE CV ]</b>\n"
+        "────────────────────────────\n"
+    )
+
     lines = [
-        "<b>INFORMASI AKUN</b>",
-        "━━━━━━━━━━━━━━━━━",
         f"• Nama     : {user.full_name or user.first_name or '-'}",
         f"• Username : @{user.username}" if user.username else "• Username : -",
         f"• ID User  : {user.id}",
         f"• Bergabung: {joined}",
-        "━━━━━━━━━━━━━━━━━",
+        "────────────────────────────",
         "<b>STATUS & PEMAKAIAN</b>",
         f"• Status   : {role_str}",
         f"• Pemakaian: {usage}x konversi",
-        "━━━━━━━━━━━━━━━━━",
+        "────────────────────────────",
     ]
 
     rows = []
@@ -80,7 +82,7 @@ async def cmd_akun(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user.id,
         update.effective_chat.id,
-        "\n".join(lines),
+        header_text + "\n".join(lines),
         reply_markup=InlineKeyboardMarkup(rows),
         update=update
     )

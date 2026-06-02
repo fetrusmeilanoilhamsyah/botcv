@@ -6,6 +6,40 @@ from telegram.ext import ContextTypes
 from database import db
 from database.db_async import adb
 
+def _get_referral_text(pts: dict, count: int, link: str) -> str:
+    header_text = (
+        "<b>[ REFERRAL CV ]</b>\n"
+        "────────────────────────────\n"
+    )
+    
+    body = (
+        "Undang teman & dapatkan VIP Gratis instan!\n"
+        "• 1 Teman = <b>1 Poin</b> (Maksimal 50 Poin per akun).\n\n"
+    )
+    
+    if pts["total_referral_points_earned"] < 50:
+        body += (
+            "<b>Link Referral (Klik untuk Salin):</b>\n"
+            f"<code>{link}</code>\n\n"
+        )
+    else:
+        body += (
+            "<b>Link Referral Kamu:</b>\n"
+            "<i>Mencapai batas maks 50 Poin.</i>\n\n"
+        )
+        
+    body += (
+        "<b>Statistik Kamu:</b>\n"
+        f"• Saldo Poin: <b>{pts['referral_points']} Poin</b>\n"
+        f"• Akumulasi: <b>{pts['total_referral_points_earned']}/50 Poin</b>\n"
+        f"• Total Teman: <b>{count} orang</b>\n"
+        "────────────────────────────\n\n"
+        "<b>Toko Penukaran VIP:</b>\n"
+        "Pilih paket VIP di bawah untuk menukarkan poin Anda:"
+    )
+    return header_text + body
+
+
 async def cmd_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     bot_username = context.bot.username or "Bot"
@@ -17,32 +51,7 @@ async def cmd_referral(update: Update, context: ContextTypes.DEFAULT_TYPE):
     count = await adb.get_referral_count(user.id)
     
     link = f"https://t.me/{bot_username}?start=ref_{user.id}"
-    
-    text = (
-        "<b>PROGRAM REFERRAL (SISTEM POIN)</b>\n"
-        "Undang teman & dapatkan VIP Gratis instan!\n"
-        "• 1 Teman = <b>1 Poin</b> (Maksimal 50 Poin per akun).\n\n"
-    )
-    
-    if pts["total_referral_points_earned"] < 50:
-        text += (
-            "<b>Link Referral Kamu (Klik untuk Salin):</b>\n"
-            f"<code>{link}</code>\n\n"
-        )
-    else:
-        text += (
-            "<b>Link Referral Kamu:</b>\n"
-            "<i>Mencapai batas maks 50 Poin.</i>\n\n"
-        )
-        
-    text += (
-        "<b>Statistik Kamu:</b>\n"
-        f"• Saldo Poin: <b>{pts['referral_points']} Poin</b>\n"
-        f"• Akumulasi: <b>{pts['total_referral_points_earned']}/50 Poin</b>\n"
-        f"• Total Teman: <b>{count} orang</b>\n\n"
-        "<b>Toko Penukaran VIP:</b>\n"
-        "Pilih paket VIP di bawah untuk menukarkan poin Anda:"
-    )
+    text = _get_referral_text(pts, count, link)
     
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("10 POIN - 7 HARI VIP", callback_data="redeem_ref_10", style="primary")],
@@ -104,31 +113,7 @@ async def handle_redeem_points(update: Update, context: ContextTypes.DEFAULT_TYP
     count = await adb.get_referral_count(user.id)
     link = f"https://t.me/{bot_username}?start=ref_{user.id}"
     
-    text = (
-        "<b>PROGRAM REFERRAL (SISTEM POIN)</b>\n"
-        "Undang teman & dapatkan VIP Gratis instan!\n"
-        "• 1 Teman = <b>1 Poin</b> (Maksimal 50 Poin per akun).\n\n"
-    )
-    
-    if pts["total_referral_points_earned"] < 50:
-        text += (
-            "<b>Link Referral Kamu (Klik untuk Salin):</b>\n"
-            f"<code>{link}</code>\n\n"
-        )
-    else:
-        text += (
-            "<b>Link Referral Kamu:</b>\n"
-            "<i>Mencapai batas maks 50 Poin.</i>\n\n"
-        )
-        
-    text += (
-        "<b>Statistik Kamu:</b>\n"
-        f"• Saldo Poin: <b>{pts['referral_points']} Poin</b>\n"
-        f"• Akumulasi: <b>{pts['total_referral_points_earned']}/50 Poin</b>\n"
-        f"• Total Teman: <b>{count} orang</b>\n\n"
-        "<b>Toko Penukaran VIP:</b>\n"
-        "Pilih paket VIP di bawah untuk menukarkan poin Anda:"
-    )
+    text = _get_referral_text(pts, count, link)
     
     keyboard = InlineKeyboardMarkup([
         [InlineKeyboardButton("10 POIN - 7 HARI VIP", callback_data="redeem_ref_10", style="primary")],
