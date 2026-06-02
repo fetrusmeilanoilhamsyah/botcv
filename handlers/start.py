@@ -133,8 +133,7 @@ def build_menu_text(first_name: str, user_id: int) -> str:
     return (
         f"{header_text}"
         f"Halo <b>{first_name}</b>! Selamat datang di <b>Haifee CV</b>.\n\n"
-        f"{fitur}\n"
-        f"<b>Owner:</b> {ADMIN_CONTACT}"
+        f"{fitur}"
     )
 
 
@@ -142,11 +141,18 @@ async def send_fresh_start_menu(bot, user_id: int, chat_id: int, first_name: str
     await delete_welcome_messages(bot, user_id, chat_id)
     menu_text = build_menu_text(first_name, user_id)
 
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK, style="success"),
+            InlineKeyboardButton("DEVELOPER", url=f"https://t.me/{ADMIN_CONTACT.lstrip('@')}", style="primary")
+        ]
+    ])
+
     msg1 = await bot.send_message(
         chat_id=chat_id,
         text=menu_text,
         parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK, style="success")]]),
+        reply_markup=keyboard,
         disable_web_page_preview=True,
     )
 
@@ -247,13 +253,20 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
 
     menu_text = build_menu_text(first_name, user.id)
 
+    keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK, style="success"),
+            InlineKeyboardButton("DEVELOPER", url=f"https://t.me/{ADMIN_CONTACT.lstrip('@')}", style="primary")
+        ]
+    ])
+
     # Coba edit pesan callback in-place agar transisi super smooth!
     edited_msg = None
     try:
         edited_msg = await query.edit_message_text(
             text=menu_text,
             parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK, style="success")]]),
+            reply_markup=keyboard,
             disable_web_page_preview=True,
         )
     except Exception as e:
@@ -272,7 +285,7 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
             chat_id=chat_id,
             text=menu_text,
             parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK, style="success")]]),
+            reply_markup=keyboard,
             disable_web_page_preview=True,
         )
         welcome_msg_id = msg1.message_id
