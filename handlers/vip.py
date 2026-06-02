@@ -48,12 +48,9 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
     ]
 
-    header_text = (
-        "<b>[ VIP MEMBER CV ]</b>\n"
-        "────────────────────────────\n"
-    )
+    header_text = "          <b>« VIP Member CV »</b>\n\n"
     if status_line:
-        header_text += f"<b>{status_line}</b>────────────────────────────\n\n"
+        header_text += f"<b>{status_line}</b>\n"
 
     text = (
         f"{header_text}"

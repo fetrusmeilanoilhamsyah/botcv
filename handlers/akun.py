@@ -56,7 +56,9 @@ async def cmd_akun(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
 
-    header_text = "          <b>« User Profile CV »</b>\n\n"
+    import html
+    name = html.escape(user.first_name or "User")
+    header_text = f"          <b>« Profile: {name} »</b>\n\n"
 
     lines = [
         f"• Nama     : {user.full_name or user.first_name or '-'}",

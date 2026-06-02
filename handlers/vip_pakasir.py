@@ -142,12 +142,9 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
         ]
 
-    header_text = (
-        "<b>[ VIP MEMBER CV ]</b>\n"
-        "────────────────────────────\n"
-    )
+    header_text = "          <b>« VIP Member CV »</b>\n\n"
     if status_line:
-        header_text += f"<b>{status_line}</b>────────────────────────────\n\n"
+        header_text += f"<b>{status_line}</b>\n"
 
     text = f"{header_text}{paket_lines}{info}"
     await transition_to_handler(
@@ -499,20 +496,15 @@ async def handle_vip_history(update: Update, context: ContextTypes.DEFAULT_TYPE)
         payments = await adb.get_user_payments(user.id, limit=10)
         if not payments:
             await query.edit_message_text(
-                "<b>[ VIP BILLING CV ]</b>\n"
-                "────────────────────────────\n"
+                "          <b>« VIP Billing CV »</b>\n\n"
                 "Belum ada riwayat pembayaran.\n"
-                "Beli paket VIP untuk mulai.\n"
-                "────────────────────────────",
+                "Beli paket VIP untuk mulai.",
                 parse_mode="HTML",
                 reply_markup=back_markup
             )
             return
 
-        header_text = (
-            "<b>[ VIP BILLING CV ]</b>\n"
-            "────────────────────────────\n"
-        )
+        header_text = "          <b>« VIP Billing CV »</b>\n\n"
         lines = []
         for p in payments:
             status_lbl = _STATUS_EMOJI.get(p["status"], "?")
@@ -524,7 +516,7 @@ async def handle_vip_history(update: Update, context: ContextTypes.DEFAULT_TYPE)
             )
 
         history_content = "\n".join(lines)
-        text = f"{header_text}{history_content}\n────────────────────────────"
+        text = f"{header_text}{history_content}"
         await query.edit_message_text(
             text=text[:4000],
             parse_mode="HTML",
