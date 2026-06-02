@@ -18,13 +18,16 @@ async def cmd_newmember(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_newmember_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
-    if sess["state"] != STATE:
+    if not sess or sess.get("state") != STATE:
         return
     text = update.message.text.strip()
     if not text.lstrip('-').isdigit() or text == '-':
         await update.message.reply_text("ID harus angka.")
         return
     target_id = int(text)
-    await adb.set_member(target_id)
-    db.clear_session(user_id)
-    await update.message.reply_text(f"User {target_id} aktif.")
+    try:
+        await adb.set_member(target_id)
+        db.clear_session(user_id)
+        await update.message.reply_text(f"✅ User {target_id} berhasil diaktifkan.")
+    except Exception as e:
+        await update.message.reply_text(f"❌ Gagal mengaktifkan {target_id}: {e}")

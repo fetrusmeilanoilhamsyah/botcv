@@ -16,7 +16,7 @@ async def cmd_delmember(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_delmember_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
-    if sess["state"] != STATE:
+    if not sess or sess.get("state") != STATE:
         return
         
     text = update.message.text.strip()
@@ -33,8 +33,9 @@ async def handle_delmember_id(update: Update, context: ContextTypes.DEFAULT_TYPE
         db.clear_session(user_id)
         return
 
-    await adb.remove_member(target_id)
-    db.clear_session(user_id)
-    await update.message.reply_text(
-        f"Akses {target_id} dicabut."
-    )
+    try:
+        await adb.remove_member(target_id)
+        db.clear_session(user_id)
+        await update.message.reply_text(f"✅ Akses {target_id} berhasil dicabut.")
+    except Exception as e:
+        await update.message.reply_text(f"❌ Gagal mencabut akses {target_id}: {e}")

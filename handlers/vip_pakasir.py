@@ -349,6 +349,11 @@ async def handle_check_payment(update: Update, context: ContextTypes.DEFAULT_TYP
             await query.answer("Pembayaran tidak ditemukan.", show_alert=True)
             return
 
+        # SECURITY: Pastikan payment milik user yang request
+        if payment["user_id"] != user.id:
+            await query.answer("Bukan pembayaran Anda.", show_alert=True)
+            return
+
         if payment["status"] == "expired":
             await query.answer("Pembayaran ini sudah kedaluwarsa.", show_alert=True)
             await _delete_qr_message(context.bot, payment)
@@ -420,6 +425,11 @@ async def handle_cancel_payment(update: Update, context: ContextTypes.DEFAULT_TY
         payment = await adb.get_payment(order_id)
         if not payment:
             await query.answer("Pembayaran tidak ditemukan.", show_alert=True)
+            return
+
+        # SECURITY: Pastikan payment milik user yang request
+        if payment["user_id"] != user.id:
+            await query.answer("Bukan pembayaran Anda.", show_alert=True)
             return
 
         if payment["status"] == "expired":

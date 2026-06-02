@@ -29,7 +29,10 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         expired_at  = await adb.get_vip_expiry(user.id)
         if expired_at:
             exp  = datetime.fromisoformat(expired_at)
-            sisa = (exp - datetime.now()).days
+            # Strip timezone agar tidak crash TypeError (aware vs naive comparison)
+            if exp.tzinfo is not None:
+                exp = exp.replace(tzinfo=None)
+            sisa = max(0, (exp - datetime.now()).days)
             status_line = (
                 f"<b>Status:</b> VIP Aktif\n"
                 f"<b>Limit :</b> {exp.strftime('%d/%m/%Y')} ({sisa} hari lagi)\n\n"

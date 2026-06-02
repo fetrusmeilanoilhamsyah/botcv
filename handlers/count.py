@@ -152,8 +152,9 @@ async def cmd_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     if msg:
         sess = db.get_session(user_id)
-        sess["data"]["status_msg_id"] = msg.message_id
-        db.set_session(user_id, STATE, sess["data"])
+        if sess and sess.get("data") is not None:
+            sess["data"]["status_msg_id"] = msg.message_id
+            db.set_session(user_id, STATE, sess["data"])
 
 async def handle_count_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -306,6 +307,9 @@ async def handle_count_process(update: Update, context: ContextTypes.DEFAULT_TYP
     register_active_task(user_id, asyncio.current_task())
 
     sess = db.get_session(user_id)
+    if not sess or not sess.get("data"):
+        unregister_active_task(user_id)
+        return
     data = sess["data"]
     status_msg_id = data.get("status_msg_id")
     
@@ -315,7 +319,12 @@ async def handle_count_process(update: Update, context: ContextTypes.DEFAULT_TYP
     files = []
     if os.path.exists(count_dir):
         files = [f for f in os.listdir(count_dir) if (f.endswith('.txt') or f.endswith('.vcf'))]
-        files.sort(key=lambda x: int(x.split('.')[0]))
+        def _safe_sort_key(x):
+            try:
+                return int(x.split('.')[0])
+            except (ValueError, IndexError):
+                return 0
+        files.sort(key=_safe_sort_key)
 
     loop = asyncio.get_running_loop()
 
