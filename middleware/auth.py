@@ -32,16 +32,17 @@ async def require_member(update, context) -> bool:
 
     # Keyboard dengan tombol Lihat VIP, VIP Gratis, dan Kembali ke Menu
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("LIHAT PAKET VIP", callback_data="show_vip_menu", style="success")],
-        [InlineKeyboardButton("DAPATKAN VIP GRATIS", callback_data="show_referral_menu", style="primary")],
+        [
+            InlineKeyboardButton("LIHAT PAKET", callback_data="show_vip_menu", style="success"),
+            InlineKeyboardButton("VIP GRATIS", callback_data="show_referral_menu", style="primary")
+        ],
         [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
     ])
     
     text = (
-        "<b>AKSES TERBATAS</b>\n"
-        "━━━━━━━━━━━━━━━━━\n"
+        "          <b>« Akses Terbatas »</b>\n\n"
         "Fitur ini khusus untuk member VIP.\n"
-        "Silakan upgrade mulai dari Rp 2.000, atau undang teman Anda menggunakan tautan referral untuk mendapatkan akses VIP secara gratis."
+        "Silakan upgrade mulai dari Rp 2.000, atau undang teman Anda menggunakan tautan referral untuk mendapatkan akses VIP gratis."
     )
 
     # 1. Jika dipanggil dari Callback Query (user klik tombol inline di menu)
