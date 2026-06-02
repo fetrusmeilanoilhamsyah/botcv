@@ -575,22 +575,63 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 """
 
 
+def _get_breadcrumbs(data: dict, step: int) -> str:
+    count = data.get("count", 0)
+    custom_msg = data.get("custom_msg", "")
+    parts = []
+    
+    # Step 1: File count
+    if step == 1:
+        parts.append(f"<b>» BERKAS: {count} FILE «</b>" if count else "<b>» BERKAS «</b>")
+    else:
+        parts.append(f"Berkas: {count} file" if count else "Berkas ○")
+        
+    # Step 2: Custom message prompt
+    if step == 2:
+        parts.append(f"<b>» PESAN: {custom_msg[:12].upper()}... «</b>" if custom_msg else "<b>» PESAN «</b>")
+    elif step > 2:
+        parts.append(f"Pesan: {custom_msg[:8]}..." if custom_msg else "Pesan -")
+    else:
+        parts.append("Pesan ○")
+
+    # Step 3: Deliver (HTML & Excel)
+    if step == 3:
+        parts.append("<b>» WEB «</b>")
+    else:
+        parts.append("Web ○")
+
+    breadcrumbs = " ➔ ".join(parts)
+    return (
+        "<b>[ WALINK WEB CV ]</b>\n"
+        "────────────────────────────\n"
+        f"{breadcrumbs}\n"
+        "────────────────────────────\n\n"
+    )
+
+
 async def cmd_walinkweb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_member(update, context):
         return
     user_id = update.effective_user.id
     asyncio.create_task(adb.increment_usage(user_id))
 
-    db.set_session(user_id, S0, {})
+    db.set_session(user_id, S0, {"count": 0, "total_size": 0})
     from handlers.start import transition_to_handler
-    await transition_to_handler(
+    
+    text = _get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.xlsx</b>, <b>.csv</b>, <b>.txt</b>, atau <b>.vcf</b> sekarang."
+    
+    msg = await transition_to_handler(
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Kirim file <b>.xlsx</b>, <b>.csv</b>, <b>.txt</b>, atau <b>.vcf</b> sekarang.",
+        text,
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
+    if msg:
+        sess = db.get_session(user_id)
+        sess["data"]["status_msg_id"] = msg.message_id
+        db.set_session(user_id, S0, sess["data"])
 
 
 async def handle_walinkweb_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -600,13 +641,40 @@ async def handle_walinkweb_file(update: Update, context: ContextTypes.DEFAULT_TY
         return
 
     doc = update.message.document
+    try:
+        await update.message.delete()
+    except Exception:
+        pass
+
+    data = sess["data"]
+    status_msg_id = data.get("status_msg_id")
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+
     if not doc or not doc.file_name:
-        await update.message.reply_text("Kirim file dokumen valid (.xlsx, .csv, .txt, .vcf).")
+        try:
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text=_get_breadcrumbs(data, 1) + "Kirim file dokumen valid (.xlsx, .csv, .txt, .vcf).",
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+        except Exception:
+            pass
         return
 
     ext = os.path.splitext(doc.file_name)[1].lower()
     if ext not in (".xlsx", ".csv", ".txt", ".vcf"):
-        await update.message.reply_text("Format tidak didukung. Kirim file .xlsx, .csv, .txt, atau .vcf.")
+        try:
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text=_get_breadcrumbs(data, 1) + "Format tidak didukung. Kirim file .xlsx, .csv, .txt, atau .vcf.",
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+        except Exception:
+            pass
         return
 
     async with _get_lock(user_id):
@@ -624,22 +692,38 @@ async def handle_walinkweb_file(update: Update, context: ContextTypes.DEFAULT_TY
         await file_obj.download_to_drive(input_path)
         
         # Pindahkan ke state berikutnya: tanya pesan kustom
-        data = {
+        data.update({
             "input_path": input_path,
             "ext": ext,
             "file_name": doc.file_name,
-            "work_dir": work_dir
-        }
+            "work_dir": work_dir,
+            "count": 1
+        })
         db.set_session(user_id, S1, data)
-        await update.message.reply_text(
-            "Tulis pesan WhatsApp kustom untuk tautan follow-up?\n"
-            "Ketik isi pesannya sekarang, atau ketik <b>-</b> (tanda minus) untuk mengosongkan tanpa pesan.",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
-        )
+        
+        try:
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text=_get_breadcrumbs(data, 2) + "Tulis pesan WhatsApp kustom untuk tautan follow-up?\nKetik isi pesannya sekarang, atau ketik <b>-</b> (tanda minus) untuk mengosongkan tanpa pesan.",
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+        except Exception:
+            pass
     except Exception as e:
         logger.error("Failed to download file in walinkweb: %s", e)
         shutil.rmtree(work_dir, ignore_errors=True)
-        await update.message.reply_text("Gagal mengunduh berkas. Coba kirim ulang.")
+        try:
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text=_get_breadcrumbs(data, 1) + "Gagal mengunduh berkas. Coba kirim ulang.",
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+        except Exception:
+            pass
 
 
 async def handle_walinkweb_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -649,6 +733,11 @@ async def handle_walinkweb_msg(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     msg_text = update.message.text.strip()
+    try:
+        await update.message.delete()
+    except Exception:
+        pass
+
     # Jika input adalah "-", kosongkan pesan
     custom_msg = "" if msg_text == "-" else msg_text
 
@@ -657,6 +746,7 @@ async def handle_walinkweb_msg(update: Update, context: ContextTypes.DEFAULT_TYP
     ext = data["ext"]
     orig_name = data["file_name"]
     work_dir = data["work_dir"]
+    status_msg_id = data.get("status_msg_id")
 
     async with _get_lock(user_id):
         if user_id in _processing:
@@ -664,10 +754,15 @@ async def handle_walinkweb_msg(update: Update, context: ContextTypes.DEFAULT_TYP
         _processing.add(user_id)
     db.clear_session(user_id)
 
-    status_msg = await update.message.reply_text(
-        "Memproses dan menyusun Dashboard Web interaktif...",
-        parse_mode="HTML"
-    )
+    try:
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=status_msg_id,
+            text="<b>Memproses dan menyusun Dashboard Web interaktif...</b>",
+            parse_mode="HTML"
+        )
+    except Exception:
+        pass
 
     try:
         loop = asyncio.get_running_loop()
@@ -762,13 +857,17 @@ async def handle_walinkweb_msg(update: Update, context: ContextTypes.DEFAULT_TYP
             "file_name": orig_name
         })
 
-        try:
-            await status_msg.delete()
-        except Exception:
-            pass
-
         if total_cnt == 0:
-            await update.message.reply_text("Tidak ada nomor HP valid yang ditemukan dalam berkas.")
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_msg_id,
+                    text=_get_breadcrumbs(data, 1) + "Tidak ada nomor HP valid yang ditemukan dalam berkas.",
+                    parse_mode="HTML",
+                    reply_markup=keyboard
+                )
+            except Exception:
+                pass
             db.clear_session(user_id)
             return
 
@@ -785,10 +884,16 @@ async def handle_walinkweb_msg(update: Update, context: ContextTypes.DEFAULT_TYP
             InputMediaDocument(media=excel_buf, filename=out_name_excel)
         ]
 
-        await update.message.reply_media_group(
+        await context.bot.send_media_group(
+            chat_id=update.effective_chat.id,
             media=media_group,
             read_timeout=120, write_timeout=120, connect_timeout=60
         )
+
+        try:
+            await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
+        except Exception:
+            pass
 
         # Trigger debounced final keyboard
         old_timer = _button_timers.pop(user_id, None)
@@ -805,7 +910,7 @@ async def handle_walinkweb_msg(update: Update, context: ContextTypes.DEFAULT_TYP
             c_msg = s_data.get("custom_msg", "")
             fname = s_data.get("file_name", "")
 
-            keyboard = InlineKeyboardMarkup([
+            keyboard_done = InlineKeyboardMarkup([
                 [
                     InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_walinkweb_help", style="success"),
                     InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
@@ -818,7 +923,7 @@ async def handle_walinkweb_msg(update: Update, context: ContextTypes.DEFAULT_TYP
                     return s[:max_len-3] + "..."
                 return s
 
-            from handlers.start import clear_welcome_messages
+            from handlers.start import clear_welcome_messages, register_welcome_messages
             clear_welcome_messages(uid)
 
             box_text = (
@@ -839,12 +944,13 @@ async def handle_walinkweb_msg(update: Update, context: ContextTypes.DEFAULT_TYP
                 f"1. Buka file <code>.xlsx</code> (Excel) di atas yang otomatis didukung native oleh iPhone.\n"
                 f"2. Atau, jika ingin tetap memakai file <code>.html</code>: ketuk file HTML -> ketuk tombol <b>Share/Bagikan</b> di kanan atas -> pilih <b>Safari/Chrome</b> (atau Simpan ke Files lalu buka via Safari)."
             )
-            await bot.send_message(
+            final_msg = await bot.send_message(
                 chat_id=chat_id,
                 text=box_text,
                 parse_mode="HTML",
-                reply_markup=keyboard
+                reply_markup=keyboard_done
             )
+            register_welcome_messages(uid, [final_msg.message_id])
             db.clear_session(uid)
 
         task = asyncio.create_task(_send_buttons_debounced(user_id, update.effective_chat.id, context.bot))
@@ -853,7 +959,10 @@ async def handle_walinkweb_msg(update: Update, context: ContextTypes.DEFAULT_TYP
     except Exception as e:
         logger.error("Error in walinkweb handle processing: %s", e, exc_info=True)
         try:
-            await update.message.reply_text("Terjadi kesalahan saat membuat dashboard HTML. Coba lagi.")
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="Terjadi kesalahan saat membuat dashboard HTML. Coba lagi."
+            )
         except Exception:
             pass
     finally:
@@ -866,21 +975,30 @@ async def handle_show_walinkweb_help_callback(update: Update, context: ContextTy
     await query.answer()
 
     user_id = query.from_user.id
-    db.set_session(user_id, S0, {})
+    db.set_session(user_id, S0, {"count": 0, "total_size": 0})
+
+    text = _get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.xlsx</b>, <b>.csv</b>, <b>.txt</b>, atau <b>.vcf</b> sekarang."
 
     try:
         await query.message.edit_text(
-            text="Kirim file <b>.xlsx</b>, <b>.csv</b>, <b>.txt</b>, atau <b>.vcf</b> sekarang.",
-            parse_mode="HTML"
+            text=text,
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
         )
+        sess = db.get_session(user_id)
+        sess["data"]["status_msg_id"] = query.message.message_id
+        db.set_session(user_id, S0, sess["data"])
     except Exception:
         try:
             await query.message.delete()
         except Exception:
             pass
-        await context.bot.send_message(
+        msg = await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Kirim file <b>.xlsx</b>, <b>.csv</b>, <b>.txt</b>, atau <b>.vcf</b> sekarang.",
+            text=text,
             parse_mode="HTML",
-            reply_markup=ReplyKeyboardRemove()
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
         )
+        sess = db.get_session(user_id)
+        sess["data"]["status_msg_id"] = msg.message_id
+        db.set_session(user_id, S0, sess["data"])

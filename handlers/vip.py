@@ -29,16 +29,15 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         expired_at  = await adb.get_vip_expiry(user.id)
         if expired_at:
             exp  = datetime.fromisoformat(expired_at)
-            # Strip timezone agar tidak crash TypeError (aware vs naive comparison)
             if exp.tzinfo is not None:
                 exp = exp.replace(tzinfo=None)
             sisa = max(0, (exp - datetime.now()).days)
             status_line = (
-                f"<b>Status:</b> VIP Aktif\n"
-                f"<b>Limit :</b> {exp.strftime('%d/%m/%Y')} ({sisa} hari lagi)\n\n"
+                f"Status: VIP Aktif\n"
+                f"Limit : {exp.strftime('%d/%m/%Y')} ({sisa} hari lagi)\n"
             )
         else:
-            status_line = "<b>Status:</b> Member Permanen\n\n"
+            status_line = "Status: Member Permanen\n"
 
     lines = []
     for p in PAKET:
@@ -49,17 +48,28 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
     ]
 
-    await transition_to_handler(
-        context.bot,
-        user.id,
-        update.effective_chat.id,
-        f"{status_line}"
+    header_text = (
+        "<b>[ VIP MEMBER CV ]</b>\n"
+        "────────────────────────────\n"
+    )
+    if status_line:
+        header_text += f"<b>{status_line}</b>────────────────────────────\n\n"
+
+    text = (
+        f"{header_text}"
         f"<b>PAKET LAYANAN VIP</b>\n"
         f"━━━━━━━━━━━━━━━━━\n"
         + "\n".join(lines) +
         f"\n━━━━━━━━━━━━━━━━━\n"
-        f"<b>Metode:</b> Manual\n"
-        f"Silakan hubungi {ADMIN_CONTACT} untuk aktivasi paket Anda.",
+        f"<b>Metode:</b> Manual\n\n"
+        f"Silakan hubungi {ADMIN_CONTACT} untuk aktivasi paket Anda."
+    )
+
+    await transition_to_handler(
+        context.bot,
+        user.id,
+        update.effective_chat.id,
+        text,
         reply_markup=InlineKeyboardMarkup(keyboard),
         update=update
     )

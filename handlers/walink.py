@@ -47,22 +47,51 @@ def _clean_number(num: str) -> str:
     return ""
 
 
+def _get_breadcrumbs(data: dict, step: int) -> str:
+    count = data.get("count", 0)
+    parts = []
+    if step == 1:
+        parts.append(f"<b>» BERKAS: {count} FILE «</b>" if count else "<b>» BERKAS «</b>")
+    else:
+        parts.append(f"Berkas: {count} file" if count else "Berkas ○")
+        
+    if step == 2:
+        parts.append("<b>» EXCEL «</b>")
+    else:
+        parts.append("Excel ○")
+        
+    breadcrumbs = " ➔ ".join(parts)
+    return (
+        "<b>[ WALINK EXCEL CV ]</b>\n"
+        "────────────────────────────\n"
+        f"{breadcrumbs}\n"
+        "────────────────────────────\n\n"
+    )
+
+
 async def cmd_walink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_member(update, context):
         return
     user_id = update.effective_user.id
     asyncio.create_task(adb.increment_usage(user_id))
 
-    db.set_session(user_id, STATE, {})
+    db.set_session(user_id, STATE, {"count": 0, "total_size": 0})
     from handlers.start import transition_to_handler
-    await transition_to_handler(
+    
+    text = _get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> atau <b>.VCF</b> sekarang."
+    
+    msg = await transition_to_handler(
         context.bot,
         user_id,
         update.effective_chat.id,
-        "Kirim file <b>.TXT</b> atau <b>.VCF</b> sekarang. Link WhatsApp akan dibuat dalam format Excel.",
+        text,
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
+    if msg:
+        sess = db.get_session(user_id)
+        sess["data"]["status_msg_id"] = msg.message_id
+        db.set_session(user_id, STATE, sess["data"])
 
 
 async def handle_walink_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -72,24 +101,56 @@ async def handle_walink_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     doc = update.message.document
+    try:
+        await update.message.delete()
+    except Exception:
+        pass
+
+    data = sess["data"]
+    status_msg_id = data.get("status_msg_id")
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+
     if not doc or not doc.file_name:
-        await update.message.reply_text("Kirim file dokumen .txt atau .vcf.")
+        try:
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text=_get_breadcrumbs(data, 1) + "Kirim file dokumen .txt atau .vcf.",
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+        except Exception:
+            pass
         return
 
     ext = os.path.splitext(doc.file_name)[1].lower()
     if ext not in (".txt", ".vcf"):
-        await update.message.reply_text("Format tidak didukung. Kirim file .TXT atau .VCF.")
+        try:
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text=_get_breadcrumbs(data, 1) + "Format tidak didukung. Kirim file .TXT atau .VCF.",
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+        except Exception:
+            pass
         return
 
     if user_id in _processing:
         return
     _processing.add(user_id)
-    db.clear_session(user_id)
-
-    status_msg = await update.message.reply_text(
-        f"Memproses <b>{doc.file_name}</b>...",
-        parse_mode="HTML"
-    )
+    
+    # Update status to processing
+    try:
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=status_msg_id,
+            text="<b>Memproses berkas...</b>",
+            parse_mode="HTML"
+        )
+    except Exception:
+        pass
 
     user_dir = get_user_dir(user_id)
     work_dir = os.path.join(user_dir, f"walink_{doc.file_id}")
@@ -187,14 +248,17 @@ async def handle_walink_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
             "file_name": doc.file_name
         })
 
-        # Hapus loading status
-        try:
-            await status_msg.delete()
-        except Exception:
-            pass
-
         if total_links == 0:
-            await update.message.reply_text("Tidak ada nomor HP valid yang ditemukan dalam file.")
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_msg_id,
+                    text=_get_breadcrumbs(data, 1) + "Tidak ada nomor HP valid yang ditemukan dalam file.",
+                    parse_mode="HTML",
+                    reply_markup=keyboard
+                )
+            except Exception:
+                pass
             db.clear_session(user_id)
             return
 
@@ -203,14 +267,16 @@ async def handle_walink_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
         out_name = f"WA_LINKS_{base_name}.xlsx"
         excel_buf.name = out_name
 
-        await update.message.reply_document(
+        await context.bot.send_document(
+            chat_id=update.effective_chat.id,
             document=excel_buf,
-            filename=out_name,
-            caption=(
-                f"{out_name}\n"
-                f"Total nomor: {total_links:,}"
-            ),
+            filename=out_name
         )
+
+        try:
+            await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
+        except Exception:
+            pass
 
         # Trigger debounced final keyboard
         old_timer = _button_timers.pop(user_id, None)
@@ -226,7 +292,7 @@ async def handle_walink_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
             t_links = s_data.get("total_links", 0)
             fname = s_data.get("file_name", "")
 
-            keyboard = InlineKeyboardMarkup([
+            keyboard_done = InlineKeyboardMarkup([
                 [
                     InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_walink_help", style="success"),
                     InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
@@ -239,7 +305,7 @@ async def handle_walink_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     return s[:max_len-3] + "..."
                 return s
 
-            from handlers.start import clear_welcome_messages
+            from handlers.start import clear_welcome_messages, register_welcome_messages
             clear_welcome_messages(uid)
 
             box_text = (
@@ -252,14 +318,15 @@ async def handle_walink_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 f"│ Total Link WA  : {_fit(f'{t_links:,}'):<22} │\n"
                 f"└────────────────────────────────────────┘"
                 f"</b></pre>\n\n"
-                f"<i>Pembuatan WA Link Excel selesai!</i>"
+                f"<i>Pembuatan WA Link Excel selesai! Silakan unduh file di atas.</i>"
             )
-            await bot.send_message(
+            final_msg = await bot.send_message(
                 chat_id=chat_id,
                 text=box_text,
                 parse_mode="HTML",
-                reply_markup=keyboard
+                reply_markup=keyboard_done
             )
+            register_welcome_messages(uid, [final_msg.message_id])
             db.clear_session(uid)
 
         task = asyncio.create_task(_send_buttons_debounced(user_id, update.effective_chat.id, context.bot))
@@ -268,7 +335,12 @@ async def handle_walink_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
     except Exception as e:
         logger.error("Error di walink: %s", e, exc_info=True)
         try:
-            await status_msg.edit_text("Terjadi kesalahan saat memproses file. Coba lagi.")
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text="Terjadi kesalahan saat memproses file. Coba lagi.",
+                parse_mode="HTML"
+            )
         except Exception:
             pass
     finally:
@@ -281,21 +353,30 @@ async def handle_show_walink_help_callback(update: Update, context: ContextTypes
     await query.answer()
 
     user_id = query.from_user.id
-    db.set_session(user_id, STATE, {})
+    db.set_session(user_id, STATE, {"count": 0, "total_size": 0})
+
+    text = _get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> atau <b>.VCF</b> sekarang."
 
     try:
         await query.message.edit_text(
-            text="Kirim file <b>.TXT</b> atau <b>.VCF</b> sekarang. Link WhatsApp akan dibuat dalam format Excel.",
-            parse_mode="HTML"
+            text=text,
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
         )
+        sess = db.get_session(user_id)
+        sess["data"]["status_msg_id"] = query.message.message_id
+        db.set_session(user_id, STATE, sess["data"])
     except Exception:
         try:
             await query.message.delete()
         except Exception:
             pass
-        await context.bot.send_message(
+        msg = await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="Kirim file <b>.TXT</b> atau <b>.VCF</b> sekarang. Link WhatsApp akan dibuat dalam format Excel.",
+            text=text,
             parse_mode="HTML",
-            reply_markup=ReplyKeyboardRemove()
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
         )
+        sess = db.get_session(user_id)
+        sess["data"]["status_msg_id"] = msg.message_id
+        db.set_session(user_id, STATE, sess["data"])

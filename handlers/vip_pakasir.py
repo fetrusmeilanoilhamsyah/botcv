@@ -99,11 +99,11 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 exp = exp.replace(tzinfo=None)
             sisa = (exp - datetime.now()).days
             status_line = (
-                f"<b>Status:</b> VIP Aktif\n"
-                f"<b>Limit :</b> {exp.strftime('%d/%m/%Y')} ({sisa} hari lagi)\n\n"
+                f"Status: VIP Aktif\n"
+                f"Limit : {exp.strftime('%d/%m/%Y')} ({sisa} hari lagi)\n"
             )
         else:
-            status_line = "<b>Status:</b> Member Permanen\n\n"
+            status_line = "Status: Member Permanen\n"
 
     # Paket
     paket_lines = "<b>PAKET LAYANAN VIP</b>\n━━━━━━━━━━━━━━━━━\n"
@@ -114,9 +114,9 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Info pembayaran
     if QRIS_ENABLED:
         mode = "SANDBOX" if PAKASIR_SANDBOX else "QRIS Otomatis"
-        info = f"<b>Metode:</b> {mode}\nSilakan pilih paket di bawah untuk pembayaran."
+        info = f"<b>Metode:</b> {mode}\n\nSilakan pilih paket di bawah untuk pembayaran."
     else:
-        info = f"<b>Metode:</b> Manual\nSilakan hubungi {ADMIN_CONTACT} untuk aktivasi paket Anda."
+        info = f"<b>Metode:</b> Manual\n\nSilakan hubungi {ADMIN_CONTACT} untuk aktivasi paket Anda."
 
     # Keyboard (Symmetric 3x2 untuk Paket: 3 di kiri, 3 di kanan, warna all biru cerah/primary)
     if QRIS_ENABLED:
@@ -142,7 +142,14 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
         ]
 
-    text = f"{status_line}{paket_lines}{info}"
+    header_text = (
+        "<b>[ VIP MEMBER CV ]</b>\n"
+        "────────────────────────────\n"
+    )
+    if status_line:
+        header_text += f"<b>{status_line}</b>────────────────────────────\n\n"
+
+    text = f"{header_text}{paket_lines}{info}"
     await transition_to_handler(
         context.bot,
         user.id,
@@ -476,7 +483,6 @@ async def handle_cancel_payment(update: Update, context: ContextTypes.DEFAULT_TY
 # ──────────────────────────────────────────────────────────────────────────────
 # Callback: vip_history
 # ──────────────────────────────────────────────────────────────────────────────
-
 async def handle_vip_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -493,23 +499,35 @@ async def handle_vip_history(update: Update, context: ContextTypes.DEFAULT_TYPE)
         payments = await adb.get_user_payments(user.id, limit=10)
         if not payments:
             await query.edit_message_text(
-                "Belum ada riwayat pembayaran.\nBeli paket VIP untuk mulai.",
+                "<b>[ VIP BILLING CV ]</b>\n"
+                "────────────────────────────\n"
+                "Belum ada riwayat pembayaran.\n"
+                "Beli paket VIP untuk mulai.\n"
+                "────────────────────────────",
+                parse_mode="HTML",
                 reply_markup=back_markup
             )
             return
 
-        lines = ["RIWAYAT PEMBAYARAN\n"]
+        header_text = (
+            "<b>[ VIP BILLING CV ]</b>\n"
+            "────────────────────────────\n"
+        )
+        lines = []
         for p in payments:
-            emoji = _STATUS_EMOJI.get(p["status"], "?")
+            status_lbl = _STATUS_EMOJI.get(p["status"], "?")
             created = datetime.fromisoformat(p["created_at"]).strftime("%d/%m/%Y %H:%M")
             lines.append(
-                f"{emoji} {p['package_days']} hari — {_fmt_price(p['amount'])}\n"
-                f"   {created}\n"
-                f"   {p['order_id']}\n"
+                f"<b>{status_lbl}</b> {p['package_days']} Hari — {_fmt_price(p['amount'])}\n"
+                f"  Waktu: {created}\n"
+                f"  Order: <code>{p['order_id']}</code>\n"
             )
 
+        history_content = "\n".join(lines)
+        text = f"{header_text}{history_content}\n────────────────────────────"
         await query.edit_message_text(
-            "\n".join(lines)[:4000],
+            text=text[:4000],
+            parse_mode="HTML",
             reply_markup=back_markup
         )
 
