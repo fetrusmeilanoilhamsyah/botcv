@@ -143,7 +143,7 @@ async def send_fresh_start_menu(bot, user_id: int, chat_id: int, first_name: str
 
     keyboard = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK, style="success"),
+            InlineKeyboardButton("TUTORIAL", url=TUTORIAL_LINK, style="danger"),
             InlineKeyboardButton("DEVELOPER", url=f"https://t.me/{ADMIN_CONTACT.lstrip('@')}", style="primary")
         ]
     ])
@@ -255,7 +255,7 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
 
     keyboard = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("TUTORIAL LENGKAP", url=TUTORIAL_LINK, style="success"),
+            InlineKeyboardButton("TUTORIAL", url=TUTORIAL_LINK, style="danger"),
             InlineKeyboardButton("DEVELOPER", url=f"https://t.me/{ADMIN_CONTACT.lstrip('@')}", style="primary")
         ]
     ])
