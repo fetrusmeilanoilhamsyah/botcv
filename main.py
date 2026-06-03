@@ -535,6 +535,8 @@ async def _job_cleanup_sessions(context):
             active_uids.update(handlers.xlsxtotxt._master_locks.keys())
             active_uids.update(handlers.cleanup._user_locks.keys())
             active_uids.update(handlers.manual._user_locks.keys())
+            active_uids.update(handlers.pecahtxt._user_timers.keys())
+            active_uids.update(handlers.pecahvcf._user_timers.keys())
 
             inactive_ids = []
             from datetime import datetime
