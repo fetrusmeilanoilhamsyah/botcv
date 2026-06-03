@@ -137,6 +137,19 @@ from handlers.manual import (
     S_WAIT_CONTACTNAME,
     S_WAIT_FILENAME,
 )
+from handlers.addnum import (
+    cmd_addnum,
+    handle_addnum_file,
+    handle_addnum_numbers_text,
+    handle_addnum_numbers_done_callback,
+    handle_addnum_label_callback,
+    handle_addnum_label_text,
+    handle_addnum_done,
+    handle_show_addnum_help_callback,
+    S0 as ADDNUM_S0,
+    S1 as ADDNUM_S1,
+    S2 as ADDNUM_S2,
+)
 
 # ── VIP handler (Pakasir auto-fallback) ───────────────────────────────────────
 VIP_PAKASIR_MODE = False
@@ -313,6 +326,8 @@ async def text_router(update: Update, context):
         NEWMEMBER_STATE:  handle_newmember_id,
         DELMEMBER_STATE:  handle_delmember_id,
         MEDIA_BROADCAST_STATE: handle_broadcast_media,
+        ADDNUM_S1:        handle_addnum_numbers_text,
+        ADDNUM_S2:        handle_addnum_label_text,
     }
     handler = route.get(state)
     if handler:
@@ -345,6 +360,7 @@ async def file_router(update: Update, context):
         WALINK_STATE:   (handle_walink_file,      "file VCF atau TXT berupa DOKUMEN"),
         WALINKWEB_S0:   (handle_walinkweb_file,   "file XLSX, CSV, TXT, atau VCF berupa DOKUMEN"),
         CLEANUP_STATE:  (handle_cleanup_file,     "file VCF atau TXT berupa DOKUMEN"),
+        ADDNUM_S0:      (handle_addnum_file,      "file VCF berupa DOKUMEN"),
     }
 
     if state in doc_states:
@@ -391,6 +407,7 @@ async def done_router(update: Update, context):
         RENAME_S2:      handle_rename_done,
         CLEANUP_STATE:  handle_cleanup_done,
         DUPLICAT_STATE: handle_duplikat_done,
+        ADDNUM_S1:      handle_addnum_done,
     }
     handler = route.get(state)
     if handler:
@@ -517,6 +534,7 @@ async def _job_cleanup_sessions(context):
             import handlers.xlsxtotxt
             import handlers.cleanup
             import handlers.manual
+            import handlers.addnum
 
             active_uids = set(_welcome_messages.keys())
             active_uids.update(handlers.txttovcf._user_locks.keys())
@@ -535,6 +553,7 @@ async def _job_cleanup_sessions(context):
             active_uids.update(handlers.xlsxtotxt._master_locks.keys())
             active_uids.update(handlers.cleanup._user_locks.keys())
             active_uids.update(handlers.manual._user_locks.keys())
+            active_uids.update(handlers.addnum._user_locks.keys())
             active_uids.update(handlers.pecahtxt._user_timers.keys())
             active_uids.update(handlers.pecahvcf._user_timers.keys())
 
@@ -572,6 +591,7 @@ async def _job_cleanup_sessions(context):
                 handlers.xlsxtotxt.cleanup_inactive_users(inactive_ids)
                 handlers.cleanup.cleanup_inactive_users(inactive_ids)
                 handlers.manual.cleanup_inactive_users(inactive_ids)
+                handlers.addnum.cleanup_inactive_users(inactive_ids)
                 
                 logger.info("[JOB] Cleaned %d inactive users from welcome messages and handler locks/timers", len(inactive_ids))
         except Exception as e_cleanup:
@@ -771,6 +791,7 @@ def main():
     app.add_handler(CommandHandler("stat",                              rate_limiter(cmd_stat)))
     app.add_handler(CommandHandler("backup",                            rate_limiter(cmd_backup)))
     app.add_handler(CommandHandler("akun",                             rate_limiter(cmd_akun)))
+    app.add_handler(CommandHandler("addnum",                            rate_limiter(cmd_addnum)))
     app.add_handler(CommandHandler("done",                              rate_limiter(done_router)))
 
     # ── Callback handlers ──
@@ -805,6 +826,10 @@ def main():
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_reset_callback),  pattern="^admin_db_reset"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_redeem_points),   pattern="^redeem_ref_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(done_router),            pattern="^done$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_addnum_numbers_done_callback), pattern="^addnum_numbers_done$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_addnum_label_callback), pattern="^addnum_lbl_"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_addnum_help_callback), pattern="^show_addnum_help$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_addnum_done), pattern="^addnum_done$"))
 
     if VIP_PAKASIR_MODE:
         app.add_handler(CallbackQueryHandler(rate_limiter(handle_buy_vip),         pattern="^buy_vip_"))

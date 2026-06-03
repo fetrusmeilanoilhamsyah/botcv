@@ -104,6 +104,7 @@ def build_menu_text(first_name: str, user_id: int) -> str:
         "• /pecahvcf — PECAH VCF\n"
         "• /pecahtxt — PECAH TXT\n"
         "• /rename — RENAME VCF\n"
+        "• /addnum — TAMBAH KONTAK VCF\n"
         "• /duplikat — BERSIHKAN DUPLIKAT\n"
         "• /cleanup — CLEANUP NOMOR\n"
         "• /manual — KONTAK MANUAL\n"

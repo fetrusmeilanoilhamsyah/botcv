@@ -59,19 +59,19 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
         
     # Step 3: Admin name
     if step == 3:
-        parts.append(f"<b>» LBL ADMIN: {admin_name.upper()} «</b>" if admin_name else "<b>» LBL ADMIN «</b>")
+        parts.append(f"<b>» NAMA ADMIN: {admin_name.upper()} «</b>" if admin_name else "<b>» NAMA ADMIN «</b>")
     elif step > 3:
-        parts.append(f"Lbl Admin: {admin_name}")
+        parts.append(f"Nama Admin: {admin_name}")
     else:
-        parts.append("Lbl Admin ○")
+        parts.append("Nama Admin ○")
         
     # Step 4: Navy name
     if step == 4:
-        parts.append(f"<b>» LBL NAVY: {navy_name.upper()} «</b>" if navy_name else "<b>» LBL NAVY «</b>")
+        parts.append(f"<b>» NAMA NAVY: {navy_name.upper()} «</b>" if navy_name else "<b>» NAMA NAVY «</b>")
     elif step > 4:
-        parts.append(f"Lbl Navy: {navy_name}")
+        parts.append(f"Nama Navy: {navy_name}")
     else:
-        parts.append("Lbl Navy ○")
+        parts.append("Nama Navy ○")
 
     # Step 5: File name
     if step == 5:
@@ -180,7 +180,7 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text=_get_breadcrumbs(data, 3) + "Masukkan Label <b>ADMIN</b>:",
+                    text=_get_breadcrumbs(data, 3) + "<b>NAMA KONTAK ADMIN:</b>",
                     parse_mode="HTML",
                     reply_markup=keyboard
                 )
@@ -195,7 +195,7 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text=_get_breadcrumbs(data, 4) + "Masukkan Label <b>NAVY</b>:",
+                    text=_get_breadcrumbs(data, 4) + "<b>NAMA KONTAK NAVY:</b>",
                     parse_mode="HTML",
                     reply_markup=keyboard
                 )
@@ -239,13 +239,13 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             for i, num in enumerate(admin_nums, start=1):
                 contacts.append({
-                    "name": f"{admin_name}{i}" if len(admin_nums) > 1 else admin_name,
+                    "name": f"{admin_name} {i}",
                     "tel": add_plus(num.strip())
                 })
 
             for i, num in enumerate(navy_nums, start=1):
                 contacts.append({
-                    "name": f"{navy_name}{i}" if len(navy_nums) > 1 else navy_name,
+                    "name": f"{navy_name} {i}",
                     "tel": add_plus(num.strip())
                 })
 
