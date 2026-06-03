@@ -94,13 +94,20 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     else:
         parts.append("File ○")
         
+    num_style = data.get("file_num_style", "")
+    style_suffix = ""
+    if num_style == "front":
+        style_suffix = " (AWAL)"
+    elif num_style == "back":
+        style_suffix = " (AKHIR)"
+        
     if step == 5:
         if awalan:
-            parts.append(f"<b>» URUTAN: {awalan} «</b>")
+            parts.append(f"<b>» URUTAN: {awalan}{style_suffix} «</b>")
         else:
             parts.append("<b>» URUTAN «</b>")
     elif step > 5 and awalan:
-        parts.append(f"Urutan: {awalan}")
+        parts.append(f"Urutan: {awalan}{style_suffix}")
     else:
         parts.append("Urutan ○")
         
@@ -430,6 +437,38 @@ async def handle_xtv_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data["awalan"] = int(text)
     db.set_session(user_id, S6, data)
     
+    file_name = data.get("file_name", "FEE")
+    style_keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(f"NOMOR DI AWAL (e.g. 1 {file_name})", callback_data="xtv_numstyle_front", style="primary"),
+            InlineKeyboardButton(f"NOMOR DI AKHIR (e.g. {file_name} 1)", callback_data="xtv_numstyle_back", style="primary")
+        ],
+        [InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]
+    ])
+    
+    await context.bot.edit_message_text(
+        chat_id=update.effective_chat.id,
+        message_id=status_msg_id,
+        text=_get_breadcrumbs(data, 5) + "Pilih format penomoran nama file:",
+        parse_mode="HTML",
+        reply_markup=style_keyboard
+    )
+
+async def handle_xtv_numstyle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """User memilih format penomoran nama file"""
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = query.from_user.id
+    sess = db.get_session(user_id)
+    if not sess or sess["state"] != S6:
+        return
+        
+    data = sess["data"]
+    num_style = "front" if query.data == "xtv_numstyle_front" else "back"
+    data["file_num_style"] = num_style
+    db.set_session(user_id, S6, data)
+    
     deliv_keyboard = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("KIRIM SATU PER SATU", callback_data="xtv_deliv_single", style="primary"),
@@ -438,9 +477,7 @@ async def handle_xtv_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]
     ])
     
-    await context.bot.edit_message_text(
-        chat_id=update.effective_chat.id,
-        message_id=status_msg_id,
+    await query.edit_message_text(
         text=_get_breadcrumbs(data, 6) + "Pilih format pengiriman file VCF:",
         parse_mode="HTML",
         reply_markup=deliv_keyboard
@@ -659,7 +696,11 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     c_name = f"{contact_name}{idx_num}"
                 contacts.append({"name": c_name, "tel": num})
             contact_counter += len(chunk)
-            label = f"{file_name} {file_counter}"
+            num_style = data.get("file_num_style", "back")
+            if num_style == "front":
+                label = f"{file_counter} {file_name}"
+            else:
+                label = f"{file_name} {file_counter}"
             content = contacts_to_vcf(contacts).encode("utf-8")
             results.append((label, content))
             file_counter += 1
@@ -756,7 +797,7 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 f"│ Nama Kontak    : {_fit(contact_name):<22} │\n"
                 f"│ Jumlah / File  : {_fit(per_file):<22} │\n"
                 f"│ Nama File VCF  : {_fit(file_name):<22} │\n"
-                f"│ Urutan Mulai   : {_fit(awalan):<22} │\n"
+                f"│ Urutan Mulai   : {_fit(f'{awalan} (AWAL)' if data.get('file_num_style') == 'front' else f'{awalan} (AKHIR)'):<22} │\n"
                 f"│ Total Kontak   : {_fit(total_contacts_str):<22} │\n"
                 f"└────────────────────────────────────────┘"
                 f"</b></pre>\n\n"
@@ -849,7 +890,7 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 f"│ Nama Kontak    : {_fit(contact_name):<22} │\n"
                 f"│ Jumlah / File  : {_fit(per_file):<22} │\n"
                 f"│ Nama File VCF  : {_fit(file_name):<22} │\n"
-                f"│ Urutan Mulai   : {_fit(awalan):<22} │\n"
+                f"│ Urutan Mulai   : {_fit(f'{awalan} (AWAL)' if data.get('file_num_style') == 'front' else f'{awalan} (AKHIR)'):<22} │\n"
                 f"│ Total Kontak   : {_fit(total_contacts_str):<22} │\n"
                 f"└────────────────────────────────────────┘"
                 f"</b></pre>\n\n"
