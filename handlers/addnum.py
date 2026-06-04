@@ -126,9 +126,12 @@ def find_prefix_info(typed_prefix: str, prefix_max_indices: dict) -> tuple[str, 
 
 
 def _clear_buffers(user_id: int):
-    user_dir = get_user_dir(user_id)
-    addnum_dir = os.path.join(user_dir, "addnum")
-    shutil.rmtree(addnum_dir, ignore_errors=True)
+    from middleware.session import clear_user_dir
+    try:
+        clear_user_dir(user_id)
+    except Exception:
+        pass
+
 
 async def cmd_addnum(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler Command /addnum"""
