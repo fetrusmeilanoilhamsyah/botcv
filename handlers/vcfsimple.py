@@ -92,19 +92,29 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                     ]
                 ])
                 status_msg_id = data.get("status_msg_id")
+                # Edit in-place agar tombol PROSES tidak pernah menghilang
+                edited = False
                 if status_msg_id:
                     try:
-                        await context.bot.delete_message(chat_id=chat_id, message_id=status_msg_id)
+                        await context.bot.edit_message_text(
+                            chat_id=chat_id,
+                            message_id=status_msg_id,
+                            text=text,
+                            reply_markup=keyboard,
+                            parse_mode="HTML"
+                        )
+                        edited = True
                     except Exception:
                         pass
-                msg = await context.bot.send_message(
-                    chat_id=chat_id,
-                    text=text,
-                    reply_markup=keyboard,
-                    parse_mode="HTML"
-                )
-                data["status_msg_id"] = msg.message_id
-                db.set_session(user_id, sess["state"], data)
+                if not edited:
+                    msg = await context.bot.send_message(
+                        chat_id=chat_id,
+                        text=text,
+                        reply_markup=keyboard,
+                        parse_mode="HTML"
+                    )
+                    data["status_msg_id"] = msg.message_id
+                    db.set_session(user_id, sess["state"], data)
     except asyncio.CancelledError:
         pass
     except Exception as e:
@@ -177,6 +187,12 @@ async def handle_vs_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     msg_id = update.message.message_id
+
+    # Hapus pesan file user seketika agar chat bersih
+    try:
+        await update.message.delete()
+    except Exception:
+        pass
 
     file_obj = await context.bot.get_file(doc.file_id)
     vs_dir = os.path.join(get_user_dir(user_id), "vcfsimple")
