@@ -133,10 +133,10 @@ async def require_member(update, context) -> bool:
     # Keyboard dengan tombol Lihat VIP, VIP Gratis, dan Kembali ke Menu
     keyboard = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("LIHAT PAKET", callback_data="show_vip_menu"),
-            InlineKeyboardButton("VIP GRATIS", callback_data="show_referral_menu")
+            InlineKeyboardButton("LIHAT PAKET", callback_data="show_vip_menu", style="primary"),
+            InlineKeyboardButton("VIP GRATIS", callback_data="show_referral_menu", style="primary")
         ],
-        [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start")]
+        [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
     ])
     
     text = (
