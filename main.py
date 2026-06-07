@@ -124,6 +124,15 @@ from handlers.xlsxtovcf import (
     handle_xtv_numstyle_callback,
     S0 as XTV_S0, S1 as XTV_S1, S2 as XTV_S2, S3 as XTV_S3, S4 as XTV_S4, S5 as XTV_S5, S6 as XTV_S6,
 )
+from handlers.vcfsimple import (
+    cmd_vcfsimple,
+    handle_vs_per_file, handle_vs_file_name,
+    handle_vs_awalan, handle_vs_file, handle_vs_done,
+    handle_show_vcfsimple_help_callback,
+    handle_vs_delivery_callback, handle_vs_delivery_text,
+    handle_vs_numstyle_callback,
+    VS_WAIT_FILE, VS_PER_FILE, VS_FILE_NAME, VS_AWALAN, VS_COLLECTING, VS_DELIVERY,
+)
 from handlers.backup import cmd_backup
 from handlers.manual import (
     cmd_manual,
@@ -326,6 +335,10 @@ async def text_router(update: Update, context):
         S3:               handle_ttv_file_name,
         S4:               handle_ttv_awalan,
         S6:               handle_ttv_delivery_text,
+        VS_PER_FILE:      handle_vs_per_file,
+        VS_FILE_NAME:     handle_vs_file_name,
+        VS_AWALAN:        handle_vs_awalan,
+        VS_DELIVERY:      handle_vs_delivery_text,
         XTV_S1:           handle_xtv_contact_name,
         XTV_S2:           handle_xtv_per_file,
         XTV_S3:           handle_xtv_file_name,
@@ -366,6 +379,8 @@ async def file_router(update: Update, context):
         RENAME_S2:      (handle_rename_file,      "file VCF berupa DOKUMEN"),
         S0:             (handle_ttv_file,         "file TXT berupa DOKUMEN"),
         S5:             (handle_ttv_file,         "file TXT berupa DOKUMEN"),
+        VS_WAIT_FILE:   (handle_vs_file,          "file TXT berupa DOKUMEN"),
+        VS_COLLECTING:  (handle_vs_file,          "file TXT berupa DOKUMEN"),
         XTV_S0:         (handle_xtv_file,         "file XLSX/CSV berupa DOKUMEN"),
         COUNT_STATE:    (handle_count_file,       "file VCF atau TXT berupa DOKUMEN"),
         XLSX2TXT_STATE: (handle_xlsxtotxt_file,   "file XLSX/CSV berupa DOKUMEN"),
@@ -414,6 +429,8 @@ async def done_router(update: Update, context):
         PECAHTXT_S0:    handle_pecahtxt_done,
         S0:             handle_ttv_done,
         S5:             handle_ttv_done,
+        VS_WAIT_FILE:   handle_vs_done,
+        VS_COLLECTING:  handle_vs_done,
         XTV_S0:         handle_xtv_done,
         COUNT_STATE:    handle_count_done,
         XLSX2TXT_STATE: handle_xlsxtotxt_done,
@@ -573,6 +590,7 @@ async def _job_cleanup_sessions(context):
         try:
             from handlers.start import _welcome_messages
             import handlers.txttovcf
+            import handlers.vcfsimple
             import handlers.pecahtxt
             import handlers.pecahvcf
             import handlers.vcftotxt
@@ -591,6 +609,7 @@ async def _job_cleanup_sessions(context):
 
             active_uids = set(_welcome_messages.keys())
             active_uids.update(handlers.txttovcf._user_locks.keys())
+            active_uids.update(handlers.vcfsimple._user_locks.keys())
             active_uids.update(handlers.pecahtxt._user_locks.keys())
             active_uids.update(handlers.pecahvcf._user_locks.keys())
             active_uids.update(handlers.vcftotxt._user_locks.keys())
@@ -607,6 +626,8 @@ async def _job_cleanup_sessions(context):
             active_uids.update(handlers.cleanup._user_locks.keys())
             active_uids.update(handlers.manual._user_locks.keys())
             active_uids.update(handlers.addnum._user_locks.keys())
+            active_uids.update(handlers.txttovcf._user_timers.keys())
+            active_uids.update(handlers.vcfsimple._user_timers.keys())
             active_uids.update(handlers.pecahtxt._user_timers.keys())
             active_uids.update(handlers.pecahvcf._user_timers.keys())
 
@@ -630,6 +651,7 @@ async def _job_cleanup_sessions(context):
                     _welcome_messages.pop(uid, None)
                 
                 handlers.txttovcf.cleanup_inactive_users(inactive_ids)
+                handlers.vcfsimple.cleanup_inactive_users(inactive_ids)
                 handlers.pecahtxt.cleanup_inactive_users(inactive_ids)
                 handlers.pecahvcf.cleanup_inactive_users(inactive_ids)
                 handlers.vcftotxt.cleanup_inactive_users(inactive_ids)
@@ -826,6 +848,7 @@ def main():
     app.add_handler(CommandHandler(["reset", "resetdatabase"],          rate_limiter(cmd_reset)))
     app.add_handler(CommandHandler(["admin", "Admin"],                  rate_limiter(cmd_admin)))
     app.add_handler(CommandHandler("txttovcf",                          rate_limiter(cmd_txttovcf)))
+    app.add_handler(CommandHandler("vcfsimple",                         rate_limiter(cmd_vcfsimple)))
     app.add_handler(CommandHandler("xlsxtovcf",                         rate_limiter(cmd_xlsxtovcf)))
     app.add_handler(CommandHandler("xlsxtotxt",                         rate_limiter(cmd_xlsxtotxt)))
     app.add_handler(CommandHandler("merge",                             rate_limiter(cmd_merge)))
@@ -863,6 +886,8 @@ def main():
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_ttv_style_callback), pattern="^ttv_style_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_ttv_numstyle_callback), pattern="^ttv_numstyle_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_ttv_delivery_callback), pattern="^ttv_deliv_"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_vs_numstyle_callback), pattern="^vs_numstyle_"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_vs_delivery_callback), pattern="^vs_deliv_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_xtv_style_callback), pattern="^xtv_style_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_xtv_numstyle_callback), pattern="^xtv_numstyle_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_xtv_delivery_callback), pattern="^xtv_deliv_"))
@@ -872,6 +897,7 @@ def main():
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_duplikat_help_callback), pattern="^show_duplikat_help$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_count_help_callback), pattern="^show_count_help$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_txttovcf_help_callback), pattern="^show_txttovcf_help$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_vcfsimple_help_callback), pattern="^show_vcfsimple_help$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_xlsxtovcf_help_callback), pattern="^show_xlsxtovcf_help$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_vcftotxt_help_callback), pattern="^show_vcftotxt_help$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_xlsxtotxt_help_callback), pattern="^show_xlsxtotxt_help$"))

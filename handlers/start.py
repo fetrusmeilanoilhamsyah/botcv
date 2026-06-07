@@ -97,6 +97,7 @@ def build_menu_text(first_name: str, user_id: int) -> str:
     fitur = (
         "<b>FITUR UTAMA</b>\n"
         "• /txttovcf — TXT KE VCF\n"
+        "• /vcfsimple — VCF SIMPLE\n"
         "• /vcftotxt — VCF KE TXT\n"
         "• /admin — ADMIN NAVY VCF\n"
         "• /merge — GABUNG FILE\n"
