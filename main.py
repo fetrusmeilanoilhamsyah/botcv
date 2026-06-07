@@ -126,12 +126,9 @@ from handlers.xlsxtovcf import (
 )
 from handlers.vcfsimple import (
     cmd_vcfsimple,
-    handle_vs_per_file,
-    handle_vs_awalan, handle_vs_file, handle_vs_done,
+    handle_vs_file, handle_vs_done,
     handle_show_vcfsimple_help_callback,
-    handle_vs_delivery_callback, handle_vs_delivery_text,
-    handle_vs_numstyle_callback,
-    VS_WAIT_FILE, VS_PER_FILE, VS_AWALAN, VS_COLLECTING, VS_DELIVERY,
+    VS_WAIT_FILE, VS_COLLECTING,
 )
 from handlers.backup import cmd_backup
 from handlers.manual import (
@@ -335,9 +332,6 @@ async def text_router(update: Update, context):
         S3:               handle_ttv_file_name,
         S4:               handle_ttv_awalan,
         S6:               handle_ttv_delivery_text,
-        VS_PER_FILE:      handle_vs_per_file,
-        VS_AWALAN:        handle_vs_awalan,
-        VS_DELIVERY:      handle_vs_delivery_text,
         XTV_S1:           handle_xtv_contact_name,
         XTV_S2:           handle_xtv_per_file,
         XTV_S3:           handle_xtv_file_name,
@@ -885,8 +879,6 @@ def main():
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_ttv_style_callback), pattern="^ttv_style_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_ttv_numstyle_callback), pattern="^ttv_numstyle_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_ttv_delivery_callback), pattern="^ttv_deliv_"))
-    app.add_handler(CallbackQueryHandler(rate_limiter(handle_vs_numstyle_callback), pattern="^vs_numstyle_"))
-    app.add_handler(CallbackQueryHandler(rate_limiter(handle_vs_delivery_callback), pattern="^vs_deliv_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_xtv_style_callback), pattern="^xtv_style_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_xtv_numstyle_callback), pattern="^xtv_numstyle_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_xtv_delivery_callback), pattern="^xtv_deliv_"))
