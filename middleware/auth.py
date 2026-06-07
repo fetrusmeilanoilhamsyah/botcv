@@ -66,17 +66,19 @@ async def require_channel_join(update, context) -> bool:
 
     from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("MASUK CHANNEL", url=FORCE_SUB_LINK)],
-        [InlineKeyboardButton("VERIFIKASI", callback_data="check_channel_join", style="success")]
-    ])
-
     channel_display = FORCE_SUB_CHANNEL if str(FORCE_SUB_CHANNEL).startswith("@") else "@tutorialnotceve"
     text = (
         "               <b>« VERIFIKASI MEMBER »</b>\n\n"
-        f"Silakan bergabung dengan channel {channel_display} terlebih dahulu untuk menggunakan layanan bot ini.\n\n"
-        "Setelah bergabung, klik tombol verifikasi di bawah untuk melanjutkan."
+        f"Untuk menggunakan bot ini, kamu wajib bergabung ke channel {channel_display} terlebih dahulu.\n\n"
+        "1. Klik tombol <b>MASUK CHANNEL</b> di bawah\n"
+        "2. Bergabung ke channel\n"
+        "3. Kembali ke sini dan klik <b>SUDAH BERGABUNG</b>"
     )
+
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("— MASUK CHANNEL —", url=FORCE_SUB_LINK)],
+        [InlineKeyboardButton("SUDAH BERGABUNG", callback_data="check_channel_join")]
+    ])
 
     if update.callback_query:
         query = update.callback_query
@@ -85,7 +87,10 @@ async def require_channel_join(update, context) -> bool:
         except Exception:
             pass
         try:
-            await query.edit_message_text(text=text, parse_mode="HTML", reply_markup=keyboard)
+            msg = await query.edit_message_text(text=text, parse_mode="HTML", reply_markup=keyboard)
+            # Register agar bisa dihapus saat /start berikutnya
+            from handlers.start import register_welcome_messages
+            register_welcome_messages(user_id, [msg.message_id])
             return False
         except Exception as e:
             logger.warning(f"Gagal mengedit pesan callback di require_channel_join: {e}")

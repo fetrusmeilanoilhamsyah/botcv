@@ -440,11 +440,33 @@ async def cb_check_channel_join(update: Update, context):
 
     is_member = await check_channel_membership(context.bot, user_id)
     if is_member:
-        await query.answer("Verifikasi sukses. Silakan gunakan bot.", show_alert=True)
+        # Langsung jawab tanpa popup lalu redirect ke menu utama
+        await query.answer()
         from handlers.start import handle_back_to_start
         await handle_back_to_start(update, context)
     else:
-        await query.answer("Verifikasi gagal. Silakan masuk ke channel terlebih dahulu.", show_alert=True)
+        # Edit pesan di tempat, bukan popup show_alert
+        await query.answer()
+        from config import FORCE_SUB_CHANNEL, FORCE_SUB_LINK
+        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+        channel_display = FORCE_SUB_CHANNEL if str(FORCE_SUB_CHANNEL).startswith("@") else "@tutorialnotceve"
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("— MASUK CHANNEL —", url=FORCE_SUB_LINK)],
+            [InlineKeyboardButton("SUDAH BERGABUNG", callback_data="check_channel_join")]
+        ])
+        try:
+            await query.edit_message_text(
+                text=(
+                    "               <b>\u00ab VERIFIKASI MEMBER \u00bb</b>\n\n"
+                    f"Kamu belum tergabung di channel {channel_display}.\n\n"
+                    "Pastikan kamu sudah join, lalu klik <b>SUDAH BERGABUNG</b> kembali."
+                ),
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+        except Exception:
+            pass
+
 
 
 # ── show_vip_menu callback ─────────────────────────────────────────────────────

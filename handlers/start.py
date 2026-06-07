@@ -164,6 +164,13 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     first_name = user.first_name or "Kawan"
 
+    # Hapus pesan command /start dari user agar chat bersih
+    if update.message:
+        try:
+            await update.message.delete()
+        except Exception:
+            pass
+
     # Kirim fresh start menu secara bersih!
     await send_fresh_start_menu(context.bot, user.id, update.effective_chat.id, first_name)
 
