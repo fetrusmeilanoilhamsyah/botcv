@@ -1,5 +1,5 @@
 # Core bot framework — [job-queue] WAJIB agar app.job_queue tidak None
-python-telegram-bot[job-queue]>=21.0
+python-telegram-bot[job-queue]>=22.0
 
 # Database
 # sqlalchemy dihapus — bot pakai sqlite3 native, tidak perlu SQLAlchemy

@@ -451,8 +451,8 @@ async def cb_check_channel_join(update: Update, context):
         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
         channel_display = FORCE_SUB_CHANNEL if str(FORCE_SUB_CHANNEL).startswith("@") else "@tutorialnotceve"
         keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("— MASUK CHANNEL —", url=FORCE_SUB_LINK)],
-            [InlineKeyboardButton("SUDAH BERGABUNG", callback_data="check_channel_join")]
+            [InlineKeyboardButton("MASUK CHANNEL", url=FORCE_SUB_LINK, style="primary")],
+            [InlineKeyboardButton("SUDAH BERGABUNG", callback_data="check_channel_join", style="success")]
         ])
         try:
             await query.edit_message_text(
@@ -659,6 +659,7 @@ async def _job_notify_expiry(context):
         return
     async with lock:
         try:
+            from telegram.error import Forbidden, TelegramError
             for u in await adb.get_users_for_expiry_notif():
                 uid = u["id"]
                 try:
@@ -667,10 +668,17 @@ async def _job_notify_expiry(context):
                         text="Masa aktif VIP kamu tinggal 24 jam lagi. Perpanjang agar fitur tetap aktif.",
                     )
                     await adb.mark_expiry_notified(uid)
-                except Exception:
-                    pass
+                except Forbidden:
+                    # User block bot — langsung mark notified agar tidak diproses ulang
+                    await adb.mark_expiry_notified(uid)
+                    logger.debug("[JOB] notify_expiry: user %d block bot, marked notified", uid)
+                except TelegramError as e:
+                    logger.debug("[JOB] notify_expiry: gagal kirim ke %d: %s", uid, e)
+                except Exception as e:
+                    logger.debug("[JOB] notify_expiry: error user %d: %s", uid, e)
         except Exception:
             pass
+
 
 
 async def job_expire_pending_payments(context):

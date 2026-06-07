@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 # RAM Cache for membership checks to prevent API rate-limiting/spamming
 _membership_cache = {}
-MEMBERSHIP_CACHE_TTL = 300  # 5 minutes
+MEMBERSHIP_CACHE_TTL = 60  # 60 detik — agar user yang keluar channel cepat terblokir
 
 
 def is_admin(user_id: int) -> bool:
@@ -60,6 +60,9 @@ async def require_channel_join(update, context) -> bool:
     if is_admin(user_id):
         return True
 
+    # Hapus cache lama sebelum cek ke API agar status selalu fresh
+    _membership_cache.pop(user_id, None)
+
     is_member = await check_channel_membership(context.bot, user_id)
     if is_member:
         return True
@@ -76,8 +79,8 @@ async def require_channel_join(update, context) -> bool:
     )
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("— MASUK CHANNEL —", url=FORCE_SUB_LINK)],
-        [InlineKeyboardButton("SUDAH BERGABUNG", callback_data="check_channel_join")]
+        [InlineKeyboardButton("MASUK CHANNEL", url=FORCE_SUB_LINK, style="primary")],
+        [InlineKeyboardButton("SUDAH BERGABUNG", callback_data="check_channel_join", style="success")]
     ])
 
     if update.callback_query:
@@ -131,8 +134,8 @@ async def require_member(update, context) -> bool:
     # Keyboard dengan tombol Lihat VIP, VIP Gratis, dan Kembali ke Menu
     keyboard = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("LIHAT PAKET", callback_data="show_vip_menu", style="success"),
-            InlineKeyboardButton("VIP GRATIS", callback_data="show_referral_menu", style="primary")
+            InlineKeyboardButton("LIHAT PAKET", callback_data="show_vip_menu", style="primary"),
+            InlineKeyboardButton("VIP GRATIS", callback_data="show_referral_menu", style="success")
         ],
         [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
     ])

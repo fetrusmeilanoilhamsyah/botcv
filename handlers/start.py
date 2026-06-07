@@ -184,18 +184,34 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if is_new:
                 # Berikan VIP 14 hari gratis otomatis ke pengguna baru
                 await adb.set_member_vip(user.id, 14, user.full_name or "New User")
-                try:
-                    await context.bot.send_message(
-                        chat_id=user.id,
-                        text=(
-                            "<b>Hadiah Pengguna Baru!</b>\n\n"
-                            "Selamat! Kamu otomatis mendapatkan akses <b>VIP 14 Hari GRATIS</b>.\n"
-                            "Nikmati semua fitur premium konversi kontak sepuasnya."
-                        ),
-                        parse_mode="HTML"
-                    )
-                except Exception:
-                    pass
+                # Edit welcome message yang sudah ada — TIDAK kirim pesan baru agar tidak menumpuk
+                from handlers.start import _welcome_messages
+                msg_ids = _welcome_messages.get(user.id, [])
+                if msg_ids:
+                    try:
+                        welcome_text = build_menu_text(first_name, user.id)
+                        vip_note = (
+                            "\n\n<b>Hadiah Pengguna Baru!</b>\n"
+                            "Kamu mendapatkan akses <b>VIP 14 Hari GRATIS</b> secara otomatis."
+                        )
+                        from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+                        from config import TUTORIAL_LINK, ADMIN_CONTACT
+                        keyboard = InlineKeyboardMarkup([
+                            [
+                                InlineKeyboardButton("TUTORIAL", url=TUTORIAL_LINK, style="danger"),
+                                InlineKeyboardButton("DEVELOPER", url=f"https://t.me/{ADMIN_CONTACT.lstrip('@')}", style="primary")
+                            ]
+                        ])
+                        await context.bot.edit_message_text(
+                            chat_id=user.id,
+                            message_id=msg_ids[0],
+                            text=welcome_text + vip_note,
+                            parse_mode="HTML",
+                            reply_markup=keyboard,
+                            disable_web_page_preview=True,
+                        )
+                    except Exception:
+                        pass
 
             if is_new and context.args:
                 arg = context.args[0]
