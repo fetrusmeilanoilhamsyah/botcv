@@ -545,7 +545,7 @@ async def handle_vs_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
             chunk = all_numbers[i:i + per_file]
             vcf_lines = []
             for num in chunk:
-                name = num
+                name = num.lstrip("+")
                 vcf_lines.append(f"BEGIN:VCARD\nVERSION:3.0\nFN:{name}\nTEL;TYPE=CELL:{num}\nEND:VCARD")
             num_style = data.get("file_num_style", "back")
             if num_style == "front":
