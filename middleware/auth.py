@@ -3,13 +3,106 @@ middleware/auth.py
 Validasi membership — semua DB call async via adb agar tidak blokir event loop.
 """
 import logging
-from config import ADMIN_IDS, ADMIN_CONTACT
+import time
+from config import ADMIN_IDS, ADMIN_CONTACT, FORCE_SUB_CHANNEL, FORCE_SUB_LINK
 
 logger = logging.getLogger(__name__)
+
+# RAM Cache for membership checks to prevent API rate-limiting/spamming
+_membership_cache = {}
+MEMBERSHIP_CACHE_TTL = 300  # 5 minutes
 
 
 def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
+
+
+async def check_channel_membership(bot, user_id: int) -> bool:
+    """Checks if a user is a member of the configured Telegram channel, with RAM caching."""
+    if not FORCE_SUB_CHANNEL:
+        return True
+
+    now = time.time()
+    if user_id in _membership_cache:
+        if now - _membership_cache[user_id] < MEMBERSHIP_CACHE_TTL:
+            return True
+
+    try:
+        # Convert channel ID to integer if it is a numeric string (e.g. -100123456789)
+        channel_id = FORCE_SUB_CHANNEL
+        if str(channel_id).strip().replace("-", "").isdigit():
+            channel_id = int(channel_id)
+
+        member = await bot.get_chat_member(chat_id=channel_id, user_id=user_id)
+        if member.status in ('creator', 'administrator', 'member', 'restricted'):
+            _membership_cache[user_id] = now
+            return True
+    except Exception as e:
+        logger.warning(f"Error checking channel membership for user {user_id}: {e}")
+        # Note: If the bot is not admin in the channel, it will raise an error (e.g. ChatNotFound).
+        # We fail open if get_chat_member raises a non-user exception to prevent blocking the bot entirely if setup is wrong,
+        # but for safety, if user is not a member we should return False.
+        # If the error is ChatNotFound or similar, let's log it.
+        pass
+    return False
+
+
+async def require_channel_join(update, context) -> bool:
+    """
+    Checks if user is in required channel. If not, prompts to join and returns False.
+    """
+    if not FORCE_SUB_CHANNEL:
+        return True
+
+    user_id = update.effective_user.id
+
+    # Admin always bypasses this check
+    if is_admin(user_id):
+        return True
+
+    is_member = await check_channel_membership(context.bot, user_id)
+    if is_member:
+        return True
+
+    from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("MASUK CHANNEL", url=FORCE_SUB_LINK)],
+        [InlineKeyboardButton("VERIFIKASI", callback_data="check_channel_join", style="success")]
+    ])
+
+    channel_display = FORCE_SUB_CHANNEL if str(FORCE_SUB_CHANNEL).startswith("@") else "@tutorialnotceve"
+    text = (
+        "               <b>« VERIFIKASI MEMBER »</b>\n\n"
+        f"Silakan bergabung dengan channel {channel_display} terlebih dahulu untuk menggunakan layanan bot ini.\n\n"
+        "Setelah bergabung, klik tombol verifikasi di bawah untuk melanjutkan."
+    )
+
+    if update.callback_query:
+        query = update.callback_query
+        try:
+            await query.answer()
+        except Exception:
+            pass
+        try:
+            await query.edit_message_text(text=text, parse_mode="HTML", reply_markup=keyboard)
+            return False
+        except Exception as e:
+            logger.warning(f"Gagal mengedit pesan callback di require_channel_join: {e}")
+            return False
+
+    from handlers.start import transition_to_handler
+    chat_id = update.effective_chat.id if update.effective_chat else user_id
+
+    await transition_to_handler(
+        context.bot,
+        user_id,
+        chat_id,
+        text,
+        reply_markup=keyboard,
+        update=update
+    )
+    return False
 
 
 async def require_member(update, context) -> bool:

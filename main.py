@@ -223,6 +223,14 @@ def rate_limiter(func):
                 return
             _user_last_click[user_id] = now
 
+        # --- FORCE JOIN CHANNEL CHECK ---
+        if update.callback_query and update.callback_query.data == "check_channel_join":
+            pass
+        else:
+            from middleware.auth import require_channel_join
+            if not await require_channel_join(update, context):
+                return
+
         async with global_semaphore:
             async with user_semaphores[user_id]:
                 return await func(update, context)
@@ -238,6 +246,11 @@ def file_rate_limiter(func):
 
         user_id = update.effective_user.id
         _user_last_active[user_id] = time.time()
+
+        # --- FORCE JOIN CHANNEL CHECK ---
+        from middleware.auth import require_channel_join
+        if not await require_channel_join(update, context):
+            return
 
         # Hanya gunakan 1 global semaphore — tidak ada antrian per-user untuk file
         # User bisa upload banyak file paralel, yang dibatasi hanya total global
@@ -414,6 +427,24 @@ async def done_router(update: Update, context):
         await handler(update, context)
     else:
         await update.message.reply_text("Tidak ada proses aktif yang bisa diselesaikan.")
+
+
+# ── check_channel_join callback ────────────────────────────────────────────────
+async def cb_check_channel_join(update: Update, context):
+    query = update.callback_query
+    user_id = query.from_user.id
+
+    from middleware.auth import _membership_cache, check_channel_membership
+    # Hapus cache agar status terbaru dicek
+    _membership_cache.pop(user_id, None)
+
+    is_member = await check_channel_membership(context.bot, user_id)
+    if is_member:
+        await query.answer("Verifikasi sukses. Silakan gunakan bot.", show_alert=True)
+        from handlers.start import handle_back_to_start
+        await handle_back_to_start(update, context)
+    else:
+        await query.answer("Verifikasi gagal. Silakan masuk ke channel terlebih dahulu.", show_alert=True)
 
 
 # ── show_vip_menu callback ─────────────────────────────────────────────────────
@@ -795,6 +826,7 @@ def main():
     app.add_handler(CommandHandler("done",                              rate_limiter(done_router)))
 
     # ── Callback handlers ──
+    app.add_handler(CallbackQueryHandler(rate_limiter(cb_check_channel_join),  pattern="^check_channel_join$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(cb_show_vip_menu),       pattern="^show_vip_menu$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(cb_show_referral_menu),  pattern="^show_referral_menu$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_back_to_start),   pattern="^back_to_start$"))

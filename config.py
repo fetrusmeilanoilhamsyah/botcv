@@ -9,6 +9,8 @@ ADMIN_CONTACT = os.getenv("ADMIN_CONTACT", "@admin")
 GROUP_LINK    = os.getenv("GROUP_LINK", "https://t.me/grup")
 HARGA_MEMBER  = os.getenv("HARGA_MEMBER", "Hubungi admin")
 TUTORIAL_LINK = os.getenv("TUTORIAL_LINK", "https://t.me/tutorialnotceve")
+FORCE_SUB_CHANNEL = os.getenv("FORCE_SUB_CHANNEL", "")
+FORCE_SUB_LINK    = os.getenv("FORCE_SUB_LINK", "")
 
 TMP_DIR = os.path.join(os.path.dirname(__file__), "tmp", "sessions")
 
