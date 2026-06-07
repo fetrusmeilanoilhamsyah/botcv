@@ -2,6 +2,7 @@
 vcfsimple.py - Disk-based, terima paralel, sort by message_id.
 UI/UX Level Dewa: Single-Message Morphing Wizard, bebas emoji.
 Nama kontak otomatis dikunci menggunakan nomor telepon kontak itu sendiri.
+Nama file keluaran otomatis dikunci menggunakan nama file TXT asli yang diunggah.
 """
 import os
 import shutil
@@ -17,7 +18,6 @@ from core.utils import sanitize_filename
 
 VS_WAIT_FILE = "VS_WAIT_FILE"
 VS_PER_FILE = "VS_PER_FILE"
-VS_FILE_NAME = "VS_FILE_NAME"
 VS_AWALAN = "VS_AWALAN"
 VS_COLLECTING = "VS_COLLECTING"
 VS_DELIVERY = "VS_DELIVERY"
@@ -56,6 +56,11 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
         
     parts.append("Nama: Sesuai Nomor")
         
+    if file_name:
+        parts.append(f"File: {file_name}")
+    else:
+        parts.append("File o")
+        
     if step == 2:
         if per_file:
             parts.append(f"<b>[ JUMLAH: {per_file} ]</b>")
@@ -65,16 +70,6 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
         parts.append(f"Jumlah: {per_file}")
     else:
         parts.append("Jumlah o")
-
-    if step == 3:
-        if file_name:
-            parts.append(f"<b>[ FILE: {file_name.upper()} ]</b>")
-        else:
-            parts.append("<b>[ FILE ]</b>")
-    elif step > 3 and file_name:
-        parts.append(f"File: {file_name}")
-    else:
-        parts.append("File o")
         
     num_style = data.get("file_num_style", "")
     style_suffix = ""
@@ -83,12 +78,12 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     elif num_style == "back":
         style_suffix = " (AKHIR)"
         
-    if step == 4:
+    if step == 3:
         if awalan:
             parts.append(f"<b>[ URUTAN: {awalan}{style_suffix} ]</b>")
         else:
             parts.append("<b>[ URUTAN ]</b>")
-    elif step > 4 and awalan:
+    elif step > 3 and awalan:
         parts.append(f"Urutan: {awalan}{style_suffix}")
     else:
         parts.append("Urutan o")
@@ -184,7 +179,7 @@ async def cmd_vcfsimple(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     
-    db.set_session(user_id, VS_WAIT_FILE, {"count": 0, "total_size": 0, "total_contacts": 0})
+    db.set_session(user_id, VS_WAIT_FILE, {"count": 0, "total_size": 0, "total_contacts": 0, "file_name": ""})
     
     msg = await transition_to_handler(
         context.bot,
@@ -222,7 +217,7 @@ async def handle_vs_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file_obj = await context.bot.get_file(doc.file_id)
     vs_dir = os.path.join(get_user_dir(user_id), "vcfsimple")
     os.makedirs(vs_dir, exist_ok=True)
-    out_path = os.path.join(vs_dir, f"{msg_id}.txt")
+    out_path = os.path.join(vs_dir, f"{msg_id}_{sanitize_filename(doc.file_name)}")
     
     try:
         await file_obj.download_to_drive(out_path)
@@ -275,6 +270,12 @@ async def handle_vs_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
             data["count"] += 1
             data["total_size"] += doc.file_size
             data["total_contacts"] = data.get("total_contacts", 0) + lines
+            
+            # Jika file pertama, kunci file_name menggunakan nama file TXT asli
+            if data["count"] == 1:
+                base_name = os.path.splitext(doc.file_name)[0]
+                data["file_name"] = sanitize_filename(base_name)
+                
             db.set_session(user_id, sess["state"], data)
 
         _reset_timer(user_id, context, chat_id)
@@ -376,39 +377,12 @@ async def handle_vs_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     data = sess["data"]
     data["per_file"] = per_file
-    db.set_session(user_id, VS_FILE_NAME, data)
-    
-    await context.bot.edit_message_text(
-        chat_id=update.effective_chat.id,
-        message_id=status_msg_id,
-        text=_get_breadcrumbs(data, 3) + "Nama file? Contoh: <b>HKTV</b>",
-        parse_mode="HTML",
-        reply_markup=keyboard
-    )
-
-async def handle_vs_file_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """User memasukkan nama file"""
-    user_id = update.effective_user.id
-    sess = db.get_session(user_id)
-    if sess["state"] != VS_FILE_NAME:
-        return
-    
-    # Hapus input teks user
-    try:
-        await update.message.delete()
-    except Exception:
-        pass
-
-    data = sess["data"]
-    data["file_name"] = sanitize_filename(update.message.text.strip())
     db.set_session(user_id, VS_AWALAN, data)
     
-    status_msg_id = data.get("status_msg_id")
-    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text=_get_breadcrumbs(data, 4) + "Nomor urut awal? Contoh: <b>1</b>",
+        text=_get_breadcrumbs(data, 3) + "Nomor urut awal? Contoh: <b>1</b>",
         parse_mode="HTML",
         reply_markup=keyboard
     )
@@ -434,7 +408,7 @@ async def handle_vs_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text=_get_breadcrumbs(sess["data"], 4) + "Harap masukkan angka valid (minimal 1).\n\nNomor urut awal? Contoh: <b>1</b>",
+            text=_get_breadcrumbs(sess["data"], 3) + "Harap masukkan angka valid (minimal 1).\n\nNomor urut awal? Contoh: <b>1</b>",
             parse_mode="HTML",
             reply_markup=keyboard
         )
@@ -457,7 +431,7 @@ async def handle_vs_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text=_get_breadcrumbs(data, 4) + "Pilih format penomoran nama file:",
+        text=_get_breadcrumbs(data, 3) + "Pilih format penomoran nama file:",
         parse_mode="HTML",
         reply_markup=style_keyboard
     )
@@ -486,7 +460,7 @@ async def handle_vs_numstyle_callback(update: Update, context: ContextTypes.DEFA
     ])
     
     await query.edit_message_text(
-        text=_get_breadcrumbs(data, 5) + "Pilih format pengiriman file VCF:",
+        text=_get_breadcrumbs(data, 4) + "Pilih format pengiriman file VCF:",
         parse_mode="HTML",
         reply_markup=deliv_keyboard
     )
@@ -543,9 +517,9 @@ async def handle_vs_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
     files = []
     if os.path.exists(vs_dir):
         files = [f for f in os.listdir(vs_dir) if f.endswith('.txt')]
-        files.sort(key=lambda x: int(x.split('.')[0]))
+        files.sort(key=lambda x: int(x.split('_')[0]))
 
-    file_name    = data["file_name"]
+    file_name    = data["file_name"] or "FEE"
     per_file     = data["per_file"]
     awalan       = data["awalan"]
 
@@ -791,7 +765,7 @@ async def handle_show_vcfsimple_help_callback(update: Update, context: ContextTy
     asyncio.create_task(adb.increment_usage(user_id))
     _cancel_timer(user_id)
     _clear_buffers(user_id)
-    db.set_session(user_id, VS_WAIT_FILE, {"count": 0, "total_size": 0, "total_contacts": 0})
+    db.set_session(user_id, VS_WAIT_FILE, {"count": 0, "total_size": 0, "total_contacts": 0, "file_name": ""})
 
     text = _get_breadcrumbs({"count": 0}, 1) + "<b>Menunggu berkas...</b>\nKirim file <b>.TXT</b> sekarang."
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])

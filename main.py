@@ -126,12 +126,12 @@ from handlers.xlsxtovcf import (
 )
 from handlers.vcfsimple import (
     cmd_vcfsimple,
-    handle_vs_per_file, handle_vs_file_name,
+    handle_vs_per_file,
     handle_vs_awalan, handle_vs_file, handle_vs_done,
     handle_show_vcfsimple_help_callback,
     handle_vs_delivery_callback, handle_vs_delivery_text,
     handle_vs_numstyle_callback,
-    VS_WAIT_FILE, VS_PER_FILE, VS_FILE_NAME, VS_AWALAN, VS_COLLECTING, VS_DELIVERY,
+    VS_WAIT_FILE, VS_PER_FILE, VS_AWALAN, VS_COLLECTING, VS_DELIVERY,
 )
 from handlers.backup import cmd_backup
 from handlers.manual import (
@@ -336,7 +336,6 @@ async def text_router(update: Update, context):
         S4:               handle_ttv_awalan,
         S6:               handle_ttv_delivery_text,
         VS_PER_FILE:      handle_vs_per_file,
-        VS_FILE_NAME:     handle_vs_file_name,
         VS_AWALAN:        handle_vs_awalan,
         VS_DELIVERY:      handle_vs_delivery_text,
         XTV_S1:           handle_xtv_contact_name,
