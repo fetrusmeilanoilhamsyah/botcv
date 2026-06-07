@@ -83,6 +83,8 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
         reply_markup=reply_markup,
         disable_web_page_preview=True
     )
+    # Daftarkan pesan baru agar next call bisa edit, bukan kirim lagi (anti-menumpuk)
+    register_welcome_messages(user_id, [msg.message_id])
     return msg
 
 
