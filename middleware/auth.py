@@ -91,13 +91,12 @@ async def require_channel_join(update, context) -> bool:
             pass
         try:
             msg = await query.edit_message_text(text=text, parse_mode="HTML", reply_markup=keyboard)
-            # Register agar bisa dihapus saat /start berikutnya
             from handlers.start import register_welcome_messages
             register_welcome_messages(user_id, [msg.message_id])
             return False
         except Exception as e:
             logger.warning(f"Gagal mengedit pesan callback di require_channel_join: {e}")
-            return False
+            # Fallback: edit gagal, kirim pesan baru via transition_to_handler
 
     from handlers.start import transition_to_handler
     chat_id = update.effective_chat.id if update.effective_chat else user_id
@@ -134,10 +133,10 @@ async def require_member(update, context) -> bool:
     # Keyboard dengan tombol Lihat VIP, VIP Gratis, dan Kembali ke Menu
     keyboard = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("LIHAT PAKET", callback_data="show_vip_menu", style="primary"),
-            InlineKeyboardButton("VIP GRATIS", callback_data="show_referral_menu", style="success")
+            InlineKeyboardButton("LIHAT PAKET", callback_data="show_vip_menu"),
+            InlineKeyboardButton("VIP GRATIS", callback_data="show_referral_menu")
         ],
-        [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
+        [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start")]
     ])
     
     text = (

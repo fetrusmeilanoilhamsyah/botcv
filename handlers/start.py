@@ -184,8 +184,8 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await adb.increment_usage(user.id)
 
             if is_new:
-                # Berikan VIP 14 hari gratis otomatis ke pengguna baru
-                await adb.set_member_vip(user.id, 14, user.full_name or "New User")
+                # Berikan VIP 7 hari gratis otomatis ke pengguna baru
+                await adb.set_member_vip(user.id, 7, user.full_name or "New User")
                 # Edit welcome message yang sudah ada — TIDAK kirim pesan baru agar tidak menumpuk
                 from handlers.start import _welcome_messages
                 msg_ids = _welcome_messages.get(user.id, [])
@@ -194,7 +194,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         welcome_text = build_menu_text(first_name, user.id)
                         vip_note = (
                             "\n\n<b>Hadiah Pengguna Baru!</b>\n"
-                            "Kamu mendapatkan akses <b>VIP 14 Hari GRATIS</b> secara otomatis."
+                            "Kamu mendapatkan akses <b>VIP 7 Hari GRATIS</b> secara otomatis."
                         )
                         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
                         from config import TUTORIAL_LINK, ADMIN_CONTACT
