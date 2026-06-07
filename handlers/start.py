@@ -260,7 +260,10 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Callback query handler untuk kembali ke menu utama /start"""
     query = update.callback_query
-    await query.answer()
+    try:
+        await query.answer()
+    except Exception:
+        pass
 
     user = query.from_user
     chat_id = query.message.chat_id
