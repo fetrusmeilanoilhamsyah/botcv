@@ -335,39 +335,45 @@ async def handle_vs_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
     loop = asyncio.get_running_loop()
 
     def do_build():
-        all_numbers = []
+        results = []  # list of (vcf_basename, vcf_bytes, contact_count)
         for f in files:
+            # Ambil nama asli TXT: hapus prefix msg_id_ di depan
+            original_name = f.split('_', 1)[1] if '_' in f else f
+            vcf_base = os.path.splitext(original_name)[0]  # tanpa .txt
+
             path = os.path.join(vs_dir, f)
+            numbers = []
             try:
                 with open(path, "r", encoding="utf-8", errors="ignore") as file_in:
                     for line in file_in:
                         num = line.strip()
                         if num:
-                            all_numbers.append(add_plus(num))
+                            numbers.append(add_plus(num))
             except Exception:
                 pass
 
-        vcf_lines = []
-        for num in all_numbers:
-            name = num.lstrip("+")
-            vcf_lines.append(
-                f"BEGIN:VCARD\nVERSION:3.0\nFN:{name}\nTEL;TYPE=CELL:{num}\nEND:VCARD"
-            )
-        content = ("\n".join(vcf_lines) + "\n").encode("utf-8")
-        return all_numbers, content
+            vcf_lines = []
+            for num in numbers:
+                name = num.lstrip("+")
+                vcf_lines.append(
+                    f"BEGIN:VCARD\nVERSION:3.0\nFN:{name}\nTEL;TYPE=CELL:{num}\nEND:VCARD"
+                )
+            content = ("\n".join(vcf_lines) + "\n").encode("utf-8")
+            results.append((vcf_base, content, len(numbers)))
+        return results
 
-    all_numbers, content = await loop.run_in_executor(None, do_build)
+    results = await loop.run_in_executor(None, do_build)
 
     import io
+    import zipfile
     import logging as _log
     _logger = _log.getLogger(__name__)
 
     try:
         total_input = len(files)
-        total_contacts = len(all_numbers)
-        file_name_val = file_name
+        total_contacts = sum(r[2] for r in results)
 
-        if not all_numbers:
+        if not results or total_contacts == 0:
             try:
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
@@ -379,38 +385,92 @@ async def handle_vs_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
             return
 
-        try:
-            await context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
-                message_id=status_msg_id,
-                text="Mengirim file VCF...",
-                parse_mode="HTML"
-            )
-        except Exception:
-            pass
-
-        buf = io.BytesIO(content)
-        vcf_filename = f"{file_name}.vcf"
-
-        for attempt in range(SEND_MAX_RETRIES):
+        # --- Kirim ---
+        if len(results) == 1:
+            # Satu file → kirim VCF langsung
+            vcf_base, vcf_bytes, _ = results[0]
             try:
-                buf.seek(0)
-                await context.bot.send_document(
+                await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
-                    document=buf,
-                    filename=vcf_filename,
-                    read_timeout=FILE_READ_TIMEOUT,
-                    write_timeout=FILE_WRITE_TIMEOUT,
-                    connect_timeout=FILE_CONNECT_TIMEOUT,
+                    message_id=status_msg_id,
+                    text="Mengirim file VCF...",
+                    parse_mode="HTML"
                 )
-                break
-            except Exception as ex:
-                _logger.error(f"[VCFSIMPLE] Gagal kirim VCF attempt {attempt+1}: {ex}")
-                if attempt == SEND_MAX_RETRIES - 1:
-                    raise
-                else:
+            except Exception:
+                pass
+
+            buf = io.BytesIO(vcf_bytes)
+            vcf_filename = f"{vcf_base}.vcf"
+            for attempt in range(SEND_MAX_RETRIES):
+                try:
+                    buf.seek(0)
+                    await context.bot.send_document(
+                        chat_id=update.effective_chat.id,
+                        document=buf,
+                        filename=vcf_filename,
+                        read_timeout=FILE_READ_TIMEOUT,
+                        write_timeout=FILE_WRITE_TIMEOUT,
+                        connect_timeout=FILE_CONNECT_TIMEOUT,
+                    )
+                    break
+                except Exception as ex:
+                    _logger.error(f"[VCFSIMPLE] Gagal kirim VCF attempt {attempt+1}: {ex}")
+                    if attempt == SEND_MAX_RETRIES - 1:
+                        raise
                     await asyncio.sleep(SEND_RETRY_DELAY)
 
+            output_label = f"1 VCF ({vcf_base})"
+
+        else:
+            # Banyak file → ZIP
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_msg_id,
+                    text="Mengompresi ke ZIP...",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
+
+            zip_buf = io.BytesIO()
+            with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                for vcf_base, vcf_bytes, _ in results:
+                    zf.writestr(f"{vcf_base}.vcf", vcf_bytes)
+            zip_buf.seek(0)
+            zip_filename = f"{file_name}.zip"
+
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_msg_id,
+                    text="Mengirim file ZIP...",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
+
+            for attempt in range(SEND_MAX_RETRIES):
+                try:
+                    zip_buf.seek(0)
+                    await context.bot.send_document(
+                        chat_id=update.effective_chat.id,
+                        document=zip_buf,
+                        filename=zip_filename,
+                        read_timeout=FILE_READ_TIMEOUT,
+                        write_timeout=FILE_WRITE_TIMEOUT,
+                        connect_timeout=FILE_CONNECT_TIMEOUT,
+                    )
+                    break
+                except Exception as ex:
+                    _logger.error(f"[VCFSIMPLE] Gagal kirim ZIP attempt {attempt+1}: {ex}")
+                    if attempt == SEND_MAX_RETRIES - 1:
+                        raise
+                    await asyncio.sleep(SEND_RETRY_DELAY)
+
+            output_label = f"{len(results)} VCF (ZIP)"
+
+        # --- Laporan selesai ---
         try:
             await context.bot.delete_message(
                 chat_id=update.effective_chat.id,
@@ -434,12 +494,12 @@ async def handle_vs_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"|             PROSES SELESAI             |\n"
             f"+----------------------------------------+\n"
             f"| Total Berkas   : {_fit(f'{total_input} TXT'):<22} |\n"
-            f"| Nama File VCF  : {_fit(file_name_val):<22} |\n"
+            f"| Output         : {_fit(output_label):<22} |\n"
             f"| Nama Kontak    : {_fit('Sesuai Nomor'):<22} |\n"
             f"| Total Kontak   : {_fit(f'{total_contacts:,}'):<22} |\n"
             f"+----------------------------------------+"
             f"</b></pre>\n\n"
-            f"<i>Silakan unduh file VCF di atas.</i>"
+            f"<i>Silakan unduh file di atas.</i>"
         )
         final_msg = await context.bot.send_message(
             chat_id=update.effective_chat.id,
