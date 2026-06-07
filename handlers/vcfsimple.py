@@ -365,7 +365,6 @@ async def handle_vs_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
     results = await loop.run_in_executor(None, do_build)
 
     import io
-    import zipfile
     import logging as _log
     _logger = _log.getLogger(__name__)
 
@@ -385,20 +384,19 @@ async def handle_vs_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 pass
             return
 
-        # --- Kirim ---
-        if len(results) == 1:
-            # Satu file → kirim VCF langsung
-            vcf_base, vcf_bytes, _ = results[0]
-            try:
-                await context.bot.edit_message_text(
-                    chat_id=update.effective_chat.id,
-                    message_id=status_msg_id,
-                    text="Mengirim file VCF...",
-                    parse_mode="HTML"
-                )
-            except Exception:
-                pass
+        # --- Kirim semua VCF satu per satu ---
+        try:
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text="Mengirim file VCF...",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
 
+        sent = 0
+        for vcf_base, vcf_bytes, _ in results:
             buf = io.BytesIO(vcf_bytes)
             vcf_filename = f"{vcf_base}.vcf"
             for attempt in range(SEND_MAX_RETRIES):
@@ -412,63 +410,16 @@ async def handle_vs_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         write_timeout=FILE_WRITE_TIMEOUT,
                         connect_timeout=FILE_CONNECT_TIMEOUT,
                     )
+                    sent += 1
                     break
                 except Exception as ex:
-                    _logger.error(f"[VCFSIMPLE] Gagal kirim VCF attempt {attempt+1}: {ex}")
+                    _logger.error(f"[VCFSIMPLE] Gagal kirim {vcf_filename} attempt {attempt+1}: {ex}")
                     if attempt == SEND_MAX_RETRIES - 1:
-                        raise
-                    await asyncio.sleep(SEND_RETRY_DELAY)
+                        sent += 1
+                    else:
+                        await asyncio.sleep(SEND_RETRY_DELAY)
 
-            output_label = f"1 VCF ({vcf_base})"
-
-        else:
-            # Banyak file → ZIP
-            try:
-                await context.bot.edit_message_text(
-                    chat_id=update.effective_chat.id,
-                    message_id=status_msg_id,
-                    text="Mengompresi ke ZIP...",
-                    parse_mode="HTML"
-                )
-            except Exception:
-                pass
-
-            zip_buf = io.BytesIO()
-            with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
-                for vcf_base, vcf_bytes, _ in results:
-                    zf.writestr(f"{vcf_base}.vcf", vcf_bytes)
-            zip_buf.seek(0)
-            zip_filename = f"{file_name}.zip"
-
-            try:
-                await context.bot.edit_message_text(
-                    chat_id=update.effective_chat.id,
-                    message_id=status_msg_id,
-                    text="Mengirim file ZIP...",
-                    parse_mode="HTML"
-                )
-            except Exception:
-                pass
-
-            for attempt in range(SEND_MAX_RETRIES):
-                try:
-                    zip_buf.seek(0)
-                    await context.bot.send_document(
-                        chat_id=update.effective_chat.id,
-                        document=zip_buf,
-                        filename=zip_filename,
-                        read_timeout=FILE_READ_TIMEOUT,
-                        write_timeout=FILE_WRITE_TIMEOUT,
-                        connect_timeout=FILE_CONNECT_TIMEOUT,
-                    )
-                    break
-                except Exception as ex:
-                    _logger.error(f"[VCFSIMPLE] Gagal kirim ZIP attempt {attempt+1}: {ex}")
-                    if attempt == SEND_MAX_RETRIES - 1:
-                        raise
-                    await asyncio.sleep(SEND_RETRY_DELAY)
-
-            output_label = f"{len(results)} VCF (ZIP)"
+        output_label = f"{sent} VCF"
 
         # --- Laporan selesai ---
         try:
