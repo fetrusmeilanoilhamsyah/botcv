@@ -224,7 +224,7 @@ async def run_webhook_server(port: int = 8080, bot=None, main_loop=None):
     app    = create_webhook_app(bot, main_loop)
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", port)
+    site = web.TCPSite(runner, "127.0.0.1", port)
     await site.start()
 
     logger.info("[Webhook] Server berjalan di port %s", port)
