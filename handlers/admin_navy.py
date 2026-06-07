@@ -80,11 +80,34 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
         parts.append("File ○")
 
     breadcrumbs = " ➔ ".join(parts)
+
+    # Build live preview section
+    preview = ""
+    admin_list = data.get("admin_numbers", [])
+    navy_list = data.get("navy_numbers", [])
+    
+    if admin_list or navy_list or admin_name or navy_name:
+        preview += "<b>PREVIEW INPUT:</b>\n"
+        if admin_list:
+            preview += f"• Nomor Admin ({len(admin_list)}):\n"
+            for idx, num in enumerate(admin_list, 1):
+                preview += f"  {idx}. <code>{num}</code>\n"
+        if admin_name:
+            preview += f"• Nama Kontak Admin: <b>{admin_name}</b>\n"
+        if navy_list:
+            preview += f"• Nomor Navy ({len(navy_list)}):\n"
+            for idx, num in enumerate(navy_list, 1):
+                preview += f"  {idx}. <code>{num}</code>\n"
+        if navy_name:
+            preview += f"• Nama Kontak Navy: <b>{navy_name}</b>\n"
+        preview += "────────────────────────────\n\n"
+
     return (
         "<b>[ ADMIN VCF CV ]</b>\n"
         "────────────────────────────\n"
         f"{breadcrumbs}\n"
         "────────────────────────────\n\n"
+        f"{preview}"
     )
 
 
