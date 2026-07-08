@@ -590,17 +590,13 @@ async def handle_addnum_process(update: Update, context: ContextTypes.DEFAULT_TY
         new_contact_summary = f"{prefix}{sep}{start_idx} - {end_idx}" if len(new_contacts) > 1 else f"{prefix}{sep}{start_idx}"
         
         box_text = (
-            f"<pre><b>"
-            f"┌────────────────────────────────────────┐\n"
-            f"│             PROSES SELESAI             │\n"
-            f"├────────────────────────────────────────┤\n"
-            f"│ Nama File      : {_fit(out_filename):<22} │\n"
-            f"│ Kontak Asli    : {_fit(str(len(contacts))):<22} │\n"
-            f"│ Kontak Baru    : {_fit(str(len(new_contacts))):<22} │\n"
-            f"│ Format Baru    : {_fit(new_contact_summary):<22} │\n"
-            f"│ Total Kontak   : {_fit(str(len(final_contacts))):<22} │\n"
-            f"└────────────────────────────────────────┘"
-            f"</b></pre>\n\n"
+            f"<b>[ PROSES SELESAI ]</b>\n"
+            f"<blockquote>"
+            f"• Nama File : {out_filename}\n"
+            f"• Kontak Asli : {len(contacts)}\n"
+            f"• Kontak Baru : {len(new_contacts)}\n"
+            f"• Format Baru : {new_contact_summary}\n"
+            f"• Total Kontak : {len(final_contacts)}</blockquote>\n\n"
             f"<i>Proses penambahan nomor baru ke VCF selesai! Silakan unduh berkas di atas.</i>"
         )
         

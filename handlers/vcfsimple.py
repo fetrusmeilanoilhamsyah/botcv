@@ -492,16 +492,12 @@ async def handle_vs_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ]
         ])
         box_text = (
-            f"<pre><b>"
-            f"┌────────────────────────────────────────┐\n"
-            f"│             PROSES SELESAI             │\n"
-            f"├────────────────────────────────────────┤\n"
-            f"│ Total Berkas   : {_fit(f'{total_input} TXT'):<22} │\n"
-            f"│ Output         : {_fit(output_label):<22} │\n"
-            f"│ Nama Kontak    : {_fit('Sesuai Nomor'):<22} │\n"
-            f"│ Total Kontak   : {_fit(f'{total_contacts:,}'):<22} │\n"
-            f"└────────────────────────────────────────┘"
-            f"</b></pre>\n\n"
+            f"<b>[ PROSES SELESAI ]</b>\n"
+            f"<blockquote>"
+            f"• Total Berkas : {total_input} TXT\n"
+            f"• Output : {output_label}\n"
+            f"• Nama Kontak : Sesuai Nomor\n"
+            f"• Total Kontak : {total_contacts:,}</blockquote>\n\n"
             f"<i>Silakan unduh file di atas.</i>"
         )
         final_msg = await context.bot.send_message(

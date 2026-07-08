@@ -639,16 +639,12 @@ async def handle_vcftotxt_process(update: Update, context: ContextTypes.DEFAULT_
             ])
             total_contacts = data.get("total_contacts", 0)
             box_text = (
-                f"<pre><b>"
-                f"┌────────────────────────────────────────┐\n"
-                f"│             PROSES SELESAI             │\n"
-                f"├────────────────────────────────────────┤\n"
-                f"│ Total Berkas   : {_fit(f'{total_files} VCF'):<22} │\n"
-                f"│ Berkas Output  : {_fit(f'{total_created} TXT (ZIP)'):<22} │\n"
-                f"│ Nama File TXT  : {_fit(file_name):<22} │\n"
-                f"│ Total Kontak   : {_fit(f'{total_contacts:,}'):<22} │\n"
-                f"└────────────────────────────────────────┘"
-                f"</b></pre>\n\n"
+                f"<b>[ PROSES SELESAI ]</b>\n"
+                f"<blockquote>"
+                f"• Total Berkas : {total_files} VCF\n"
+                f"• Berkas Output : {total_created} TXT (ZIP)\n"
+                f"• Nama File TXT : {file_name}\n"
+                f"• Total Kontak : {total_contacts:,}</blockquote>\n\n"
                 f"<i>Silakan unduh file ZIP di atas.</i>"
             )
             final_msg = await context.bot.send_message(
@@ -737,16 +733,12 @@ async def handle_vcftotxt_process(update: Update, context: ContextTypes.DEFAULT_
             ])
             total_contacts = data.get("total_contacts", 0)
             box_text = (
-                f"<pre><b>"
-                f"┌────────────────────────────────────────┐\n"
-                f"│             PROSES SELESAI             │\n"
-                f"├────────────────────────────────────────┤\n"
-                f"│ Total Berkas   : {_fit(f'{total_files} VCF'):<22} │\n"
-                f"│ Berkas Output  : {_fit(f'{total_created} TXT'):<22} │\n"
-                f"│ Nama File TXT  : {_fit(file_name):<22} │\n"
-                f"│ Total Kontak   : {_fit(f'{total_contacts:,}'):<22} │\n"
-                f"└────────────────────────────────────────┘"
-                f"</b></pre>\n\n"
+                f"<b>[ PROSES SELESAI ]</b>\n"
+                f"<blockquote>"
+                f"• Total Berkas : {total_files} VCF\n"
+                f"• Berkas Output : {total_created} TXT\n"
+                f"• Nama File TXT : {file_name}\n"
+                f"• Total Kontak : {total_contacts:,}</blockquote>\n\n"
                 f"<i>Silakan unduh file TXT di atas.</i>"
             )
             final_msg = await context.bot.send_message(

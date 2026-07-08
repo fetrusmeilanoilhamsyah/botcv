@@ -595,16 +595,12 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
             clear_welcome_messages(user_id)
             
             box_text = (
-                f"<pre><b>"
-                f"┌────────────────────────────────────────┐\n"
-                f"│             PROSES SELESAI             │\n"
-                f"├────────────────────────────────────────┤\n"
-                f"│ Total Berkas   : {_fit(f'{total_files} VCF'):<22} │\n"
-                f"│ Berkas Output  : {_fit('1 VCF'):<22} │\n"
-                f"│ Nama File Hasil: {_fit(file_name):<22} │\n"
-                f"│ Total Kontak   : {_fit(f'{len(all_contacts):,}'):<22} │\n"
-                f"└────────────────────────────────────────┘\n"
-                f"</b></pre>\n\n"
+                f"<b>[ PROSES SELESAI ]</b>\n"
+                f"<blockquote>"
+                f"• Total Berkas : {total_files} VCF\n"
+                f"• Berkas Output : 1 VCF\n"
+                f"• Nama File Hasil : {file_name}\n"
+                f"• Total Kontak : {len(all_contacts):,}</blockquote>\n\n"
                 f"<i>Silakan unduh file VCF di atas.</i>"
             )
             final_msg = await context.bot.send_message(
@@ -678,16 +674,12 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
             clear_welcome_messages(user_id)
             
             box_text = (
-                f"<pre><b>"
-                f"┌────────────────────────────────────────┐\n"
-                f"│             PROSES SELESAI             │\n"
-                f"├────────────────────────────────────────┤\n"
-                f"│ Total Berkas   : {_fit(f'{total_files} TXT'):<22} │\n"
-                f"│ Berkas Output  : {_fit('1 TXT'):<22} │\n"
-                f"│ Nama File Hasil: {_fit(file_name):<22} │\n"
-                f"│ Total Nomor    : {_fit(f'{len(numbers):,}'):<22} │\n"
-                f"└────────────────────────────────────────┘\n"
-                f"</b></pre>\n\n"
+                f"<b>[ PROSES SELESAI ]</b>\n"
+                f"<blockquote>"
+                f"• Total Berkas : {total_files} TXT\n"
+                f"• Berkas Output : 1 TXT\n"
+                f"• Nama File Hasil : {file_name}\n"
+                f"• Total Nomor : {len(numbers):,}</blockquote>\n\n"
                 f"<i>Silakan unduh file TXT di atas.</i>"
             )
             final_msg = await context.bot.send_message(

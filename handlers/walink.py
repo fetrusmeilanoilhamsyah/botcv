@@ -309,15 +309,11 @@ async def handle_walink_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
             clear_welcome_messages(uid)
 
             box_text = (
-                f"<pre><b>"
-                f"┌────────────────────────────────────────┐\n"
-                f"│             PROSES SELESAI             │\n"
-                f"├────────────────────────────────────────┤\n"
-                f"│ File Input     : {_fit(fname):<22} │\n"
-                f"│ Berkas Output  : {_fit('1 EXCEL (.xlsx)'):<22} │\n"
-                f"│ Total Link WA  : {_fit(f'{t_links:,}'):<22} │\n"
-                f"└────────────────────────────────────────┘"
-                f"</b></pre>\n\n"
+                f"<b>[ PROSES SELESAI ]</b>\n"
+                f"<blockquote>"
+                f"• File Input : {fname}\n"
+                f"• Berkas Output : 1 EXCEL (.xlsx)\n"
+                f"• Total Link WA : {t_links:,}</blockquote>\n\n"
                 f"<i>Pembuatan WA Link Excel selesai! Silakan unduh file di atas.</i>"
             )
             final_msg = await bot.send_message(

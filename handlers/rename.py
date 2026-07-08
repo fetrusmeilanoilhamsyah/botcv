@@ -670,17 +670,13 @@ async def handle_rename_process(update: Update, context: ContextTypes.DEFAULT_TY
                 ]
             ])
             box_text = (
-                f"<pre><b>"
-                f"┌────────────────────────────────────────┐\n"
-                f"│             PROSES SELESAI             │\n"
-                f"├────────────────────────────────────────┤\n"
-                f"│ Total Berkas   : {_fit(f'{len(files)} VCF'):<22} │\n"
-                f"│ Berkas Output  : {_fit(f'{total_files} VCF (ZIP)'):<22} │\n"
-                f"│ Format Kontak  : {_fit(contact_name):<22} │\n"
-                f"│ Format File    : {_fit(f'{file_name}'):<22} │\n"
-                f"│ Total Kontak   : {_fit(f'{total_contacts:,}'):<22} │\n"
-                f"└────────────────────────────────────────┘\n"
-                f"</b></pre>\n\n"
+                f"<b>[ PROSES SELESAI ]</b>\n"
+                f"<blockquote>"
+                f"• Total Berkas : {len(files)} VCF\n"
+                f"• Berkas Output : {total_files} VCF (ZIP)\n"
+                f"• Format Kontak : {contact_name}\n"
+                f"• Format File : {file_name}\n"
+                f"• Total Kontak : {total_contacts:,}</blockquote>\n\n"
                 f"<i>Silakan unduh file ZIP di atas.</i>"
             )
             final_msg = await context.bot.send_message(
@@ -751,17 +747,13 @@ async def handle_rename_process(update: Update, context: ContextTypes.DEFAULT_TY
             ])
 
             box_text = (
-                f"<pre><b>"
-                f"┌────────────────────────────────────────┐\n"
-                f"│             PROSES SELESAI             │\n"
-                f"├────────────────────────────────────────┤\n"
-                f"│ Total Berkas   : {_fit(f'{len(files)} VCF'):<22} │\n"
-                f"│ Berkas Output  : {_fit(f'{total_files} VCF'):<22} │\n"
-                f"│ Format Kontak  : {_fit(contact_name):<22} │\n"
-                f"│ Format File    : {_fit(f'{file_name}'):<22} │\n"
-                f"│ Total Kontak   : {_fit(f'{total_contacts:,}'):<22} │\n"
-                f"└────────────────────────────────────────┘"
-                f"</b></pre>\n\n"
+                f"<b>[ PROSES SELESAI ]</b>\n"
+                f"<blockquote>"
+                f"• Total Berkas : {len(files)} VCF\n"
+                f"• Berkas Output : {total_files} VCF\n"
+                f"• Format Kontak : {contact_name}\n"
+                f"• Format File : {file_name}\n"
+                f"• Total Kontak : {total_contacts:,}</blockquote>\n\n"
                 f"<i>Rename selesai! Silakan unduh file di atas.</i>"
             )
             

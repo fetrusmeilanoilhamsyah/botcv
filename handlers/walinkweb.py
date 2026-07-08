@@ -927,16 +927,12 @@ async def handle_walinkweb_msg(update: Update, context: ContextTypes.DEFAULT_TYP
             clear_welcome_messages(uid)
 
             box_text = (
-                f"<pre><b>"
-                f"┌────────────────────────────────────────┐\n"
-                f"│             PROSES SELESAI             │\n"
-                f"├────────────────────────────────────────┤\n"
-                f"│ File Input     : {_fit(fname):<22} │\n"
-                f"│ Berkas Output  : {_fit('HTML & EXCEL'):<22} │\n"
-                f"│ Total Kontak   : {_fit(f'{t_cnt:,}'):<22} │\n"
-                f"│ Pesan Kustom   : {_fit(c_msg if c_msg else '[KOSONG]'):<22} │\n"
-                f"└────────────────────────────────────────┘"
-                f"</b></pre>\n\n"
+                f"<b>[ PROSES SELESAI ]</b>\n"
+                f"<blockquote>"
+                f"• File Input : {fname}\n"
+                f"• Berkas Output : HTML & EXCEL\n"
+                f"• Total Kontak : {t_cnt:,}\n"
+                f"• Pesan Kustom : {c_msg if c_msg else '[KOSONG]'}</blockquote>\n\n"
                 f"<b>Dashboard Web WA Links Selesai!</b>\n\n"
                 f"<b>Untuk Android / PC:</b>\n"
                 f"Buka file <code>.html</code> di atas langsung di browser.\n\n"

@@ -522,15 +522,11 @@ async def handle_manual_process(update: Update, context: ContextTypes.DEFAULT_TY
         clear_welcome_messages(user_id)
 
         box_text = (
-            f"<pre><b>"
-            f"┌────────────────────────────────────────┐\n"
-            f"│             PROSES SELESAI             │\n"
-            f"├────────────────────────────────────────┤\n"
-            f"│ Format Output  : {_fit(fmt.upper()):<22} │\n"
-            f"│ Total Nomor    : {_fit(f'{len(numbers)}'):<22} │\n"
-            f"│ Nama File      : {_fit(f'{file_name}.{fmt}'):<22} │\n"
-            f"└────────────────────────────────────────┘"
-            f"</b></pre>\n\n"
+            f"<b>[ PROSES SELESAI ]</b>\n"
+            f"<blockquote>"
+            f"• Format Output : {fmt.upper()}\n"
+            f"• Total Nomor : {len(numbers)}\n"
+            f"• Nama File : {file_name}.{fmt}</blockquote>\n\n"
             f"<i>Input manual selesai! Silakan unduh file di atas.</i>"
         )
 

@@ -437,16 +437,12 @@ async def handle_cleanup_process(update: Update, context: ContextTypes.DEFAULT_T
         ])
 
         box_text = (
-            f"<pre><b>"
-            f"┌────────────────────────────────────────┐\n"
-            f"│             PROSES SELESAI             │\n"
-            f"├────────────────────────────────────────┤\n"
-            f"│ Total Berkas   : {_fit(f'{len(files)} FILE'):<22} │\n"
-            f"│ Total Awal     : {_fit(f'{total_awal:,}'):<22} │\n"
-            f"│ Valid & Unik   : {_fit(f'{total_clean:,}'):<22} │\n"
-            f"│ Dibuang (Smap) : {_fit(f'{total_dibuang:,}'):<22} │\n"
-            f"└────────────────────────────────────────┘"
-            f"</b></pre>\n\n"
+            f"<b>[ PROSES SELESAI ]</b>\n"
+            f"<blockquote>"
+            f"• Total Berkas : {len(files)} FILE\n"
+            f"• Total Awal : {total_awal:,}\n"
+            f"• Valid & Unik : {total_clean:,}\n"
+            f"• Dibuang : {total_dibuang:,}</blockquote>\n\n"
             f"<i>Pembersihan & standardisasi selesai!</i>"
         )
         

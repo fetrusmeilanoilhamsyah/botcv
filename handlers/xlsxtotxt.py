@@ -461,14 +461,10 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
         clear_welcome_messages(user_id)
 
         box_text = (
-            f"<pre><b>"
-            f"┌────────────────────────────────────────┐\n"
-            f"│             PROSES SELESAI             │\n"
-            f"├────────────────────────────────────────┤\n"
-            f"│ Total Berkas   : {_fit(f'{total_file} EXCEL/CSV'):<22} │\n"
-            f"│ Total Kontak   : {_fit(f'{total:,}'):<22} │\n"
-            f"└────────────────────────────────────────┘\n"
-            f"</b></pre>\n\n"
+            f"<b>[ PROSES SELESAI ]</b>\n"
+            f"<blockquote>"
+            f"• Total Berkas : {total_file} EXCEL/CSV\n"
+            f"• Total Kontak : {total:,}</blockquote>\n\n"
             f"<i>Silakan unduh file hasil ekstraksi di atas.</i>"
         )
 

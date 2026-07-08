@@ -329,16 +329,12 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
             clear_welcome_messages(user_id)
             
             box_text = (
-                f"<pre><b>"
-                f"┌────────────────────────────────────────┐\n"
-                f"│             PROSES SELESAI             │\n"
-                f"├────────────────────────────────────────┤\n"
-                f"│ Total Admin    : {_fit(f'{len(admin_nums)}'):<22} │\n"
-                f"│ Total Navy     : {_fit(f'{len(navy_nums)}'):<22} │\n"
-                f"│ Total Kontak   : {_fit(f'{len(contacts)}'):<22} │\n"
-                f"│ Nama File      : {_fit(data['file_name'] + '.vcf'):<22} │\n"
-                f"└────────────────────────────────────────┘"
-                f"</b></pre>\n\n"
+                f"<b>[ PROSES SELESAI ]</b>\n"
+                f"<blockquote>"
+                f"• Total Admin : {len(admin_nums)}\n"
+                f"• Total Navy : {len(navy_nums)}\n"
+                f"• Total Kontak : {len(contacts)}\n"
+                f"• Nama File : {data['file_name']}.vcf</blockquote>\n\n"
                 f"<i>Pembuatan Admin VCF selesai! Silakan unduh file di atas.</i>"
             )
             

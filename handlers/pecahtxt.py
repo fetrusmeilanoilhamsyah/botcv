@@ -546,16 +546,12 @@ async def handle_pecahtxt_process(update: Update, context: ContextTypes.DEFAULT_
                 ]
             ])
             box_text = (
-                f"<pre><b>"
-                f"┌────────────────────────────────────────┐\n"
-                f"│             PROSES SELESAI             │\n"
-                f"├────────────────────────────────────────┤\n"
-                f"│ Total Berkas   : {_fit(f'{total_files} TXT'):<22} │\n"
-                f"│ Berkas Output  : {_fit(f'{total_parts} TXT (ZIP)'):<22} │\n"
-                f"│ Nomor / File   : {_fit(per_file):<22} │\n"
-                f"│ Total Nomor    : {_fit(f'{total_nomor:,}'):<22} │\n"
-                f"└────────────────────────────────────────┘\n"
-                f"</b></pre>\n\n"
+                f"<b>[ PROSES SELESAI ]</b>\n"
+                f"<blockquote>"
+                f"• Total Berkas : {total_files} TXT\n"
+                f"• Berkas Output : {total_parts} TXT (ZIP)\n"
+                f"• Nomor / File : {per_file}\n"
+                f"• Total Nomor : {total_nomor:,}</blockquote>\n\n"
                 f"<i>Silakan unduh file ZIP di atas.</i>"
             )
             final_msg = await context.bot.send_message(
@@ -641,16 +637,12 @@ async def handle_pecahtxt_process(update: Update, context: ContextTypes.DEFAULT_
                 ]
             ])
             box_text = (
-                f"<pre><b>"
-                f"┌────────────────────────────────────────┐\n"
-                f"│             PROSES SELESAI             │\n"
-                f"├────────────────────────────────────────┤\n"
-                f"│ Total Berkas   : {_fit(f'{total_files} TXT'):<22} │\n"
-                f"│ Berkas Output  : {_fit(f'{total_parts} TXT'):<22} │\n"
-                f"│ Nomor / File   : {_fit(per_file):<22} │\n"
-                f"│ Total Nomor    : {_fit(f'{total_nomor:,}'):<22} │\n"
-                f"└────────────────────────────────────────┘\n"
-                f"</b></pre>\n\n"
+                f"<b>[ PROSES SELESAI ]</b>\n"
+                f"<blockquote>"
+                f"• Total Berkas : {total_files} TXT\n"
+                f"• Berkas Output : {total_parts} TXT\n"
+                f"• Nomor / File : {per_file}\n"
+                f"• Total Nomor : {total_nomor:,}</blockquote>\n\n"
                 f"<i>Silakan unduh file TXT di atas.</i>"
             )
             final_msg = await context.bot.send_message(

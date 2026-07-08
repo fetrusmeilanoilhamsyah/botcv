@@ -444,16 +444,12 @@ async def handle_duplikat_process(update: Update, context: ContextTypes.DEFAULT_
         total_file = len(files)
 
         box_text = (
-            f"<pre><b>"
-            f"┌────────────────────────────────────────┐\n"
-            f"│             PROSES SELESAI             │\n"
-            f"├────────────────────────────────────────┤\n"
-            f"│ Total Berkas   : {_fit(f'{total_file} FILE'):<22} │\n"
-            f"│ Total Awal     : {_fit(f'{total_awal:,}'):<22} │\n"
-            f"│ Dihapus (Dup)  : {_fit(f'{total_duplikat:,}'):<22} │\n"
-            f"│ Total Unik     : {_fit(f'{total_unik:,}'):<22} │\n"
-            f"└────────────────────────────────────────┘"
-            f"</b></pre>\n\n"
+            f"<b>[ PROSES SELESAI ]</b>\n"
+            f"<blockquote>"
+            f"• Total Berkas : {total_file} FILE\n"
+            f"• Total Awal : {total_awal:,}\n"
+            f"• Dihapus (Duplikat) : {total_duplikat:,}\n"
+            f"• Total Unik : {total_unik:,}</blockquote>\n\n"
             f"<i>Pembersihan duplikat selesai!</i>"
         )
         
