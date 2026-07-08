@@ -96,7 +96,6 @@ def get_start_keyboard():
 def build_menu_text(first_name: str, user_id: int) -> str:
     fitur = (
         "<b>[ FITUR UTAMA ]</b>\n"
-        "<blockquote>"
         "• /txttovcf — TXT KE VCF\n"
         "• /vcfsimple — VCF SIMPLE\n"
         "• /vcftotxt — VCF KE TXT\n"
@@ -113,20 +112,16 @@ def build_menu_text(first_name: str, user_id: int) -> str:
         "• /cleanup — CLEANUP NOMOR\n"
         "• /manual — KONTAK MANUAL\n"
         "• /walink — LINK WA EXCEL\n"
-        "• /walinkweb — LINK WA HTML"
-        "</blockquote>\n\n"
+        "• /walinkweb — LINK WA HTML\n\n"
         "<b>[ LAINNYA ]</b>\n"
-        "<blockquote>"
         "• /vip — PAKET VIP\n"
         "• /referal — VIP GRATIS\n"
         "• /akun — INFO AKUN\n"
         "• /reset — RESET SESI"
-        "</blockquote>"
     )
     if is_admin(user_id):
         fitur += (
             "\n<b>[ ADMIN ]</b>\n"
-            "<blockquote>"
             "• /stat — Statistik\n"
             "• /daftar — Daftar user\n"
             "• /backup — Backup database\n"
@@ -135,12 +130,11 @@ def build_menu_text(first_name: str, user_id: int) -> str:
             "• /stopbroadcast — Hentikan broadcast\n"
             "• /addvip /delvip — Kelola VIP\n"
             "• /resetdatabase — Bersihkan cache"
-            "</blockquote>"
         )
 
     return (
-        f"<blockquote><b>[ Halo, {first_name}! ]</b>\n"
-        f"Selamat datang di <b>Haifee CV</b>. Pilih fitur di bawah:</blockquote>\n\n"
+        f"<b>[ Halo, {first_name}! ]</b>\n"
+        f"Selamat datang di <b>Haifee CV</b>. Pilih fitur di bawah:\n\n"
         f"{fitur}"
     )
 
