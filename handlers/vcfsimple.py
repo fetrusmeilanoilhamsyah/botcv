@@ -43,21 +43,42 @@ def _get_breadcrumbs(data: dict) -> str:
     total_contacts = data.get("total_contacts", 0)
 
     parts = []
-    parts.append(f"Berkas: {count} file" if count else "Berkas o")
-    parts.append("Nama Kontak: Sesuai Nomor")
-    if file_name:
-        parts.append(f"File: {file_name}")
-    else:
-        parts.append("File o")
-    if total_contacts:
-        parts.append(f"Kontak: {total_contacts:,}")
 
-    breadcrumbs = " -> ".join(parts)
+    # Berkas
+    if count:
+        parts.append(f"Berkas: <code>{count}</code>")
+    else:
+        parts.append("Berkas: ➖")
+
+    # Nama kontak selalu sesuai nomor
+    parts.append("Nama: <code>Sesuai Nomor</code>")
+
+    # File
+    if file_name:
+        parts.append(f"File: <code>{file_name}</code>")
+    else:
+        parts.append("File: ➖")
+
+    # Total kontak
+    if total_contacts:
+        parts.append(f"Kontak: <code>{total_contacts:,}</code>")
+
+    breadcrumbs = " ➔ ".join(parts)
     return (
-        "<b>[ TXT -> VCF SIMPLE ]</b>\n"
-        "------------------------------------\n"
-        f"{breadcrumbs}\n"
-        "------------------------------------\n\n"
+        "<b>[ TXT ➔ VCF SIMPLE ]</b>\n"
+        "────────────────────────────\n"
+        f"<blockquote>{breadcrumbs}</blockquote>\n"
+        "────────────────────────────\n\n"
+    )
+
+def _waiting_text(data: dict) -> str:
+    return (
+        _get_breadcrumbs(data) +
+        f"<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+        f"Silakan kirim satu atau beberapa file <code>.txt</code> sekarang.\n\n"
+        f"<b>Batas Sesi:</b>\n"
+        f"• Maksimum upload: <code>{MAX_FILES} file</code>\n"
+        f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
     )
 
 _user_locks: dict = {}
@@ -84,7 +105,13 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
             if sess and sess.get("state") == VS_WAIT_FILE:
                 data = sess["data"]
                 jumlah = data["count"]
-                text = _get_breadcrumbs(data) + f"<b>{jumlah}</b> file TXT diterima. Silakan pilih tindakan:"
+                text = (
+                    _get_breadcrumbs(data) +
+                    f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
+                    f"Berhasil mengunduh <code>{jumlah}</code> berkas TXT.\n"
+                    f"Total kontak terdeteksi: <code>{data.get('total_contacts', 0)}</code> baris.\n\n"
+                    f"Silakan pilih tindakan di bawah:</blockquote>"
+                )
                 keyboard = InlineKeyboardMarkup([
                     [
                         InlineKeyboardButton("PROSES SEKARANG", callback_data="done", style="success"),
@@ -92,7 +119,6 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                     ]
                 ])
                 status_msg_id = data.get("status_msg_id")
-                # Edit in-place agar tombol PROSES tidak pernah menghilang
                 edited = False
                 if status_msg_id:
                     try:
@@ -150,15 +176,14 @@ async def cmd_vcfsimple(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _cancel_timer(user_id)
     _clear_buffers(user_id)
 
-    db.set_session(user_id, VS_WAIT_FILE, {
-        "count": 0, "total_size": 0, "total_contacts": 0, "file_name": ""
-    })
+    init_data = {"count": 0, "total_size": 0, "total_contacts": 0, "file_name": ""}
+    db.set_session(user_id, VS_WAIT_FILE, init_data)
 
     msg = await transition_to_handler(
         context.bot,
         user_id,
         update.effective_chat.id,
-        _get_breadcrumbs({"count": 0}) + "<b>Menunggu berkas...</b>\nKirim file <b>.TXT</b> sekarang.",
+        _waiting_text(init_data),
         reply_markup=InlineKeyboardMarkup([[
             InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")
         ]]),
@@ -180,20 +205,43 @@ async def handle_vs_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     doc = update.message.document
     if not doc or not doc.file_name or not doc.file_name.lower().endswith(".txt"):
+        # Jangan hapus file user — cukup beri peringatan lewat edit status message
         try:
-            await update.message.delete()
+            status_msg_id = sess["data"].get("status_msg_id")
+            if status_msg_id:
+                sent_name = doc.file_name if doc and doc.file_name else "file tersebut"
+                await context.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=status_msg_id,
+                    text=(
+                        _get_breadcrumbs(sess["data"]) +
+                        f"<blockquote>⚠️ <b>[ FORMAT SALAH ]</b>\n"
+                        f"<code>{sent_name}</code> bukan berkas <code>.txt</code>.\n\n"
+                        f"Kirim ulang berkas dengan format <code>.txt</code>.</blockquote>"
+                    ),
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")
+                    ]])
+                )
+                await asyncio.sleep(10)
+                # Kembalikan ke tampilan waiting semula
+                await context.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=status_msg_id,
+                    text=_waiting_text(sess["data"]),
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")
+                    ]])
+                )
         except Exception:
             pass
         return
 
     msg_id = update.message.message_id
 
-    # Hapus pesan file user seketika agar chat bersih
-    try:
-        await update.message.delete()
-    except Exception:
-        pass
-
+    # File .txt valid — JANGAN dihapus, biarkan tetap di chat
     file_obj = await context.bot.get_file(doc.file_id)
     vs_dir = os.path.join(get_user_dir(user_id), "vcfsimple")
     os.makedirs(vs_dir, exist_ok=True)
@@ -316,7 +364,7 @@ async def handle_vs_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text="Memproses...",
+            text="<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memproses dan menyusun data VCF...</blockquote>",
             parse_mode="HTML"
         )
     except Exception:
@@ -329,8 +377,6 @@ async def handle_vs_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if os.path.exists(vs_dir):
         files = [f for f in os.listdir(vs_dir) if f.endswith('.txt')]
         files.sort(key=lambda x: int(x.split('_')[0]))
-
-    file_name = data.get("file_name") or "kontak"
 
     loop = asyncio.get_running_loop()
 
@@ -377,7 +423,7 @@ async def handle_vs_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="Gagal. Data tidak ditemukan.",
+                    text="<blockquote>⚠️ <b>Gagal. Data tidak ditemukan atau berkas kosong.</b></blockquote>",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -385,17 +431,18 @@ async def handle_vs_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         # --- Kirim semua VCF satu per satu ---
+        total_files = len(results)
+        sent = 0
         try:
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text="Mengirim file VCF...",
+                text=f"<blockquote><b>[ SYSTEM: SENDING VCF ]</b>\nMengirim berkas VCF: <code>0</code> / <code>{total_files}</code> file terkirim.</blockquote>",
                 parse_mode="HTML"
             )
         except Exception:
             pass
 
-        sent = 0
         for vcf_base, vcf_bytes, _ in results:
             buf = io.BytesIO(vcf_bytes)
             vcf_filename = f"{vcf_base}.vcf"
@@ -411,6 +458,15 @@ async def handle_vs_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         connect_timeout=FILE_CONNECT_TIMEOUT,
                     )
                     sent += 1
+                    try:
+                        await context.bot.edit_message_text(
+                            chat_id=update.effective_chat.id,
+                            message_id=status_msg_id,
+                            text=f"<blockquote><b>[ SYSTEM: SENDING VCF ]</b>\nMengirim berkas VCF: <code>{sent}</code> / <code>{total_files}</code> file terkirim.</blockquote>",
+                            parse_mode="HTML"
+                        )
+                    except Exception:
+                        pass
                     break
                 except Exception as ex:
                     _logger.error(f"[VCFSIMPLE] Gagal kirim {vcf_filename} attempt {attempt+1}: {ex}")
@@ -441,14 +497,14 @@ async def handle_vs_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
         box_text = (
             f"<pre><b>"
-            f"+----------------------------------------+\n"
-            f"|             PROSES SELESAI             |\n"
-            f"+----------------------------------------+\n"
-            f"| Total Berkas   : {_fit(f'{total_input} TXT'):<22} |\n"
-            f"| Output         : {_fit(output_label):<22} |\n"
-            f"| Nama Kontak    : {_fit('Sesuai Nomor'):<22} |\n"
-            f"| Total Kontak   : {_fit(f'{total_contacts:,}'):<22} |\n"
-            f"+----------------------------------------+"
+            f"┌────────────────────────────────────────┐\n"
+            f"│             PROSES SELESAI             │\n"
+            f"├────────────────────────────────────────┤\n"
+            f"│ Total Berkas   : {_fit(f'{total_input} TXT'):<22} │\n"
+            f"│ Output         : {_fit(output_label):<22} │\n"
+            f"│ Nama Kontak    : {_fit('Sesuai Nomor'):<22} │\n"
+            f"│ Total Kontak   : {_fit(f'{total_contacts:,}'):<22} │\n"
+            f"└────────────────────────────────────────┘"
             f"</b></pre>\n\n"
             f"<i>Silakan unduh file di atas.</i>"
         )
@@ -473,11 +529,11 @@ async def handle_show_vcfsimple_help_callback(update: Update, context: ContextTy
     asyncio.create_task(adb.increment_usage(user_id))
     _cancel_timer(user_id)
     _clear_buffers(user_id)
-    db.set_session(user_id, VS_WAIT_FILE, {
-        "count": 0, "total_size": 0, "total_contacts": 0, "file_name": ""
-    })
 
-    text = _get_breadcrumbs({"count": 0}) + "<b>Menunggu berkas...</b>\nKirim file <b>.TXT</b> sekarang."
+    init_data = {"count": 0, "total_size": 0, "total_contacts": 0, "file_name": ""}
+    db.set_session(user_id, VS_WAIT_FILE, init_data)
+
+    text = _waiting_text(init_data)
     keyboard = InlineKeyboardMarkup([[
         InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")
     ]])
