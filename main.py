@@ -205,8 +205,8 @@ from config import (
 MAX_CONCURRENT_PER_USER = 3
 user_semaphores      = defaultdict(lambda: Semaphore(MAX_CONCURRENT_PER_USER))
 
-global_semaphore      = Semaphore(GLOBAL_MAX_CONCURRENT)       # untuk proses berat (file)
-global_light_semaphore = Semaphore(128)                         # untuk command ringan (navigasi/menu)
+global_semaphore      = Semaphore(16)   # turun dari 32 → 16 (hemat RAM VPS 2GB)
+global_light_semaphore = Semaphore(32)  # turun dari 128 → 32 (navigasi ringan)
 
 _user_last_click: dict = {}
 _user_last_active: dict = {}
@@ -716,6 +716,11 @@ async def _job_cleanup_sessions(context):
         except Exception as e_cleanup:
             logger.error("[JOB] Error during active users memory cleanup: %s", e_cleanup)
 
+        # Force garbage collection setelah cleanup besar untuk bebaskan RAM segera
+        import gc
+        gc.collect()
+        logger.debug("[JOB] GC collect selesai")
+
 
 
 
@@ -834,10 +839,10 @@ def main():
             from concurrent.futures import ThreadPoolExecutor
             import atexit
             loop = asyncio.get_running_loop()
-            executor = ThreadPoolExecutor(max_workers=128, thread_name_prefix="asyncio-worker")
+            executor = ThreadPoolExecutor(max_workers=16, thread_name_prefix="asyncio-worker")
             loop.set_default_executor(executor)
             atexit.register(executor.shutdown, wait=False)
-            logger.info("✅ Event loop default executor configured with 128 threads")
+            logger.info("✅ Event loop default executor configured with 16 threads")
         except Exception as e:
             logger.error("Failed to set default executor: %s", e)
 
@@ -876,8 +881,8 @@ def main():
         .base_file_url(f"http://localhost:{LOCAL_BOT_API_PORT}/file/bot")
         .local_mode(True)
         .defaults(Defaults(parse_mode=ParseMode.HTML))
-        .concurrent_updates(256)      # proses hingga 256 update paralel
-        .connection_pool_size(256)    # 256 koneksi ke Telegram API
+        .concurrent_updates(64)       # turun dari 256 → 64 (hemat RAM di VPS 2GB)
+        .connection_pool_size(64)     # turun dari 256 → 64 (hemat RAM)
         .pool_timeout(60)
         .read_timeout(30)
         .write_timeout(120)

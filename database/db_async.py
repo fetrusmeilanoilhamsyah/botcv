@@ -17,7 +17,7 @@ import atexit
 
 # Thread pool khusus DB — 32 worker cukup untuk 1000 user concurrent
 # karena SQLite sendiri serialized per koneksi
-_executor = ThreadPoolExecutor(max_workers=32, thread_name_prefix="db-worker")
+_executor = ThreadPoolExecutor(max_workers=8, thread_name_prefix="db-worker")
 
 # Pastikan ThreadPoolExecutor ditutup dengan bersih saat bot dihentikan (mencegah leak memori di VPS)
 atexit.register(_executor.shutdown, wait=False)
