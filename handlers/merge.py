@@ -422,31 +422,44 @@ async def handle_merge_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
 
-    status_msg_id = data.get("status_msg_id")
-    if status_msg_id:
-        try:
-            await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
-        except Exception:
-            pass
-
     if data["count"] == 0:
         return
 
     mode = data.get("mode", "vcf")
     db.set_session(user_id, STATE_NAMING, data)
-    
-    msg = await context.bot.send_message(
-        chat_id=update.effective_chat.id,
-        text=(
-            _get_breadcrumbs(data, 2) +
-            f"<blockquote><b>[ LANGKAH 2: NAMA FILE GABUNGAN ]</b>\n"
-            f"Terdeteksi: <code>{data['count']}</code> file {mode.upper()}.\n\n"
-            f"Ketik nama file hasil gabungan (contoh: <code>FEE</code>):</blockquote>"
-        ),
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+
+    status_msg_id = data.get("status_msg_id")
+    naming_text = (
+        _get_breadcrumbs(data, 2) +
+        f"<blockquote><b>[ LANGKAH 2: NAMA FILE GABUNGAN ]</b>\n"
+        f"Terdeteksi: <code>{data['count']}</code> file {mode.upper()}.\n\n"
+        f"Ketik nama file hasil gabungan (contoh: <code>FEE</code>):</blockquote>"
     )
-    data["status_msg_id"] = msg.message_id
+    naming_markup = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+
+    # Edit pesan yang sudah ada — jangan delete+send baru
+    if update.callback_query:
+        try:
+            await update.callback_query.message.edit_text(
+                text=naming_text,
+                parse_mode="HTML",
+                reply_markup=naming_markup
+            )
+            data["status_msg_id"] = update.callback_query.message.message_id
+        except Exception:
+            pass
+    elif status_msg_id:
+        try:
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text=naming_text,
+                parse_mode="HTML",
+                reply_markup=naming_markup
+            )
+        except Exception:
+            pass
+
     db.set_session(user_id, STATE_NAMING, data)
 
 
