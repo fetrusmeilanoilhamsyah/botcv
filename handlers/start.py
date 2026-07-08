@@ -41,12 +41,14 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
     lock = _get_transition_lock(user_id)
 
     async with lock:
-        # 1. Hapus command user jika update dikirim agar chat bersih dan smooth
+        # 1. Hapus command user di background agar tidak menambah latensi sebelum edit pesan
         if update and update.message:
-            try:
-                await update.message.delete()
-            except Exception:
-                pass
+            async def _del_cmd():
+                try:
+                    await update.message.delete()
+                except Exception:
+                    pass
+            asyncio.create_task(_del_cmd())
 
         # Ambil pesan welcome yang sedang aktif
         msg_ids = _welcome_messages.get(user_id, [])
