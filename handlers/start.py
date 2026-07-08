@@ -7,7 +7,15 @@ from config import ADMIN_CONTACT, TUTORIAL_LINK
 from middleware.auth import is_admin
 
 
-_welcome_messages = {}
+_welcome_messages: dict = {}
+_transition_locks: dict = {}  # per-user asyncio.Lock untuk mencegah race condition
+
+
+def _get_transition_lock(user_id: int) -> asyncio.Lock:
+    if user_id not in _transition_locks:
+        _transition_locks[user_id] = asyncio.Lock()
+    return _transition_locks[user_id]
+
 
 def register_welcome_messages(user_id: int, message_ids: list[int]):
     _welcome_messages[user_id] = message_ids
@@ -29,69 +37,72 @@ async def delete_welcome_messages(bot, user_id: int, chat_id: int):
         await asyncio.gather(*(safe_delete(msg_id) for msg_id in msg_ids))
 
 async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, reply_markup=None, update: Update = None):
-    # 1. Hapus command user jika update dikirim agar chat bersih dan smooth
-    if update and update.message:
-        try:
-            await update.message.delete()
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning("Gagal menghapus pesan user: %s", e)
+    # Gunakan per-user lock agar tidak ada 2 transisi berjalan bersamaan untuk user yang sama.
+    # Ini mencegah race condition saat user klik command sangat cepat berturut-turut.
+    lock = _get_transition_lock(user_id)
 
-    # Ambil pesan welcome yang sedang aktif (gunakan get() agar tidak hilang saat proses async berjalan)
-    msg_ids = _welcome_messages.get(user_id, [])
-    if msg_ids:
-        edit_msg_id = msg_ids[0]
-        
-        # Pesan-pesan lain di bawahnya kita hapus semuanya
-        delete_ids = msg_ids[1:]
-        if delete_ids:
-            # Update _welcome_messages agar hanya menyimpan pesan utama saja
-            _welcome_messages[user_id] = [edit_msg_id]
-            async def safe_delete(msg_id):
-                try:
-                    await bot.delete_message(chat_id=chat_id, message_id=msg_id)
-                except Exception:
-                    pass
-            await asyncio.gather(*(safe_delete(msg_id) for msg_id in delete_ids))
+    # Jika lock sedang dipakai (ada transisi yang sedang berjalan), skip saja.
+    # Jangan tunggu — ini mencegah antrean yang bikin bot numpuk dan terasa hang.
+    if lock.locked():
+        return None
 
-        try:
-            # Edit pesan welcome panjang secara langsung (lewati ReplyKeyboardRemove karena Telegram
-            # tidak mengizinkan pengubahan reply_markup menjadi ReplyKeyboardRemove secara edit)
-            from telegram import ReplyKeyboardRemove
-            actual_markup = reply_markup if not isinstance(reply_markup, ReplyKeyboardRemove) else None
-            
-            msg = await bot.edit_message_text(
-                chat_id=chat_id,
-                message_id=edit_msg_id,
-                text=text,
-                parse_mode="HTML",
-                reply_markup=actual_markup,
-                disable_web_page_preview=True
-            )
-            return msg
-        except Exception as e:
-            if "Message is not modified" in str(e):
-                class MockMessage:
-                    def __init__(self, msg_id):
-                        self.message_id = msg_id
-                return MockMessage(edit_msg_id)
-            import logging
-            logging.getLogger(__name__).warning("Gagal mengedit pesan welcome: %s", e)
+    async with lock:
+        # 1. Hapus command user jika update dikirim agar chat bersih dan smooth
+        if update and update.message:
+            try:
+                await update.message.delete()
+            except Exception:
+                pass
 
-    # Fallback: Kirim pesan baru jika edit gagal / tidak ada welcome messages
-    # Hapus welcome messages lama karena kita akan membuat pesan baru fresh
-    _welcome_messages.pop(user_id, None)
-    
-    msg = await bot.send_message(
-        chat_id=chat_id,
-        text=text,
-        parse_mode="HTML",
-        reply_markup=reply_markup,
-        disable_web_page_preview=True
-    )
-    # Daftarkan pesan baru agar next call bisa edit, bukan kirim lagi (anti-menumpuk)
-    register_welcome_messages(user_id, [msg.message_id])
-    return msg
+        # Ambil pesan welcome yang sedang aktif
+        msg_ids = _welcome_messages.get(user_id, [])
+        if msg_ids:
+            edit_msg_id = msg_ids[0]
+
+            # Pesan-pesan lain di bawahnya kita hapus semuanya
+            delete_ids = msg_ids[1:]
+            if delete_ids:
+                _welcome_messages[user_id] = [edit_msg_id]
+                async def safe_delete(msg_id):
+                    try:
+                        await bot.delete_message(chat_id=chat_id, message_id=msg_id)
+                    except Exception:
+                        pass
+                await asyncio.gather(*(safe_delete(msg_id) for msg_id in delete_ids))
+
+            try:
+                from telegram import ReplyKeyboardRemove
+                actual_markup = reply_markup if not isinstance(reply_markup, ReplyKeyboardRemove) else None
+
+                msg = await bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=edit_msg_id,
+                    text=text,
+                    parse_mode="HTML",
+                    reply_markup=actual_markup,
+                    disable_web_page_preview=True
+                )
+                return msg
+            except Exception as e:
+                if "Message is not modified" in str(e):
+                    class MockMessage:
+                        def __init__(self, msg_id):
+                            self.message_id = msg_id
+                    return MockMessage(edit_msg_id)
+                import logging
+                logging.getLogger(__name__).warning("Gagal mengedit pesan welcome: %s", e)
+
+        # Fallback: Kirim pesan baru jika edit gagal / tidak ada welcome messages
+        _welcome_messages.pop(user_id, None)
+        msg = await bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            parse_mode="HTML",
+            reply_markup=reply_markup,
+            disable_web_page_preview=True
+        )
+        register_welcome_messages(user_id, [msg.message_id])
+        return msg
 
 
 def get_start_keyboard():

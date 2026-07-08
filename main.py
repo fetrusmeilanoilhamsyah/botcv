@@ -693,6 +693,12 @@ async def _job_cleanup_sessions(context):
             if inactive_ids:
                 for uid in inactive_ids:
                     _welcome_messages.pop(uid, None)
+                    # Cleanup per-user transition lock juga agar tidak memory leak
+                    try:
+                        from handlers.start import _transition_locks
+                        _transition_locks.pop(uid, None)
+                    except Exception:
+                        pass
                 
                 handlers.txttovcf.cleanup_inactive_users(inactive_ids)
                 handlers.vcfsimple.cleanup_inactive_users(inactive_ids)
