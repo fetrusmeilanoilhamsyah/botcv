@@ -151,7 +151,7 @@ def build_menu_text(first_name: str, user_id: int) -> str:
 
 
 async def send_fresh_start_menu(bot, user_id: int, chat_id: int, first_name: str):
-    await delete_welcome_messages(bot, user_id, chat_id)
+    asyncio.create_task(delete_welcome_messages(bot, user_id, chat_id))
     menu_text = build_menu_text(first_name, user_id)
 
     keyboard = InlineKeyboardMarkup([
