@@ -71,7 +71,6 @@ async def require_channel_join(update, context) -> bool:
 
     channel_display = FORCE_SUB_CHANNEL if str(FORCE_SUB_CHANNEL).startswith("@") else "@tutorialnotceve"
     text = (
-        "<b>[ HAIFEE CV CONSOLE ]</b>\n"
         "────────────────────────────\n"
         "<blockquote><b>[ STATUS: AKSES DITOLAK ]</b>\n"
         f"Kamu belum bergabung ke channel resmi <b>{channel_display}</b>.</blockquote>\n"
@@ -144,7 +143,6 @@ async def require_member(update, context) -> bool:
     ])
     
     text = (
-        "<b>[ HAIFEE CV CONSOLE ]</b>\n"
         "────────────────────────────\n"
         "<blockquote><b>[ STATUS: VIP DIPERLUKAN ]</b>\n"
         "Masa coba gratis <b>7 hari</b> Anda telah berakhir.\n"

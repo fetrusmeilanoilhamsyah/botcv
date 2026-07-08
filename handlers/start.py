@@ -139,9 +139,8 @@ def build_menu_text(first_name: str, user_id: int) -> str:
         )
 
     return (
-        "<b>[ HAIFEE CV CONSOLE ]</b>\n"
         "────────────────────────────\n"
-        f"<blockquote><b>[ USER: {first_name.upper()} ]</b>\n"
+        f"<blockquote><b>[ Halo, {first_name}! ]</b>\n"
         f"Selamat datang di <b>Haifee CV</b>. Pilih fitur di bawah:</blockquote>\n"
         "────────────────────────────\n\n"
         f"{fitur}"
