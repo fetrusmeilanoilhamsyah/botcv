@@ -93,7 +93,7 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
             if sess and sess.get("state") == STATE:
                 data = sess["data"]
                 jumlah = data["count"]
-                
+
                 text = _get_breadcrumbs(data, 1) + f"<b>{jumlah}</b> file diterima. Silakan pilih tindakan:"
                 keyboard = InlineKeyboardMarkup([
                     [
@@ -101,14 +101,23 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                         InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")
                     ]
                 ])
-                
+
                 status_msg_id = data.get("status_msg_id")
                 if status_msg_id:
+                    # Edit in-place — jangan delete+send baru agar tidak kacau welcome_messages
                     try:
-                        await context.bot.delete_message(chat_id=chat_id, message_id=status_msg_id)
+                        await context.bot.edit_message_text(
+                            chat_id=chat_id,
+                            message_id=status_msg_id,
+                            text=text,
+                            reply_markup=keyboard,
+                            parse_mode="HTML"
+                        )
+                        return
                     except Exception:
                         pass
-                
+
+                # Fallback: kirim baru jika edit gagal
                 msg = await context.bot.send_message(
                     chat_id=chat_id,
                     text=text,
@@ -117,6 +126,8 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 )
                 data["status_msg_id"] = msg.message_id
                 db.set_session(user_id, STATE, data)
+                from handlers.start import register_welcome_messages
+                register_welcome_messages(user_id, [msg.message_id])
     except asyncio.CancelledError:
         pass
     except Exception as e:
@@ -250,36 +261,23 @@ async def handle_cleanup_file(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def handle_show_cleanup_help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    
+
     user_id = query.from_user.id
     asyncio.create_task(adb.increment_usage(user_id))
-    
+
     _cancel_timer(user_id)
     _clear_buffers(user_id)
-    
     db.set_session(user_id, STATE, {"count": 0, "total_size": 0})
-    
-    try:
-        await query.message.edit_text(
-            text=_get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> atau <b>.VCF</b> sekarang.",
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
-        )
-        sess = db.get_session(user_id)
-        sess["data"]["status_msg_id"] = query.message.message_id
-        db.set_session(user_id, STATE, sess["data"])
-    except Exception:
-        # Fallback if editing fails
-        try:
-            await query.message.delete()
-        except Exception:
-            pass
-        msg = await context.bot.send_message(
-            chat_id=query.message.chat_id,
-            text=_get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> atau <b>.VCF</b> sekarang.",
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
-        )
+
+    from handlers.start import transition_to_handler
+    msg = await transition_to_handler(
+        context.bot,
+        user_id,
+        query.message.chat_id,
+        _get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> atau <b>.VCF</b> sekarang.",
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
+    )
+    if msg:
         sess = db.get_session(user_id)
         sess["data"]["status_msg_id"] = msg.message_id
         db.set_session(user_id, STATE, sess["data"])
@@ -291,26 +289,33 @@ async def handle_cleanup_done(update: Update, context: ContextTypes.DEFAULT_TYPE
     data = sess["data"]
     if data["count"] == 0:
         return
-        
+
     db.set_session(update.effective_user.id, S2, data)
-    
     status_msg_id = data.get("status_msg_id")
-    
-    # If update was triggered from a callback query (clicking button), we edit text
+
     if update.callback_query:
-        await update.callback_query.message.edit_text(
-            text="<b>Memproses...</b>",
-            parse_mode="HTML"
-        )
+        try:
+            await update.callback_query.answer()
+        except Exception:
+            pass
+        try:
+            await update.callback_query.message.edit_text(
+                text="<b>Memproses...</b>",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
     else:
-        # If typed done
-        await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=status_msg_id,
-            text="<b>Memproses...</b>",
-            parse_mode="HTML"
-        )
-    
+        try:
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text="<b>Memproses...</b>",
+                parse_mode="HTML"
+            )
+        except Exception:
+            pass
+
     await handle_cleanup_process(update, context)
 
 async def handle_cleanup_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
