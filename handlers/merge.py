@@ -167,7 +167,14 @@ def _cancel_timer(user_id: int):
 def _clear_buffers(user_id: int):
     user_dir = get_user_dir(user_id)
     merge_dir = os.path.join(user_dir, "merge")
-    shutil.rmtree(merge_dir, ignore_errors=True)
+    import asyncio
+    async def _bg_clear():
+        try:
+            import shutil
+            await asyncio.to_thread(shutil.rmtree, merge_dir, ignore_errors=True)
+        except Exception:
+            pass
+    asyncio.create_task(_bg_clear())
 
 
 async def cmd_merge(update: Update, context: ContextTypes.DEFAULT_TYPE):

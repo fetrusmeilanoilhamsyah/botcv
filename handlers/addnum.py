@@ -126,9 +126,9 @@ def find_prefix_info(typed_prefix: str, prefix_max_indices: dict) -> tuple[str, 
     return typed_prefix, {"max_idx": 0, "sep": " "}
 
 def _clear_buffers(user_id: int):
-    from middleware.session import clear_user_dir
+    from middleware.session import clear_user_dir_bg
     try:
-        clear_user_dir(user_id)
+        clear_user_dir_bg(user_id)
     except Exception:
         pass
 

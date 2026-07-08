@@ -184,7 +184,14 @@ def _cancel_timer(user_id):
 def _clear_buffers(user_id: int):
     user_dir = get_user_dir(user_id)
     rename_dir = os.path.join(user_dir, "rename")
-    shutil.rmtree(rename_dir, ignore_errors=True)
+    import asyncio
+    async def _bg_clear():
+        try:
+            import shutil
+            await asyncio.to_thread(shutil.rmtree, rename_dir, ignore_errors=True)
+        except Exception:
+            pass
+    asyncio.create_task(_bg_clear())
 
 async def cmd_rename(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_member(update, context):

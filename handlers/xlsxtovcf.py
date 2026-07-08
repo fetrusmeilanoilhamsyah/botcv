@@ -218,7 +218,14 @@ def _cancel_timer(user_id):
 def _clear_buffers(user_id: int):
     user_dir = get_user_dir(user_id)
     xtv_dir = os.path.join(user_dir, "xlsxtovcf")
-    shutil.rmtree(xtv_dir, ignore_errors=True)
+    import asyncio
+    async def _bg_clear():
+        try:
+            import shutil
+            await asyncio.to_thread(shutil.rmtree, xtv_dir, ignore_errors=True)
+        except Exception:
+            pass
+    asyncio.create_task(_bg_clear())
 
 
 def _extract_numbers_sync(filepath: str, ext: str) -> list:

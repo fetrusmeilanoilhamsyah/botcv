@@ -152,7 +152,14 @@ def _cancel_timer(user_id):
 def _clear_buffers(user_id: int):
     user_dir = get_user_dir(user_id)
     cleanup_dir = os.path.join(user_dir, "cleanup")
-    shutil.rmtree(cleanup_dir, ignore_errors=True)
+    import asyncio
+    async def _bg_clear():
+        try:
+            import shutil
+            await asyncio.to_thread(shutil.rmtree, cleanup_dir, ignore_errors=True)
+        except Exception:
+            pass
+    asyncio.create_task(_bg_clear())
 
 async def cmd_cleanup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_member(update, context):

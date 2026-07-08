@@ -268,10 +268,10 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             db.clear_session(user.id)
             try:
-                from middleware.session import clear_user_dir
+                from middleware.session import clear_user_dir_bg
                 from handlers.cancel_helper import cancel_all
                 cancel_all(user.id)
-                clear_user_dir(user.id)
+                clear_user_dir_bg(user.id)
             except Exception:
                 pass
         except Exception as exc:
@@ -296,10 +296,10 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
     # Bersihkan sesi lama secara menyeluruh
     db.clear_session(user.id)
     try:
-        from middleware.session import clear_user_dir
+        from middleware.session import clear_user_dir_bg
         from handlers.cancel_helper import cancel_all
         cancel_all(user.id)
-        clear_user_dir(user.id)
+        clear_user_dir_bg(user.id)
     except Exception:
         pass
 

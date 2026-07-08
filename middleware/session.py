@@ -105,6 +105,20 @@ def clear_user_dir(user_id: int):
     os.makedirs(path, exist_ok=True)
 
 
+def clear_user_dir_bg(user_id: int):
+    """Jalankan clear_user_dir di background thread pool agar tidak memblokir event loop utama."""
+    import asyncio
+    async def _bg():
+        try:
+            await asyncio.to_thread(clear_user_dir, user_id)
+        except Exception:
+            pass
+    try:
+        asyncio.create_task(_bg())
+    except Exception:
+        pass
+
+
 def cleanup_old_sessions(max_age_hours: int = 24) -> int:
     """
     FIX DISK: Hapus session folder user yang sudah tidak aktif lebih dari

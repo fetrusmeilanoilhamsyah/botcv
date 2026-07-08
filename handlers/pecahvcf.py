@@ -99,7 +99,14 @@ def _cancel_timer(user_id: int):
 def _clear_buffers(user_id: int):
     user_dir = get_user_dir(user_id)
     pecah_dir = os.path.join(user_dir, "pecahvcf")
-    shutil.rmtree(pecah_dir, ignore_errors=True)
+    import asyncio
+    async def _bg_clear():
+        try:
+            import shutil
+            await asyncio.to_thread(shutil.rmtree, pecah_dir, ignore_errors=True)
+        except Exception:
+            pass
+    asyncio.create_task(_bg_clear())
 
 def cleanup_inactive_users(inactive_ids: list) -> int:
     for uid in inactive_ids:
