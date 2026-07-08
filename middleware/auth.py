@@ -141,8 +141,10 @@ async def require_member(update, context) -> bool:
     
     text = (
         "          <b>« Akses Terbatas »</b>\n\n"
-        "Fitur ini khusus untuk member VIP.\n"
-        "Silakan upgrade mulai dari Rp 2.000, atau undang teman Anda menggunakan tautan referral untuk mendapatkan akses VIP gratis."
+        "Fitur ini hanya tersedia untuk member <b>VIP</b>.\n"
+        "Masa coba gratis 7 hari Anda telah berakhir.\n\n"
+        "• Upgrade mulai dari <b>Rp 2.000</b>\n"
+        "• Atau undang teman via tautan referral untuk mendapatkan <b>VIP Gratis</b>"
     )
 
     # 1. Jika dipanggil dari Callback Query (user klik tombol inline di menu)

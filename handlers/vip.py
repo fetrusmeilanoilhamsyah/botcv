@@ -15,7 +15,7 @@ PAKET = [
     {"label": "2 Minggu",  "days": 14, "harga": "Rp 10.000"},
     {"label": "3 Minggu",  "days": 21, "harga": "Rp 15.000"},
     {"label": "1 Bulan",   "days": 30, "harga": "Rp 20.000"},
-    {"label": "Permanen",  "days": 365, "harga": "Rp 100.000"},
+    {"label": "365 Hari",  "days": 365, "harga": "Rp 100.000"},
 ]
 
 
@@ -37,7 +37,7 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"• Limit : {exp.strftime('%d/%m/%Y')} ({sisa} hari lagi)\n"
             )
         else:
-            status_line = "• Status: Member Permanen\n"
+            status_line = "• Status: VIP 365 Hari\n"
 
     header_text = "<b>[ VIP MEMBER CV ]</b>\n"
     header_text += "────────────────────────────\n"

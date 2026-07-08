@@ -60,7 +60,7 @@ PAKET = [
     {"label": "2 Minggu",  "days": 14, "price": 10_000},
     {"label": "3 Minggu",  "days": 21, "price": 15_000},
     {"label": "1 Bulan",   "days": 30, "price": 20_000},
-    {"label": "Permanen",  "days": 365, "price": 100_000},
+    {"label": "365 Hari",  "days": 365, "price": 100_000},
 ]
 
 _STATUS_EMOJI = {"completed": "[SUKSES]", "pending": "[PENDING]", "cancelled": "[BATAL]", "expired": "[EXPIRED]"}
@@ -103,7 +103,7 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"• Limit : {exp.strftime('%d/%m/%Y')} ({sisa} hari lagi)\n"
             )
         else:
-            status_line = "• Status: Member Permanen\n"
+            status_line = "• Status: VIP 365 Hari\n"
 
     header_text = "<b>[ VIP MEMBER CV ]</b>\n"
     header_text += "────────────────────────────\n"
@@ -144,7 +144,7 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ],
             [
                 InlineKeyboardButton("1 BULAN — 20K", callback_data="buy_vip_30", style="primary"),
-                InlineKeyboardButton("PERMANEN — 100K", callback_data="buy_vip_365", style="primary")
+                InlineKeyboardButton("365 HARI — 100K", callback_data="buy_vip_365", style="primary")
             ],
             [InlineKeyboardButton("RIWAYAT PEMBAYARAN", callback_data="vip_history", style="success")],
             [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]

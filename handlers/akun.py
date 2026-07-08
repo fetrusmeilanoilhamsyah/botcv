@@ -41,7 +41,7 @@ async def cmd_akun(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception:
                 role_str = "VIP"
         else:
-            role_str = "Member Permanen"
+            role_str = "VIP 365 Hari"
     else:
         role_str = "Belum berlangganan"
 
