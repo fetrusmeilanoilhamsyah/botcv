@@ -165,14 +165,7 @@ def _schedule_debounce(user_id: int, chat_id: int, bot):
         status_msg_id = data.get("status_msg_id")
         if status_msg_id:
             try:
-                await bot.edit_message_text(
-                    chat_id=chat_id,
-                    message_id=status_msg_id,
-                    text=text,
-                    reply_markup=keyboard,
-                    parse_mode="HTML"
-                )
-                return
+                await bot.delete_message(chat_id=chat_id, message_id=status_msg_id)
             except Exception:
                 pass
 
