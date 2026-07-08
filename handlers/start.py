@@ -41,8 +41,6 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
     lock = _get_transition_lock(user_id)
 
     async with lock:
-        is_callback = bool(update and update.callback_query)
-
         # 1. Hapus command user di background agar tidak menambah latensi sebelum edit pesan
         if update and update.message:
             async def _del_cmd():
@@ -54,10 +52,7 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
 
         # Ambil pesan welcome yang sedang aktif
         msg_ids = _welcome_messages.get(user_id, [])
-
-        # HANYA edit jika dipicu oleh Callback Query (klik tombol)
-        # Jika dipicu command teks / upload file, kita kirim pesan baru di bawah agar layar HP tidak melompat!
-        if is_callback and msg_ids:
+        if msg_ids:
             edit_msg_id = msg_ids[0]
 
             # Pesan-pesan lain di bawahnya kita hapus semuanya
@@ -93,11 +88,8 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
                 import logging
                 logging.getLogger(__name__).warning("Gagal mengedit pesan welcome: %s", e)
 
-        # Jika aksi dipicu command teks / upload file: Hapus pesan welcome lama di background
-        if msg_ids:
-            asyncio.create_task(delete_welcome_messages(bot, user_id, chat_id))
-
-        # Kirim pesan baru di paling bawah chat
+        # Fallback: Kirim pesan baru jika edit gagal / tidak ada welcome messages
+        _welcome_messages.pop(user_id, None)
         msg = await bot.send_message(
             chat_id=chat_id,
             text=text,
