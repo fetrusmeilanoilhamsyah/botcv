@@ -470,8 +470,8 @@ async def handle_rename_start_num(update: Update, context: ContextTypes.DEFAULT_
     file_name = data.get("file_name", "CONTOH")
     style_keyboard = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton(f"NOMOR DI AWAL (e.g. 1 {file_name})", callback_data="rename_numstyle_front"),
-            InlineKeyboardButton(f"NOMOR DI AKHIR (e.g. {file_name} 1)", callback_data="rename_numstyle_back")
+            InlineKeyboardButton(f"NOMOR DI AWAL (e.g. 1 {file_name})", callback_data="rename_numstyle_front", style="primary"),
+            InlineKeyboardButton(f"NOMOR DI AKHIR (e.g. {file_name} 1)", callback_data="rename_numstyle_back", style="primary")
         ],
         [InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]
     ])
@@ -501,8 +501,8 @@ async def handle_rename_numstyle_callback(update: Update, context: ContextTypes.
     
     deliv_keyboard = InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("KIRIM SATU PER SATU", callback_data="rename_deliv_single"),
-            InlineKeyboardButton("KIRIM SEBAGAI ZIP", callback_data="rename_deliv_zip")
+            InlineKeyboardButton("KIRIM SATU PER SATU", callback_data="rename_deliv_single", style="primary"),
+            InlineKeyboardButton("KIRIM SEBAGAI ZIP", callback_data="rename_deliv_zip", style="primary")
         ],
         [InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]
     ])

@@ -231,7 +231,7 @@ async def handle_addnum_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
             
             db.set_session(user_id, S1, data)
             
-        await _show_wait_numbers_menu(update, context, data)
+        await _show_wait_numbers_menu(update, context, data, user_id=user_id)
         
     except Exception as e:
         logger.error("Gagal memproses file di addnum: %s", e)
@@ -253,9 +253,11 @@ async def handle_addnum_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
         except Exception:
             pass
 
-async def _show_wait_numbers_menu(update: Update, context, data: dict):
+async def _show_wait_numbers_menu(update: Update, context, data: dict, user_id: int = None):
+    """Tampilkan menu input nomor baru. Selalu hapus pesan status lama & kirim pesan baru di bawah."""
     status_msg_id = data.get("status_msg_id")
     new_count = len(data["new_numbers"])
+    chat_id = update.effective_chat.id
     
     text = (
         _get_breadcrumbs(data, 2) +
@@ -285,14 +287,40 @@ async def _show_wait_numbers_menu(update: Update, context, data: dict):
         [InlineKeyboardButton("SELESAI & LANJUT", callback_data="addnum_numbers_done", style="success")],
         [InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]
     ])
-    
-    await context.bot.edit_message_text(
-        chat_id=update.effective_chat.id,
-        message_id=status_msg_id,
-        text=text,
-        parse_mode="HTML",
-        reply_markup=keyboard
-    )
+
+    # Jika dipanggil setelah upload file (new_count == 0 = pertama kali setelah file masuk):
+    # hapus status_msg lama → kirim pesan BARU di bawah file
+    if new_count == 0 and status_msg_id:
+        try:
+            await context.bot.delete_message(chat_id=chat_id, message_id=status_msg_id)
+        except Exception:
+            pass
+        new_msg = await context.bot.send_message(
+            chat_id=chat_id,
+            text=text,
+            parse_mode="HTML",
+            reply_markup=keyboard
+        )
+        # Update status_msg_id ke pesan baru
+        if user_id is None and update.effective_user:
+            user_id = update.effective_user.id
+        if user_id:
+            sess = db.get_session(user_id)
+            if sess:
+                sess["data"]["status_msg_id"] = new_msg.message_id
+                db.set_session(user_id, S1, sess["data"])
+    else:
+        # Saat user sudah kirim nomor sebelumnya → edit in-place saja
+        try:
+            await context.bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=status_msg_id,
+                text=text,
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+        except Exception:
+            pass
 
 async def handle_addnum_numbers_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
