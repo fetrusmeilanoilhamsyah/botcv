@@ -33,33 +33,35 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 exp = exp.replace(tzinfo=None)
             sisa = max(0, (exp - datetime.now()).days)
             status_line = (
-                f"Status: VIP Aktif\n"
-                f"Limit : {exp.strftime('%d/%m/%Y')} ({sisa} hari lagi)\n"
+                f"• Status: VIP Aktif\n"
+                f"• Limit : {exp.strftime('%d/%m/%Y')} ({sisa} hari lagi)\n"
             )
         else:
-            status_line = "Status: Member Permanen\n"
+            status_line = "• Status: Member Permanen\n"
+
+    header_text = "<b>[ VIP MEMBER CV ]</b>\n"
+    header_text += "────────────────────────────\n"
+    if status_line:
+        header_text += f"<blockquote><b>Status VIP Anda:</b>\n{status_line}</blockquote>\n"
+    else:
+        header_text += "<blockquote>• Status: User Biasa (Non-VIP)</blockquote>\n"
+    header_text += "────────────────────────────\n\n"
 
     lines = []
     for p in PAKET:
-        lines.append(f"• {p['label']:<9} : {p['harga']}")
+        lines.append(f"• {p['label']:<10} : <code>{p['harga']}</code>")
 
     keyboard = [
         [InlineKeyboardButton("HUBUNGI ADMIN", url=f"https://t.me/{ADMIN_CONTACT.lstrip('@')}")],
         [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
     ]
 
-    header_text = "          <b>« VIP Member CV »</b>\n\n"
-    if status_line:
-        header_text += f"<b>{status_line}</b>\n"
-
     text = (
         f"{header_text}"
-        f"<b>PAKET LAYANAN VIP</b>\n"
-        f"━━━━━━━━━━━━━━━━━\n"
-        + "\n".join(lines) +
-        f"\n━━━━━━━━━━━━━━━━━\n"
-        f"<b>Metode:</b> Manual\n\n"
-        f"Silakan hubungi {ADMIN_CONTACT} untuk aktivasi paket Anda."
+        f"<b>[ DAFTAR HARGA PAKET ]</b>\n"
+        f"<blockquote>" + "\n".join(lines) + "</blockquote>\n"
+        f"<b>Metode Pembayaran:</b> Manual\n\n"
+        f"Silakan hubungi {ADMIN_CONTACT} untuk proses aktivasi paket Anda."
     )
 
     await transition_to_handler(

@@ -99,26 +99,39 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 exp = exp.replace(tzinfo=None)
             sisa = (exp - datetime.now()).days
             status_line = (
-                f"Status: VIP Aktif\n"
-                f"Limit : {exp.strftime('%d/%m/%Y')} ({sisa} hari lagi)\n"
+                f"• Status: VIP Aktif\n"
+                f"• Limit : {exp.strftime('%d/%m/%Y')} ({sisa} hari lagi)\n"
             )
         else:
-            status_line = "Status: Member Permanen\n"
+            status_line = "• Status: Member Permanen\n"
+
+    header_text = "<b>[ VIP MEMBER CV ]</b>\n"
+    header_text += "────────────────────────────\n"
+    if status_line:
+        header_text += f"<blockquote><b>Status VIP Anda:</b>\n{status_line}</blockquote>\n"
+    else:
+        header_text += "<blockquote>• Status: User Biasa (Non-VIP)</blockquote>\n"
+    header_text += "────────────────────────────\n\n"
 
     # Paket
-    paket_lines = "<b>PAKET LAYANAN VIP</b>\n━━━━━━━━━━━━━━━━━\n"
+    paket_lines = ""
     for p in PAKET:
-        paket_lines += f"• {p['label']:<9} : {_fmt_price(p['price'])}\n"
-    paket_lines += "━━━━━━━━━━━━━━━━━\n"
+        paket_lines += f"• {p['label']:<10} : <code>{_fmt_price(p['price'])}</code>\n"
 
     # Info pembayaran
     if QRIS_ENABLED:
         mode = "SANDBOX" if PAKASIR_SANDBOX else "QRIS Otomatis"
-        info = f"<b>Metode:</b> {mode}\n\nSilakan pilih paket di bawah untuk pembayaran."
+        info = (
+            f"<b>Metode Pembayaran:</b> {mode}\n\n"
+            f"Silakan pilih paket pada tombol di bawah untuk membayar otomatis via QRIS."
+        )
     else:
-        info = f"<b>Metode:</b> Manual\n\nSilakan hubungi {ADMIN_CONTACT} untuk aktivasi paket Anda."
+        info = (
+            f"<b>Metode Pembayaran:</b> Manual\n\n"
+            f"Silakan hubungi {ADMIN_CONTACT} untuk proses aktivasi paket Anda."
+        )
 
-    # Keyboard (Symmetric 3x2 untuk Paket: 3 di kiri, 3 di kanan, warna all biru cerah/primary)
+    # Keyboard
     if QRIS_ENABLED:
         rows = [
             [
@@ -142,11 +155,7 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
         ]
 
-    header_text = "          <b>« VIP Member CV »</b>\n\n"
-    if status_line:
-        header_text += f"<b>{status_line}</b>\n"
-
-    text = f"{header_text}{paket_lines}{info}"
+    text = f"{header_text}<b>[ DAFTAR HARGA PAKET ]</b>\n<blockquote>{paket_lines}</blockquote>\n{info}"
     await transition_to_handler(
         context.bot,
         user.id,
@@ -155,7 +164,6 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=InlineKeyboardMarkup(rows),
         update=update
     )
-
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -187,7 +195,6 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # ── Guard: cek apakah user sudah punya payment pending ───────────────────────
-    # FIX: gunakan adb.get_user_payments (async) bukan get_user_payments sync
     existing = await adb.get_user_payments(user.id, limit=5)
     pending = next((p for p in existing if p["status"] == "pending"), None)
     if pending:
@@ -198,11 +205,13 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("BATALKAN & BUAT BARU", callback_data=f"cancel_payment_{pending['order_id']}", style="danger")],
         ])
         await query.edit_message_text(
-            f"Kamu masih memiliki pembayaran yang tertunda (pending).\n\n"
-            f"Paket: <b>{label_pending}</b>\n"
-            f"Total: <b>{_fmt_price(pending['amount'])}</b>\n"
-            f"Order ID: <code>{pending['order_id']}</code>\n\n"
-            f"Selesaikan atau batalkan terlebih dahulu sebelum membuat baru.",
+            f"<b>[ TRANSAKSI TERTUNDA ]</b>\n"
+            f"────────────────────────────\n"
+            f"Kamu masih memiliki pembayaran yang belum selesai.\n\n"
+            f"<blockquote>• Paket: <b>{label_pending}</b>\n"
+            f"• Total: <code>{_fmt_price(pending['amount'])}</code>\n"
+            f"• Order: <code>{pending['order_id']}</code></blockquote>\n"
+            f"Selesaikan atau batalkan pembayaran tersebut sebelum membuat yang baru.",
             parse_mode="HTML",
             reply_markup=kb_existing,
         )
@@ -213,7 +222,7 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Notif loading
     msg = await query.edit_message_text(
-        f"Membuat QRIS untuk <b>{package['label']}</b>...",
+        f"<blockquote><b>[ SYSTEM: GENERATING QRIS ]</b>\nSedang membuat kode pembayaran QRIS...</blockquote>",
         parse_mode="HTML"
     )
 
@@ -230,7 +239,6 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     original_amount = package["price"]
     total_payment   = payment.get("total_payment", original_amount)
 
-    # FIX: gunakan adb.create_payment (async) bukan create_payment sync
     saved = await adb.create_payment(
         user_id=user.id,
         order_id=order_id,
@@ -260,11 +268,13 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     fee = payment.get("fee", 0)
     caption = (
-        f"          <b>« QRIS Payment »</b>\n\n"
-        f"<b>Paket:</b> {package['label']} | <b>Total:</b> {_fmt_price(total_payment)}\n"
-        f"<b>Limit:</b> {exp_text}\n"
-        f"<b>Order:</b> <code>{order_id}</code>\n\n"
-        f"Scan QR untuk aktivasi otomatis."
+        f"<b>[ QRIS PAYMENT INVOICE ]</b>\n"
+        f"────────────────────────────\n"
+        f"<blockquote>• Paket: <b>{package['label']}</b>\n"
+        f"• Total: <code>{_fmt_price(total_payment)}</code>\n"
+        f"• Limit: <code>{exp_text}</code>\n"
+        f"• Order: <code>{order_id}</code></blockquote>\n"
+        f"Scan QRIS di atas untuk proses aktivasi otomatis."
     )
 
     kb = InlineKeyboardMarkup([
@@ -281,8 +291,6 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
             buf = io.BytesIO()
             qr.save(buf, kind="png", scale=8, border=2)
             buf.seek(0)
-            # FIX: kirim foto DULU, delete loading message SETELAH berhasil
-            # (urutan lama: delete dulu → kalau send_photo crash → msg sudah hilang, fallback crash)
             sent = await context.bot.send_photo(
                 chat_id=user.id, photo=buf, caption=caption, parse_mode="HTML", reply_markup=kb
             )
@@ -316,7 +324,6 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         qr_message_id = sent.message_id
 
     # Simpan message_id QR ke DB agar bisa dihapus otomatis setelah bayar
-    # FIX: jalankan di thread executor agar tidak blokir event loop
     try:
         import asyncio
         from database.db import get_connection
@@ -489,11 +496,11 @@ async def handle_vip_history(update: Update, context: ContextTypes.DEFAULT_TYPE)
     ])
 
     try:
-        # FIX: gunakan adb.get_user_payments (async) bukan get_user_payments sync
         payments = await adb.get_user_payments(user.id, limit=10)
         if not payments:
             await query.edit_message_text(
-                "          <b>« VIP Billing CV »</b>\n\n"
+                "<b>[ VIP BILLING HISTORY ]</b>\n"
+                "────────────────────────────\n"
                 "Belum ada riwayat pembayaran.\n"
                 "Beli paket VIP untuk mulai.",
                 parse_mode="HTML",
@@ -501,15 +508,15 @@ async def handle_vip_history(update: Update, context: ContextTypes.DEFAULT_TYPE)
             )
             return
 
-        header_text = "          <b>« VIP Billing CV »</b>\n\n"
+        header_text = "<b>[ VIP BILLING HISTORY ]</b>\n────────────────────────────\n"
         lines = []
         for p in payments:
             status_lbl = _STATUS_EMOJI.get(p["status"], "?")
             created = datetime.fromisoformat(p["created_at"]).strftime("%d/%m/%Y %H:%M")
             lines.append(
-                f"<b>{status_lbl}</b> {p['package_days']} Hari — {_fmt_price(p['amount'])}\n"
-                f"  Waktu: {created}\n"
-                f"  Order: <code>{p['order_id']}</code>\n"
+                f"<b>{status_lbl}</b> {p['package_days']} Hari — <code>{_fmt_price(p['amount'])}</code>\n"
+                f"<blockquote>• Tanggal: <code>{created}</code>\n"
+                f"• Order ID: <code>{p['order_id']}</code></blockquote>"
             )
 
         history_content = "\n".join(lines)
