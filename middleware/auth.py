@@ -60,9 +60,6 @@ async def require_channel_join(update, context) -> bool:
     if is_admin(user_id):
         return True
 
-    # Hapus cache lama sebelum cek ke API agar status selalu fresh
-    _membership_cache.pop(user_id, None)
-
     is_member = await check_channel_membership(context.bot, user_id)
     if is_member:
         return True
