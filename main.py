@@ -441,12 +441,13 @@ async def file_router(update: Update, context):
             await update.message.reply_text(f"Kirim {hint}.")
             return
 
-        # Centralized Disk protection checks
+        # Centralized Disk protection checks (non-blocking via thread pool)
+        import asyncio as _asyncio
         from middleware.session import check_global_disk_limit, check_session_disk_limit
-        if not check_global_disk_limit():
+        if not await _asyncio.to_thread(check_global_disk_limit):
             await update.message.reply_text("⚠️ <b>[ DISK VPS PENUH ]</b>\nDisk penyimpanan penuh. Mohon hubungi admin.", parse_mode="HTML")
             return
-        if not check_session_disk_limit(user_id):
+        if not await _asyncio.to_thread(check_session_disk_limit, user_id):
             await update.message.reply_text("⚠️ <b>[ LIMIT DISK SESI ]</b>\nSesi Anda melebihi batas penggunaan folder (maks 200 MB). Ketik /reset untuk membersihkan sesi.", parse_mode="HTML")
             return
 
