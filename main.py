@@ -227,15 +227,17 @@ def rate_limiter(func):
         user_id = update.effective_user.id
         _user_last_active[user_id] = time.time()
 
-        # Cooldown Anti-Spam (smart debounce) HANYA untuk klik tombol inline (callback query)
-        if update.callback_query:
+        # Cooldown Anti-Spam (smart debounce) untuk klik tombol inline DAN command text (dimulai dengan /)
+        is_cmd = bool(update.message and update.message.text and update.message.text.startswith("/"))
+        if update.callback_query or is_cmd:
             now = time.time()
             last_click = _user_last_click.get(user_id, 0)
             if now - last_click < USER_CLICK_COOLDOWN:
-                try:
-                    await update.callback_query.answer()
-                except Exception:
-                    pass
+                if update.callback_query:
+                    try:
+                        await update.callback_query.answer()
+                    except Exception:
+                        pass
                 return
             _user_last_click[user_id] = now
 
@@ -285,14 +287,17 @@ def light_rate_limiter(func):
         user_id = update.effective_user.id
         _user_last_active[user_id] = time.time()
 
-        if update.callback_query:
+        # Cooldown Anti-Spam (smart debounce) untuk klik tombol inline DAN command text (dimulai dengan /)
+        is_cmd = bool(update.message and update.message.text and update.message.text.startswith("/"))
+        if update.callback_query or is_cmd:
             now = time.time()
             last_click = _user_last_click.get(user_id, 0)
             if now - last_click < USER_CLICK_COOLDOWN:
-                try:
-                    await update.callback_query.answer()
-                except Exception:
-                    pass
+                if update.callback_query:
+                    try:
+                        await update.callback_query.answer()
+                    except Exception:
+                        pass
                 return
             _user_last_click[user_id] = now
 
