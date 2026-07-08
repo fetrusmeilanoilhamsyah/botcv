@@ -54,19 +54,18 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     breadcrumbs = " ➔ ".join(parts)
     return (
         "<b>[ DUPLICATE CLEAN CONSOLE ]</b>\n"
-        "────────────────────────────\n"
-        f"<blockquote>{breadcrumbs}</blockquote>\n"
-        "────────────────────────────\n\n"
+                f"{breadcrumbs}\n"
+        "\n"
     )
 
 def _waiting_text(data: dict) -> str:
     return (
         _get_breadcrumbs(data, 1) +
-        f"<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+        f"<b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
         f"Silakan kirim satu atau beberapa file <code>.txt</code> atau <code>.vcf</code> sekarang.\n\n"
         f"<b>Batas Sesi:</b>\n"
         f"• Maksimum upload: <code>{MAX_FILES} file</code>\n"
-        f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
+        f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file"
     )
 
 
@@ -91,9 +90,9 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 
                 text = (
                     _get_breadcrumbs(data, 1) +
-                    f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
+                    f"<b>[ STATUS: BERKAS DITERIMA ]</b>\n"
                     f"Berhasil mengunduh <code>{jumlah}</code> berkas.\n\n"
-                    f"Silakan pilih tindakan di bawah:</blockquote>"
+                    f"Silakan pilih tindakan di bawah:"
                 )
                 keyboard = InlineKeyboardMarkup([
                     [
@@ -187,8 +186,8 @@ async def handle_duplikat_file(update: Update, context: ContextTypes.DEFAULT_TYP
                     message_id=status_msg_id,
                     text=(
                         _get_breadcrumbs(sess["data"], 1) +
-                        f"<blockquote>⚠️ <b>[ FORMAT SALAH ]</b>\n"
-                        f"<code>{sent_name}</code> bukan berkas <code>.txt</code> atau <code>.vcf</code>.</blockquote>"
+                        f"⚠️ <b>[ FORMAT SALAH ]</b>\n"
+                        f"<code>{sent_name}</code> bukan berkas <code>.txt</code> atau <code>.vcf</code>."
                     ),
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
@@ -312,7 +311,7 @@ async def handle_duplikat_done(update: Update, context: ContextTypes.DEFAULT_TYP
     db.set_session(update.effective_user.id, S2, data)
     
     status_msg_id = data.get("status_msg_id")
-    process_text = "<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang membersihkan duplikat...</blockquote>"
+    process_text = "<b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang membersihkan duplikat..."
     
     if update.callback_query:
         await update.callback_query.message.edit_text(
@@ -408,7 +407,7 @@ async def handle_duplikat_process(update: Update, context: ContextTypes.DEFAULT_
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim berkas hasil...</blockquote>",
+            text="<b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim berkas hasil...",
             parse_mode="HTML"
         )
 
@@ -469,7 +468,7 @@ async def handle_duplikat_process(update: Update, context: ContextTypes.DEFAULT_
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text="<blockquote>⚠️ <b>Terjadi kesalahan saat memproses.</b></blockquote>",
+                text="⚠️ <b>Terjadi kesalahan saat memproses.</b>",
                 parse_mode="HTML"
             )
         except Exception:

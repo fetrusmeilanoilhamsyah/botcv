@@ -99,9 +99,8 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     breadcrumbs = " ➔ ".join(parts)
     return (
         "<b>[ TXT ➔ VCF CONSOLE ]</b>\n"
-        "────────────────────────────\n"
-        f"<blockquote>{breadcrumbs}</blockquote>\n"
-        "────────────────────────────\n\n"
+                f"{breadcrumbs}\n"
+        "\n"
     )
 
 
@@ -135,10 +134,10 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 
                 text = (
                     _get_breadcrumbs(data, 1) +
-                    f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
+                    f"<b>[ STATUS: BERKAS DITERIMA ]</b>\n"
                     f"Berhasil mengunduh <code>{jumlah}</code> berkas TXT.\n"
                     f"Total kontak terdeteksi: <code>{data.get('total_contacts', 0)}</code> baris.\n\n"
-                    f"Silakan pilih tindakan di bawah:</blockquote>"
+                    f"Silakan pilih tindakan di bawah:"
                 )
                 keyboard = InlineKeyboardMarkup([
                     [
@@ -209,11 +208,11 @@ async def cmd_txttovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id,
         update.effective_chat.id,
         _get_breadcrumbs({"count": 0}, 1) + (
-            "<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+            "<b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
             "Silakan kirim satu atau beberapa file <code>.txt</code> sekarang.\n\n"
             "<b>Batas Sesi:</b>\n"
             f"• Maksimum upload: <code>{MAX_FILES} file</code>\n"
-            f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
+            f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file"
         ),
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
@@ -255,10 +254,10 @@ async def handle_ttv_contact_name(update: Update, context: ContextTypes.DEFAULT_
         message_id=status_msg_id,
         text=(
             _get_breadcrumbs(data, 2) +
-            f"<blockquote><b>[ LANGKAH 2: FORMAT PENAMAAN ]</b>\n"
+            f"<b>[ LANGKAH 2: FORMAT PENAMAAN ]</b>\n"
             f"Pilih format penamaan untuk kontak <code>{data['contact_name']}</code>:\n\n"
             f"• <b>STANDAR</b>: <code>{data['contact_name']}1</code>, <code>{data['contact_name']}2</code>, dst.\n"
-            f"• <b>DENGAN TANGGAL</b>: <code>{data['contact_name']} DD/MM 1</code>, dst.</blockquote>"
+            f"• <b>DENGAN TANGGAL</b>: <code>{data['contact_name']} DD/MM 1</code>, dst."
         ),
         parse_mode="HTML",
         reply_markup=keyboard
@@ -284,8 +283,8 @@ async def handle_ttv_style_callback(update: Update, context: ContextTypes.DEFAUL
     await query.edit_message_text(
         text=(
             _get_breadcrumbs(data, 3) +
-            "<blockquote><b>[ LANGKAH 3: SPLIT KAPASITAS ]</b>\n"
-            "Ketik jumlah kontak per file (contoh: <code>100</code>):</blockquote>"
+            "<b>[ LANGKAH 3: SPLIT KAPASITAS ]</b>\n"
+            "Ketik jumlah kontak per file (contoh: <code>100</code>):"
         ),
         parse_mode="HTML",
         reply_markup=keyboard
@@ -316,8 +315,8 @@ async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE
             message_id=status_msg_id,
             text=(
                 _get_breadcrumbs(sess["data"], 3) +
-                "<blockquote>⚠️ <b>Harap masukkan angka saja.</b>\n\n"
-                "Ketik jumlah kontak per file (contoh: <code>100</code>):</blockquote>"
+                "⚠️ <b>Harap masukkan angka saja.</b>\n\n"
+                "Ketik jumlah kontak per file (contoh: <code>100</code>):"
             ),
             parse_mode="HTML",
             reply_markup=keyboard
@@ -331,8 +330,8 @@ async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE
             message_id=status_msg_id,
             text=(
                 _get_breadcrumbs(sess["data"], 3) +
-                f"<blockquote>⚠️ <b>Batas valid: 1 - {MAX_CONTACTS_PER_FILE:,}</b>\n\n"
-                "Ketik jumlah kontak per file (contoh: <code>100</code>):</blockquote>"
+                f"⚠️ <b>Batas valid: 1 - {MAX_CONTACTS_PER_FILE:,}</b>\n\n"
+                "Ketik jumlah kontak per file (contoh: <code>100</code>):"
             ),
             parse_mode="HTML",
             reply_markup=keyboard
@@ -348,8 +347,8 @@ async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE
         message_id=status_msg_id,
         text=(
             _get_breadcrumbs(data, 4) +
-            "<blockquote><b>[ LANGKAH 4: NAMA FILE OUTPUT ]</b>\n"
-            "Ketik nama berkas VCF (contoh: <code>HKTV</code>):</blockquote>"
+            "<b>[ LANGKAH 4: NAMA FILE OUTPUT ]</b>\n"
+            "Ketik nama berkas VCF (contoh: <code>HKTV</code>):"
         ),
         parse_mode="HTML",
         reply_markup=keyboard
@@ -380,8 +379,8 @@ async def handle_ttv_file_name(update: Update, context: ContextTypes.DEFAULT_TYP
         message_id=status_msg_id,
         text=(
             _get_breadcrumbs(data, 5) +
-            "<blockquote><b>[ LANGKAH 5: INDEX PENOMORAN ]</b>\n"
-            "Ketik angka mulai urutan (contoh: <code>1</code>):</blockquote>"
+            "<b>[ LANGKAH 5: INDEX PENOMORAN ]</b>\n"
+            "Ketik angka mulai urutan (contoh: <code>1</code>):"
         ),
         parse_mode="HTML",
         reply_markup=keyboard
@@ -411,8 +410,8 @@ async def handle_ttv_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message_id=status_msg_id,
             text=(
                 _get_breadcrumbs(sess["data"], 5) +
-                "<blockquote>⚠️ <b>Masukkan angka minimal 1.</b>\n\n"
-                "Ketik nomor urut awal (contoh: <code>1</code>):</blockquote>"
+                "⚠️ <b>Masukkan angka minimal 1.</b>\n\n"
+                "Ketik nomor urut awal (contoh: <code>1</code>):"
             ),
             parse_mode="HTML",
             reply_markup=keyboard
@@ -438,8 +437,8 @@ async def handle_ttv_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
         message_id=status_msg_id,
         text=(
             _get_breadcrumbs(data, 5) +
-            "<blockquote><b>[ LANGKAH 5: FORMAT PENOMORAN FILE ]</b>\n"
-            "Pilih letak penomoran file pada tombol di bawah:</blockquote>"
+            "<b>[ LANGKAH 5: FORMAT PENOMORAN FILE ]</b>\n"
+            "Pilih letak penomoran file pada tombol di bawah:"
         ),
         parse_mode="HTML",
         reply_markup=style_keyboard
@@ -471,8 +470,8 @@ async def handle_ttv_numstyle_callback(update: Update, context: ContextTypes.DEF
     await query.edit_message_text(
         text=(
             _get_breadcrumbs(data, 6) +
-            "<blockquote><b>[ LANGKAH 6: FORMAT PENGIRIMAN ]</b>\n"
-            "Pilih format pengiriman berkas VCF pada tombol di bawah:</blockquote>"
+            "<b>[ LANGKAH 6: FORMAT PENGIRIMAN ]</b>\n"
+            "Pilih format pengiriman berkas VCF pada tombol di bawah:"
         ),
         parse_mode="HTML",
         reply_markup=deliv_keyboard
@@ -530,9 +529,9 @@ async def handle_ttv_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     message_id=status_msg_id,
                     text=(
                         _get_breadcrumbs(sess["data"], 1) +
-                        f"<blockquote>⚠️ <b>[ FORMAT SALAH ]</b>\n"
+                        f"⚠️ <b>[ FORMAT SALAH ]</b>\n"
                         f"<code>{sent_name}</code> bukan berkas <code>.txt</code>.\n\n"
-                        f"Kirim ulang berkas dengan format <code>.txt</code>.</blockquote>"
+                        f"Kirim ulang berkas dengan format <code>.txt</code>."
                     ),
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
@@ -544,11 +543,11 @@ async def handle_ttv_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     message_id=status_msg_id,
                     text=(
                         _get_breadcrumbs(sess["data"], 1) +
-                        f"<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+                        f"<b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
                         f"Silakan kirim satu atau beberapa file <code>.txt</code> sekarang.\n\n"
                         f"<b>Batas Sesi:</b>\n"
                         f"\u2022 Maksimum upload: <code>{MAX_FILES} file</code>\n"
-                        f"\u2022 Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
+                        f"\u2022 Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file"
                     ),
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
@@ -661,9 +660,9 @@ async def handle_ttv_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
             message_id=status_msg_id,
             text=(
                 _get_breadcrumbs(data, 2) +
-                f"<blockquote><b>[ LANGKAH 2: NAMA KONTAK ]</b>\n"
+                f"<b>[ LANGKAH 2: NAMA KONTAK ]</b>\n"
                 f"Terdeteksi: <code>{data.get('total_contacts', 0)}</code> kontak.\n\n"
-                f"Ketik nama kontak dasar (contoh: <code>FEE</code>):</blockquote>"
+                f"Ketik nama kontak dasar (contoh: <code>FEE</code>):"
             ),
             parse_mode="HTML",
             reply_markup=keyboard
@@ -701,7 +700,7 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text="<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memproses dan menyusun data VCF...</blockquote>",
+        text="<b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memproses dan menyusun data VCF...",
         parse_mode="HTML"
     )
 
@@ -794,7 +793,7 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text="<blockquote><b>[ SYSTEM: COMPRESSING ZIP ]</b>\nMengompresi file ke berkas ZIP...</blockquote>",
+                text="<b>[ SYSTEM: COMPRESSING ZIP ]</b>\nMengompresi file ke berkas ZIP...",
                 parse_mode="HTML"
             )
             
@@ -809,7 +808,7 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text="<blockquote><b>[ SYSTEM: SENDING ZIP ]</b>\nMengirim berkas ZIP ke Telegram...</blockquote>",
+                text="<b>[ SYSTEM: SENDING ZIP ]</b>\nMengirim berkas ZIP ke Telegram...",
                 parse_mode="HTML"
             )
 
@@ -875,7 +874,7 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text=f"<blockquote><b>[ SYSTEM: SENDING VCF ]</b>\nMengirim berkas VCF: <code>0</code> / <code>{total_files}</code> file terkirim.</blockquote>",
+                    text=f"<b>[ SYSTEM: SENDING VCF ]</b>\nMengirim berkas VCF: <code>0</code> / <code>{total_files}</code> file terkirim.",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -905,7 +904,7 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                             await context.bot.edit_message_text(
                                 chat_id=update.effective_chat.id,
                                 message_id=status_msg_id,
-                                text=f"<blockquote><b>[ SYSTEM: SENDING VCF ]</b>\nMengirim berkas VCF: <code>{sent_count}</code> / <code>{total_files}</code> file terkirim.</blockquote>",
+                                text=f"<b>[ SYSTEM: SENDING VCF ]</b>\nMengirim berkas VCF: <code>{sent_count}</code> / <code>{total_files}</code> file terkirim.",
                                 parse_mode="HTML"
                             )
                         except Exception:
@@ -986,11 +985,11 @@ async def handle_show_txttovcf_help_callback(update: Update, context: ContextTyp
     db.set_session(user_id, S0, {"count": 0, "total_size": 0, "total_contacts": 0})
 
     text = _get_breadcrumbs({"count": 0}, 1) + (
-        "<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+        "<b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
         "Silakan kirim satu atau beberapa file <code>.txt</code> sekarang.\n\n"
         "<b>Batas Sesi:</b>\n"
         f"• Maksimum upload: <code>{MAX_FILES} file</code>\n"
-        f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
+        f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file"
     )
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
 

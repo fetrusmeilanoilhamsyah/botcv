@@ -73,18 +73,17 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     breadcrumbs = " ➔ ".join(parts)
     return (
         "<b>[ TAMBAH KONTAK VCF CONSOLE ]</b>\n"
-        "────────────────────────────\n"
-        f"<blockquote>{breadcrumbs}</blockquote>\n"
-        "────────────────────────────\n\n"
+                f"{breadcrumbs}\n"
+        "\n"
     )
 
 def _waiting_text(data: dict) -> str:
     return (
         _get_breadcrumbs(data, 1) +
-        f"<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+        f"<b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
         f"Silakan kirim satu file <code>.vcf</code> sumber sekarang.\n\n"
         f"<b>Batas Sesi:</b>\n"
-        f"\u2022 Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code></blockquote>"
+        f"\u2022 Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code>"
     )
 
 def parse_vcf_prefixes(contacts: list) -> dict[str, dict]:
@@ -179,8 +178,8 @@ async def handle_addnum_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     message_id=status_msg_id,
                     text=(
                         _get_breadcrumbs(sess["data"], 1) +
-                        f"<blockquote>⚠️ <b>[ FORMAT SALAH ]</b>\n"
-                        f"<code>{sent_name}</code> bukan berkas VCF (<code>.vcf</code>).</blockquote>"
+                        f"⚠️ <b>[ FORMAT SALAH ]</b>\n"
+                        f"<code>{sent_name}</code> bukan berkas VCF (<code>.vcf</code>)."
                     ),
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
@@ -246,7 +245,7 @@ async def handle_addnum_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 await context.bot.edit_message_text(
                     chat_id=chat_id,
                     message_id=status_msg_id,
-                    text="<blockquote>⚠️ <b>Gagal memproses file VCF. Silakan coba lagi.</b></blockquote>",
+                    text="⚠️ <b>Gagal memproses file VCF. Silakan coba lagi.</b>",
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
                 )
@@ -261,10 +260,10 @@ async def _show_wait_numbers_menu(update: Update, context, data: dict, user_id: 
     
     text = (
         _get_breadcrumbs(data, 2) +
-        f"<blockquote><b>[ LANGKAH 1: KIRIM NOMOR BARU ]</b>\n"
+        f"<b>[ LANGKAH 1: KIRIM NOMOR BARU ]</b>\n"
         f"Sumber: <code>{data['filename']}</code> ({data['total_contacts']} kontak)\n\n"
         f"Kirim nomor baru sekarang (dipisahkan baris baru/koma/spasi).\n"
-        f"Ketik atau klik tombol <b>SELESAI & LANJUT</b> jika sudah selesai.</blockquote>"
+        f"Ketik atau klik tombol <b>SELESAI & LANJUT</b> jika sudah selesai."
     )
     
     if new_count > 0:
@@ -276,11 +275,11 @@ async def _show_wait_numbers_menu(update: Update, context, data: dict, user_id: 
             
         text = (
             _get_breadcrumbs(data, 2) +
-            f"<blockquote><b>[ LANGKAH 1: KIRIM NOMOR BARU ]</b>\n"
+            f"<b>[ LANGKAH 1: KIRIM NOMOR BARU ]</b>\n"
             f"Sumber: <code>{data['filename']}</code> ({data['total_contacts']} kontak)\n\n"
             f"<b>NOMOR YANG DIMASUKKAN ({new_count}):</b>\n"
             f"{num_list_str}\n"
-            f"Kirim nomor baru lagi, atau klik tombol <b>SELESAI & LANJUT</b>.</blockquote>"
+            f"Kirim nomor baru lagi, atau klik tombol <b>SELESAI & LANJUT</b>."
         )
         
     keyboard = InlineKeyboardMarkup([
@@ -367,7 +366,7 @@ async def handle_addnum_numbers_done_callback(update: Update, context: ContextTy
         ])
         try:
             await query.edit_message_text(
-                text=_get_breadcrumbs(data, 2) + "<blockquote>⚠️ <b>[ ERROR ]</b>\nAnda belum mengirimkan nomor baru sama sekali! Silakan kirim nomor baru terlebih dahulu.</blockquote>",
+                text=_get_breadcrumbs(data, 2) + "⚠️ <b>[ ERROR ]</b>\nAnda belum mengirimkan nomor baru sama sekali! Silakan kirim nomor baru terlebih dahulu.",
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -403,7 +402,7 @@ async def handle_addnum_done(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=_get_breadcrumbs(data, 2) + "<blockquote>⚠️ <b>[ ERROR ]</b>\nAnda belum mengirimkan nomor baru sama sekali! Silakan kirim nomor baru terlebih dahulu.</blockquote>",
+                text=_get_breadcrumbs(data, 2) + "⚠️ <b>[ ERROR ]</b>\nAnda belum mengirimkan nomor baru sama sekali! Silakan kirim nomor baru terlebih dahulu.",
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -427,13 +426,13 @@ async def _show_wait_label_menu(update: Update, context, data: dict):
         
     text = (
         _get_breadcrumbs(data, 3) +
-        f"<blockquote><b>[ LANGKAH 2: FORMAT NAMA KONTAK BARU ]</b>\n"
+        f"<b>[ LANGKAH 2: FORMAT NAMA KONTAK BARU ]</b>\n"
         f"Sumber: <code>{data['filename']}</code>\n"
         f"Kontak Baru: <code>{new_count} nomor</code>\n\n"
         f"<b>REKAPAN:</b>\n"
         f"{num_list_str}\n"
         f"<b>Pilih atau ketik format nama baru:</b>\n"
-        f"Pilih format di bawah, atau ketik langsung nama kustom di chat untuk membuat format baru:</blockquote>"
+        f"Pilih format di bawah, atau ketik langsung nama kustom di chat untuk membuat format baru:"
     )
     
     keyboard_buttons = []
@@ -515,7 +514,7 @@ async def handle_addnum_process(update: Update, context: ContextTypes.DEFAULT_TY
     user_id = update.effective_user.id
     status_msg_id = data.get("status_msg_id")
     
-    process_text = "<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memproses penggabungan nomor baru ke berkas VCF...</blockquote>"
+    process_text = "<b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memproses penggabungan nomor baru ke berkas VCF..."
     try:
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
@@ -554,7 +553,7 @@ async def handle_addnum_process(update: Update, context: ContextTypes.DEFAULT_TY
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim berkas VCF hasil...</blockquote>",
+                text="<b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim berkas VCF hasil...",
                 parse_mode="HTML"
             )
         except Exception:
@@ -615,7 +614,7 @@ async def handle_addnum_process(update: Update, context: ContextTypes.DEFAULT_TY
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="<blockquote>⚠️ <b>Terjadi kesalahan saat memproses penggabungan berkas.</b></blockquote>",
+                    text="⚠️ <b>Terjadi kesalahan saat memproses penggabungan berkas.</b>",
                     parse_mode="HTML"
                 )
             except Exception:

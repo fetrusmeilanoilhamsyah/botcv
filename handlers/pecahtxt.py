@@ -71,19 +71,18 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     breadcrumbs = " ➔ ".join(parts)
     return (
         "<b>[ TXT SPLIT CONSOLE ]</b>\n"
-        "────────────────────────────\n"
-        f"<blockquote>{breadcrumbs}</blockquote>\n"
-        "────────────────────────────\n\n"
+                f"{breadcrumbs}\n"
+        "\n"
     )
 
 def _waiting_text(data: dict) -> str:
     return (
         _get_breadcrumbs(data, 1) +
-        f"<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+        f"<b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
         f"Silakan kirim satu atau beberapa file <code>.txt</code> sekarang.\n\n"
         f"<b>Batas Sesi:</b>\n"
         f"\u2022 Maksimum upload: <code>{MAX_FILES} file</code>\n"
-        f"\u2022 Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
+        f"\u2022 Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file"
     )
 
 _user_timers: dict = {}
@@ -129,9 +128,9 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 
                 text = (
                     _get_breadcrumbs(data, 1) +
-                    f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
+                    f"<b>[ STATUS: BERKAS DITERIMA ]</b>\n"
                     f"Berhasil mengunduh <code>{jumlah}</code> berkas TXT.\n\n"
-                    f"Silakan pilih tindakan di bawah:</blockquote>"
+                    f"Silakan pilih tindakan di bawah:"
                 )
                 keyboard = InlineKeyboardMarkup([
                     [
@@ -211,8 +210,8 @@ async def handle_pecahtxt_file(update: Update, context: ContextTypes.DEFAULT_TYP
                     message_id=status_msg_id,
                     text=(
                         _get_breadcrumbs(sess["data"], 1) +
-                        f"<blockquote>⚠️ <b>[ FORMAT SALAH ]</b>\n"
-                        f"<code>{doc.file_name}</code> bukan berkas TXT (<code>.txt</code>).</blockquote>"
+                        f"⚠️ <b>[ FORMAT SALAH ]</b>\n"
+                        f"<code>{doc.file_name}</code> bukan berkas TXT (<code>.txt</code>)."
                     ),
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
@@ -304,7 +303,7 @@ async def handle_pecahtxt_done(update: Update, context: ContextTypes.DEFAULT_TYP
     if update.callback_query:
         try:
             await update.callback_query.message.edit_text(
-                text=_get_breadcrumbs(data, 2) + f"<blockquote><b>[ LANGKAH 2: JUMLAH NOMOR PER FILE ]</b>\nTerdeteksi: <code>{data.get('count', 0)}</code> file TXT.\n\nKetik jumlah nomor per file (contoh: <code>100</code>):</blockquote>",
+                text=_get_breadcrumbs(data, 2) + f"<b>[ LANGKAH 2: JUMLAH NOMOR PER FILE ]</b>\nTerdeteksi: <code>{data.get('count', 0)}</code> file TXT.\n\nKetik jumlah nomor per file (contoh: <code>100</code>):",
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -316,7 +315,7 @@ async def handle_pecahtxt_done(update: Update, context: ContextTypes.DEFAULT_TYP
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=_get_breadcrumbs(data, 2) + f"<blockquote><b>[ LANGKAH 2: JUMLAH NOMOR PER FILE ]</b>\nTerdeteksi: <code>{data.get('count', 0)}</code> file TXT.\n\nKetik jumlah nomor per file (contoh: <code>100</code>):</blockquote>",
+                text=_get_breadcrumbs(data, 2) + f"<b>[ LANGKAH 2: JUMLAH NOMOR PER FILE ]</b>\nTerdeteksi: <code>{data.get('count', 0)}</code> file TXT.\n\nKetik jumlah nomor per file (contoh: <code>100</code>):",
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -345,7 +344,7 @@ async def handle_pecahtxt_per_file(update: Update, context: ContextTypes.DEFAULT
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=_get_breadcrumbs(sess["data"], 2) + "<blockquote>⚠️ <b>Harap masukkan angka saja.</b>\n\nBerapa nomor per file? Contoh: <b>100</b></blockquote>",
+                text=_get_breadcrumbs(sess["data"], 2) + "⚠️ <b>Harap masukkan angka saja.</b>\n\nBerapa nomor per file? Contoh: <b>100</b>",
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -357,7 +356,7 @@ async def handle_pecahtxt_per_file(update: Update, context: ContextTypes.DEFAULT
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=_get_breadcrumbs(sess["data"], 2) + f"<blockquote>⚠️ <b>Harap masukkan angka antara 1 sampai {MAX_CONTACTS_PER_FILE:,}.</b>\n\nBerapa nomor per file? Contoh: <b>100</b></blockquote>",
+                text=_get_breadcrumbs(sess["data"], 2) + f"⚠️ <b>Harap masukkan angka antara 1 sampai {MAX_CONTACTS_PER_FILE:,}.</b>\n\nBerapa nomor per file? Contoh: <b>100</b>",
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -379,7 +378,7 @@ async def handle_pecahtxt_per_file(update: Update, context: ContextTypes.DEFAULT
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text=_get_breadcrumbs(data, 3) + "<blockquote><b>[ LANGKAH 3: FORMAT PENGIRIMAN ]</b>\nPilih format pengiriman file TXT:</blockquote>",
+            text=_get_breadcrumbs(data, 3) + "<b>[ LANGKAH 3: FORMAT PENGIRIMAN ]</b>\nPilih format pengiriman file TXT:",
             parse_mode="HTML",
             reply_markup=deliv_keyboard
         )
@@ -424,7 +423,7 @@ async def handle_pecahtxt_process(update: Update, context: ContextTypes.DEFAULT_
     per_file = data["per_file"]
     status_msg_id = data.get("status_msg_id")
 
-    process_text = "<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memecah berkas TXT...</blockquote>"
+    process_text = "<b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memecah berkas TXT..."
     try:
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
@@ -471,7 +470,7 @@ async def handle_pecahtxt_process(update: Update, context: ContextTypes.DEFAULT_
                     await context.bot.edit_message_text(
                         chat_id=update.effective_chat.id,
                         message_id=status_msg_id,
-                        text="<blockquote>⚠️ <b>Gagal. Tidak ada nomor yang ditemukan.</b></blockquote>",
+                        text="⚠️ <b>Gagal. Tidak ada nomor yang ditemukan.</b>",
                         parse_mode="HTML"
                     )
                 except Exception:
@@ -486,7 +485,7 @@ async def handle_pecahtxt_process(update: Update, context: ContextTypes.DEFAULT_
                     await context.bot.edit_message_text(
                         chat_id=update.effective_chat.id,
                         message_id=status_msg_id,
-                        text="<blockquote><b>[ SYSTEM: COMPRESSING ]</b>\nMengompresi file ke format ZIP...</blockquote>",
+                        text="<b>[ SYSTEM: COMPRESSING ]</b>\nMengompresi file ke format ZIP...",
                         parse_mode="HTML"
                     )
                 except Exception:
@@ -506,7 +505,7 @@ async def handle_pecahtxt_process(update: Update, context: ContextTypes.DEFAULT_
                     await context.bot.edit_message_text(
                         chat_id=update.effective_chat.id,
                         message_id=status_msg_id,
-                        text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file ZIP...</blockquote>",
+                        text="<b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file ZIP...",
                         parse_mode="HTML"
                     )
                 except Exception:
@@ -569,7 +568,7 @@ async def handle_pecahtxt_process(update: Update, context: ContextTypes.DEFAULT_
                     await context.bot.edit_message_text(
                         chat_id=update.effective_chat.id,
                         message_id=status_msg_id,
-                        text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file TXT satu per satu...</blockquote>",
+                        text="<b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file TXT satu per satu...",
                         parse_mode="HTML"
                     )
                 except Exception:
@@ -661,7 +660,7 @@ async def handle_pecahtxt_process(update: Update, context: ContextTypes.DEFAULT_
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="<blockquote>⚠️ <b>Terjadi kesalahan. Coba kirim ulang.</b></blockquote>",
+                    text="⚠️ <b>Terjadi kesalahan. Coba kirim ulang.</b>",
                     parse_mode="HTML"
                 )
             except Exception:

@@ -102,20 +102,19 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     breadcrumbs = " ➔ ".join(parts)
     return (
         "<b>[ EXCEL/CSV ➔ VCF CONSOLE ]</b>\n"
-        "────────────────────────────\n"
-        f"<blockquote>{breadcrumbs}</blockquote>\n"
-        "────────────────────────────\n\n"
+                f"{breadcrumbs}\n"
+        "\n"
     )
 
 
 def _waiting_text(data: dict) -> str:
     return (
         _get_breadcrumbs(data, 1) +
-        f"<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+        f"<b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
         f"Silakan kirim satu atau beberapa file <code>.xlsx</code> atau <code>.csv</code> sekarang.\n\n"
         f"<b>Batas Sesi:</b>\n"
         f"\u2022 Maksimum upload: <code>{MAX_FILES} file</code>\n"
-        f"\u2022 Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
+        f"\u2022 Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file"
     )
 
 
@@ -160,9 +159,9 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 
                 text = (
                     _get_breadcrumbs(data, 1) +
-                    f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
+                    f"<b>[ STATUS: BERKAS DITERIMA ]</b>\n"
                     f"Berhasil mengunduh <code>{jumlah}</code> berkas Excel/CSV.\n\n"
-                    f"Silakan pilih tindakan di bawah:</blockquote>"
+                    f"Silakan pilih tindakan di bawah:"
                 )
                 keyboard = InlineKeyboardMarkup([
                     [
@@ -535,8 +534,8 @@ async def handle_xtv_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     message_id=status_msg_id,
                     text=(
                         _get_breadcrumbs(sess["data"], 1) +
-                        f"<blockquote>⚠️ <b>[ FORMAT SALAH ]</b>\n"
-                        f"<code>{doc.file_name}</code> bukan berkas <code>.xlsx</code> atau <code>.csv</code>.</blockquote>"
+                        f"⚠️ <b>[ FORMAT SALAH ]</b>\n"
+                        f"<code>{doc.file_name}</code> bukan berkas <code>.xlsx</code> atau <code>.csv</code>."
                     ),
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
@@ -668,7 +667,7 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text="<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang mengekstrak dan memproses data...</blockquote>",
+            text="<b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang mengekstrak dan memproses data...",
             parse_mode="HTML"
         )
     except Exception:
@@ -759,7 +758,7 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="<blockquote><b>[ SYSTEM: COMPRESSING ]</b>\nMengompresi file ke format ZIP...</blockquote>",
+                    text="<b>[ SYSTEM: COMPRESSING ]</b>\nMengompresi file ke format ZIP...",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -776,7 +775,7 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file ZIP...</blockquote>",
+                    text="<b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file ZIP...",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -843,7 +842,7 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file VCF satu per satu...</blockquote>",
+                    text="<b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file VCF satu per satu...",
                     parse_mode="HTML"
                 )
             except Exception:

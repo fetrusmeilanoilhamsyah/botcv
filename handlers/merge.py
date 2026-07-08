@@ -63,20 +63,19 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     breadcrumbs = " ➔ ".join(parts)
     return (
         "<b>[ MERGE VCF/TXT CONSOLE ]</b>\n"
-        "────────────────────────────\n"
-        f"<blockquote>{breadcrumbs}</blockquote>\n"
-        "────────────────────────────\n\n"
+                f"{breadcrumbs}\n"
+        "\n"
     )
 
 
 def _waiting_text(data: dict) -> str:
     return (
         _get_breadcrumbs(data, 1) +
-        f"<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+        f"<b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
         f"Silakan kirim satu atau beberapa file <code>.vcf</code> atau <code>.txt</code> sekarang.\n\n"
         f"<b>Batas Sesi:</b>\n"
         f"• Maksimum upload: <code>{MAX_FILES} file</code>\n"
-        f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
+        f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file"
     )
 
 
@@ -112,9 +111,9 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 
                 text = (
                     _get_breadcrumbs(data, 1) +
-                    f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
+                    f"<b>[ STATUS: BERKAS DITERIMA ]</b>\n"
                     f"Berhasil mengunduh <code>{jumlah}</code> berkas {mode}.\n\n"
-                    f"Silakan pilih tindakan di bawah:</blockquote>"
+                    f"Silakan pilih tindakan di bawah:"
                 )
                 keyboard = InlineKeyboardMarkup([
                     [
@@ -218,8 +217,8 @@ async def handle_merge_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     message_id=status_msg_id,
                     text=(
                         _get_breadcrumbs(sess["data"], 1) +
-                        "<blockquote>⚠️ <b>[ FORMAT SALAH ]</b>\n"
-                        "Berkas tidak valid atau nama berkas kosong.</blockquote>"
+                        "⚠️ <b>[ FORMAT SALAH ]</b>\n"
+                        "Berkas tidak valid atau nama berkas kosong."
                     ),
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
@@ -246,8 +245,8 @@ async def handle_merge_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     message_id=status_msg_id,
                     text=(
                         _get_breadcrumbs(sess["data"], 1) +
-                        f"<blockquote>⚠️ <b>[ FORMAT SALAH ]</b>\n"
-                        f"<code>{doc.file_name}</code> bukan berkas <code>.vcf</code> atau <code>.txt</code>.</blockquote>"
+                        f"⚠️ <b>[ FORMAT SALAH ]</b>\n"
+                        f"<code>{doc.file_name}</code> bukan berkas <code>.vcf</code> atau <code>.txt</code>."
                     ),
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
@@ -287,9 +286,9 @@ async def handle_merge_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         message_id=status_msg_id,
                         text=(
                             _get_breadcrumbs(data, 1) +
-                            f"<blockquote>⚠️ <b>[ TIPE BERBEDA ]</b>\n"
+                            f"⚠️ <b>[ TIPE BERBEDA ]</b>\n"
                             f"Tidak bisa mencampur file VCF dan TXT dalam satu sesi.\n\n"
-                            f"Sesi ini dikunci untuk tipe <code>.{current_mode.upper()}</code>.</blockquote>"
+                            f"Sesi ini dikunci untuk tipe <code>.{current_mode.upper()}</code>."
                         ),
                         parse_mode="HTML",
                         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
@@ -315,8 +314,8 @@ async def handle_merge_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         message_id=status_msg_id,
                         text=(
                             _get_breadcrumbs(data, 1) +
-                            f"<blockquote>⚠️ <b>Batas sesi: <code>{MAX_FILES} file</code> telah tercapai.</b>\n"
-                            f"Klik <b>PROSES SEKARANG</b> untuk melanjutkan.</blockquote>"
+                            f"⚠️ <b>Batas sesi: <code>{MAX_FILES} file</code> telah tercapai.</b>\n"
+                            f"Klik <b>PROSES SEKARANG</b> untuk melanjutkan."
                         ),
                         parse_mode="HTML",
                         reply_markup=InlineKeyboardMarkup([[
@@ -337,8 +336,8 @@ async def handle_merge_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         message_id=status_msg_id,
                         text=(
                             _get_breadcrumbs(data, 1) +
-                            f"<blockquote>⚠️ <b>Batas ukuran: <code>{MAX_SIZE_MB} MB</code> telah tercapai.</b>\n"
-                            f"Klik <b>PROSES SEKARANG</b> untuk melanjutkan.</blockquote>"
+                            f"⚠️ <b>Batas ukuran: <code>{MAX_SIZE_MB} MB</code> telah tercapai.</b>\n"
+                            f"Klik <b>PROSES SEKARANG</b> untuk melanjutkan."
                         ),
                         parse_mode="HTML",
                         reply_markup=InlineKeyboardMarkup([[
@@ -431,9 +430,9 @@ async def handle_merge_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_msg_id = data.get("status_msg_id")
     naming_text = (
         _get_breadcrumbs(data, 2) +
-        f"<blockquote><b>[ LANGKAH 2: NAMA FILE GABUNGAN ]</b>\n"
+        f"<b>[ LANGKAH 2: NAMA FILE GABUNGAN ]</b>\n"
         f"Terdeteksi: <code>{data['count']}</code> file {mode.upper()}.\n\n"
-        f"Ketik nama file hasil gabungan (contoh: <code>FEE</code>):</blockquote>"
+        f"Ketik nama file hasil gabungan (contoh: <code>FEE</code>):"
     )
     naming_markup = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
 
@@ -493,7 +492,7 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text="<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang menggabungkan berkas...</blockquote>",
+        text="<b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang menggabungkan berkas...",
         parse_mode="HTML"
     )
 
@@ -515,7 +514,7 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=f"<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang menggabungkan <code>{total_files}</code> file {mode.upper()}... <code>{pct}%</code></blockquote>",
+                text=f"<b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang menggabungkan <code>{total_files}</code> file {mode.upper()}... <code>{pct}%</code>",
                 parse_mode="HTML"
             )
         except Exception:
@@ -560,7 +559,7 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="<blockquote>⚠️ <b>Gagal. Kontak tidak ditemukan di file VCF.</b></blockquote>",
+                    text="⚠️ <b>Gagal. Kontak tidak ditemukan di file VCF.</b>",
                     parse_mode="HTML"
                 )
                 return
@@ -639,7 +638,7 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="<blockquote>⚠️ <b>Gagal. Nomor tidak ditemukan di file TXT.</b></blockquote>",
+                    text="⚠️ <b>Gagal. Nomor tidak ditemukan di file TXT.</b>",
                     parse_mode="HTML"
                 )
                 return

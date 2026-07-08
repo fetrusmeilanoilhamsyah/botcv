@@ -67,20 +67,19 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     breadcrumbs = " ➔ ".join(parts)
     return (
         "<b>[ EXCEL/CSV ➔ TXT CONSOLE ]</b>\n"
-        "────────────────────────────\n"
-        f"<blockquote>{breadcrumbs}</blockquote>\n"
-        "────────────────────────────\n\n"
+                f"{breadcrumbs}\n"
+        "\n"
     )
 
 
 def _waiting_text(data: dict) -> str:
     return (
         _get_breadcrumbs(data, 1) +
-        f"<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+        f"<b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
         f"Silakan kirim satu atau beberapa file <code>.xlsx</code> atau <code>.csv</code> sekarang.\n\n"
         f"<b>Batas Sesi:</b>\n"
         f"• Maksimum upload: <code>{MAX_FILES} file</code>\n"
-        f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
+        f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file"
     )
 
 
@@ -143,9 +142,9 @@ def _schedule_debounce(user_id: int, chat_id: int, bot):
 
         text = (
             _get_breadcrumbs(data, 1) +
-            f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
+            f"<b>[ STATUS: BERKAS DITERIMA ]</b>\n"
             f"Berhasil mengunduh <code>{jumlah}</code> berkas ({kontak:,} nomor unik).\n\n"
-            f"Silakan pilih tindakan di bawah:</blockquote>"
+            f"Silakan pilih tindakan di bawah:"
         )
         keyboard = InlineKeyboardMarkup([
             [
@@ -186,7 +185,7 @@ def _schedule_debounce(user_id: int, chat_id: int, bot):
     _debounce_tasks[user_id] = task
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# ─────────────────────
 
 async def cmd_xlsxtotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from middleware.auth import require_member
@@ -244,8 +243,8 @@ async def handle_xlsxtotxt_file(update: Update, context: ContextTypes.DEFAULT_TY
                     message_id=status_msg_id,
                     text=(
                         _get_breadcrumbs(sess["data"], 1) +
-                        f"<blockquote>⚠️ <b>[ FORMAT SALAH ]</b>\n"
-                        f"<code>{sent_name}</code> bukan berkas <code>.xlsx</code> atau <code>.csv</code>.</blockquote>"
+                        f"⚠️ <b>[ FORMAT SALAH ]</b>\n"
+                        f"<code>{sent_name}</code> bukan berkas <code>.xlsx</code> atau <code>.csv</code>."
                     ),
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
@@ -279,8 +278,8 @@ async def handle_xlsxtotxt_file(update: Update, context: ContextTypes.DEFAULT_TY
                     message_id=status_msg_id,
                     text=(
                         _get_breadcrumbs(sess["data"], 1) +
-                        f"<blockquote>⚠️ <b>[ GAGAL UNDUH ]</b>\n"
-                        f"Gagal mengunduh <code>{doc.file_name}</code>. Coba kirim ulang.</blockquote>"
+                        f"⚠️ <b>[ GAGAL UNDUH ]</b>\n"
+                        f"Gagal mengunduh <code>{doc.file_name}</code>. Coba kirim ulang."
                     ),
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
@@ -350,8 +349,8 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
     total_file = data.get("total_file", 0)
     status_msg_id = data.get("status_msg_id")
 
-    # ── Edit status message in-place: Processing ────────────────────────────
-    process_text = "<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang mengekstrak nomor dari berkas Excel/CSV...</blockquote>"
+    # ── Edit status message in-place: Processing 
+    process_text = "<b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang mengekstrak nomor dari berkas Excel/CSV..."
     if update.callback_query:
         try:
             await update.callback_query.message.edit_text(
@@ -384,8 +383,8 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
 
         box_empty = (
             _get_breadcrumbs(data, 2) +
-            "<blockquote>⚠️ <b>[ TIDAK ADA NOMOR ]</b>\n"
-            "Tidak ada nomor yang ditemukan dari berkas yang dikirim.</blockquote>"
+            "⚠️ <b>[ TIDAK ADA NOMOR ]</b>\n"
+            "Tidak ada nomor yang ditemukan dari berkas yang dikirim."
         )
         if update.callback_query:
             try:
@@ -493,7 +492,7 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="<blockquote>⚠️ <b>Gagal mengirim hasil. Coba ulangi.</b></blockquote>",
+                    text="⚠️ <b>Gagal mengirim hasil. Coba ulangi.</b>",
                     parse_mode="HTML"
                 )
         except Exception:

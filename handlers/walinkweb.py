@@ -603,9 +603,8 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     breadcrumbs = " ➔ ".join(parts)
     return (
         "<b>[ WALINK WEB CV ]</b>\n"
-        "────────────────────────────\n"
-        f"{breadcrumbs}\n"
-        "────────────────────────────\n\n"
+                f"{breadcrumbs}\n"
+        "\n"
     )
 
 

@@ -119,19 +119,18 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     )
     return (
         f"<b>{console_title}</b>\n"
-        "────────────────────────────\n"
-        f"<blockquote>{breadcrumbs}</blockquote>\n"
-        "────────────────────────────\n\n"
+                f"{breadcrumbs}\n"
+        "\n"
     )
 
 def _waiting_text(data: dict) -> str:
     return (
         _get_breadcrumbs(data, 1) +
-        f"<blockquote><b>[ STATUS: WAITING FOR TEXT ]</b>\n"
+        f"<b>[ STATUS: WAITING FOR TEXT ]</b>\n"
         f"Silakan ketik atau tempel daftar nomor HP Anda di chat sekarang.\n\n"
         f"<b>Format:</b>\n"
         f"\u2022 Satu nomor per baris, ATAU\n"
-        f"\u2022 Dipisahkan dengan koma/spasi/tab</blockquote>"
+        f"\u2022 Dipisahkan dengan koma/spasi/tab"
     )
 
 async def cmd_manual(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -182,7 +181,7 @@ async def handle_manual_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     message_id=status_msg_id,
                     text=(
                         _get_breadcrumbs(data, 1) +
-                        "<blockquote>⚠️ <b>[ KOSONG ]</b>\nTeks yang dikirim kosong. Silakan kirimkan kembali daftar nomor HP Anda.</blockquote>"
+                        "⚠️ <b>[ KOSONG ]</b>\nTeks yang dikirim kosong. Silakan kirimkan kembali daftar nomor HP Anda."
                     ),
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
@@ -210,7 +209,7 @@ async def handle_manual_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     message_id=status_msg_id,
                     text=(
                         _get_breadcrumbs(data, 1) +
-                        "<blockquote>⚠️ <b>[ TIDAK ADA NOMOR VALID ]</b>\nTidak ditemukan nomor HP yang valid pada teks tersebut. Silakan coba lagi.</blockquote>"
+                        "⚠️ <b>[ TIDAK ADA NOMOR VALID ]</b>\nTidak ditemukan nomor HP yang valid pada teks tersebut. Silakan coba lagi."
                     ),
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
@@ -243,7 +242,7 @@ async def handle_manual_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text=_get_breadcrumbs(data, 2) + f"<blockquote><b>[ LANGKAH 2: PILIH FORMAT OUTPUT ]</b>\nDitemukan: <code>{len(clean_numbers)}</code> nomor HP unik.\n\nPilih format output:</blockquote>",
+            text=_get_breadcrumbs(data, 2) + f"<b>[ LANGKAH 2: PILIH FORMAT OUTPUT ]</b>\nDitemukan: <code>{len(clean_numbers)}</code> nomor HP unik.\n\nPilih format output:",
             parse_mode="HTML",
             reply_markup=keyboard
         )
@@ -270,7 +269,7 @@ async def handle_manual_format_callback(update: Update, context: ContextTypes.DE
         db.set_session(user_id, S_WAIT_FILENAME, data)
         try:
             await query.edit_message_text(
-                text=_get_breadcrumbs(data, 3) + f"<blockquote><b>[ LANGKAH 3: INPUT NAMA FILE ]</b>\nMasukkan nama file hasil {fmt.upper()} (contoh: <code>Hasil</code>):</blockquote>",
+                text=_get_breadcrumbs(data, 3) + f"<b>[ LANGKAH 3: INPUT NAMA FILE ]</b>\nMasukkan nama file hasil {fmt.upper()} (contoh: <code>Hasil</code>):",
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -280,7 +279,7 @@ async def handle_manual_format_callback(update: Update, context: ContextTypes.DE
         db.set_session(user_id, S_WAIT_CONTACTNAME, data)
         try:
             await query.edit_message_text(
-                text=_get_breadcrumbs(data, 3) + f"<blockquote><b>[ LANGKAH 3: INPUT NAMA KONTAK ]</b>\nMasukkan nama kontak untuk hasil VCF (contoh: <code>FEE</code>):</blockquote>",
+                text=_get_breadcrumbs(data, 3) + f"<b>[ LANGKAH 3: INPUT NAMA KONTAK ]</b>\nMasukkan nama kontak untuk hasil VCF (contoh: <code>FEE</code>):",
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -308,7 +307,7 @@ async def handle_manual_contact_name(update: Update, context: ContextTypes.DEFAU
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=_get_breadcrumbs(data, 3) + "<blockquote>⚠️ <b>Masukkan nama kontak yang valid.</b></blockquote>",
+                text=_get_breadcrumbs(data, 3) + "⚠️ <b>Masukkan nama kontak yang valid.</b>",
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -323,7 +322,7 @@ async def handle_manual_contact_name(update: Update, context: ContextTypes.DEFAU
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text=_get_breadcrumbs(data, 4) + "<blockquote><b>[ LANGKAH 4: INPUT NAMA FILE ]</b>\nMasukkan nama file untuk hasil VCF (contoh: <code>FEE_Manual</code>):</blockquote>",
+            text=_get_breadcrumbs(data, 4) + "<b>[ LANGKAH 4: INPUT NAMA FILE ]</b>\nMasukkan nama file untuk hasil VCF (contoh: <code>FEE_Manual</code>):",
             parse_mode="HTML",
             reply_markup=keyboard
         )
@@ -351,7 +350,7 @@ async def handle_manual_file_name(update: Update, context: ContextTypes.DEFAULT_
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=_get_breadcrumbs(data, 4 if data.get("format") == "vcf" else 3) + "<blockquote>⚠️ <b>Masukkan nama file yang valid.</b></blockquote>",
+                text=_get_breadcrumbs(data, 4 if data.get("format") == "vcf" else 3) + "⚠️ <b>Masukkan nama file yang valid.</b>",
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -370,7 +369,7 @@ async def handle_manual_process(update: Update, context: ContextTypes.DEFAULT_TY
     file_name = data.get("file_name", "kontak")
     status_msg_id = data.get("status_msg_id")
 
-    process_text = "<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang mengonversi dan membuat file...</blockquote>"
+    process_text = "<b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang mengonversi dan membuat file..."
     try:
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
@@ -398,7 +397,7 @@ async def handle_manual_process(update: Update, context: ContextTypes.DEFAULT_TY
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim berkas TXT hasil...</blockquote>",
+                    text="<b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim berkas TXT hasil...",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -456,7 +455,7 @@ async def handle_manual_process(update: Update, context: ContextTypes.DEFAULT_TY
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim berkas EXCEL hasil...</blockquote>",
+                    text="<b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim berkas EXCEL hasil...",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -488,7 +487,7 @@ async def handle_manual_process(update: Update, context: ContextTypes.DEFAULT_TY
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim berkas VCF hasil...</blockquote>",
+                    text="<b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim berkas VCF hasil...",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -545,7 +544,7 @@ async def handle_manual_process(update: Update, context: ContextTypes.DEFAULT_TY
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="<blockquote>⚠️ <b>Terjadi kesalahan saat memproses data.</b></blockquote>",
+                    text="⚠️ <b>Terjadi kesalahan saat memproses data.</b>",
                     parse_mode="HTML"
                 )
             except Exception:

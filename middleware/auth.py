@@ -71,8 +71,8 @@ async def require_channel_join(update, context) -> bool:
 
     channel_display = FORCE_SUB_CHANNEL if str(FORCE_SUB_CHANNEL).startswith("@") else "@tutorialnotceve"
     text = (
-        "<blockquote><b>[ STATUS: AKSES DITOLAK ]</b>\n"
-        f"Kamu belum bergabung ke channel resmi <b>{channel_display}</b>.</blockquote>\n\n"
+        "<b>[ STATUS: AKSES DITOLAK ]</b>\n"
+        f"Kamu belum bergabung ke channel resmi <b>{channel_display}</b>.\n\n"
         "Untuk menggunakan bot ini, ikuti langkah berikut:\n\n"
         "<b>1.</b> Klik tombol <b>MASUK CHANNEL</b> di bawah\n"
         "<b>2.</b> Bergabung ke channel kami\n"
@@ -141,9 +141,9 @@ async def require_member(update, context) -> bool:
     ])
     
     text = (
-        "<blockquote><b>[ STATUS: VIP DIPERLUKAN ]</b>\n"
+        "<b>[ STATUS: VIP DIPERLUKAN ]</b>\n"
         "Masa coba gratis <b>7 hari</b> Anda telah berakhir.\n"
-        "Fitur ini hanya tersedia untuk member <b>VIP</b>.</blockquote>\n\n"
+        "Fitur ini hanya tersedia untuk member <b>VIP</b>.\n\n"
         "Pilih salah satu opsi untuk melanjutkan:\n\n"
         "• <b>LIHAT PAKET</b> — Upgrade mulai dari <b>Rp 2.000</b>\n"
         "• <b>VIP GRATIS</b> — Undang teman & tukarkan poin"

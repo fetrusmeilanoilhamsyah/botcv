@@ -65,20 +65,19 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     breadcrumbs = " ➔ ".join(parts)
     return (
         "<b>[ VCF ➔ TXT CONSOLE ]</b>\n"
-        "────────────────────────────\n"
-        f"<blockquote>{breadcrumbs}</blockquote>\n"
-        "────────────────────────────\n\n"
+                f"{breadcrumbs}\n"
+        "\n"
     )
 
 
 def _waiting_text(data: dict) -> str:
     return (
         _get_breadcrumbs(data, 1) +
-        f"<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+        f"<b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
         f"Silakan kirim satu atau beberapa file <code>.vcf</code> sekarang.\n\n"
         f"<b>Batas Sesi:</b>\n"
         f"• Maksimum upload: <code>{MAX_FILES} file</code>\n"
-        f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
+        f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file"
     )
 
 
@@ -122,10 +121,10 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 
                 text = (
                     _get_breadcrumbs(data, 1) +
-                    f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
+                    f"<b>[ STATUS: BERKAS DITERIMA ]</b>\n"
                     f"Berhasil mengunduh <code>{jumlah_file}</code> berkas VCF.\n"
                     f"Total kontak terdeteksi: <code>{jumlah_kontak}</code> baris.\n\n"
-                    f"Silakan pilih tindakan di bawah:</blockquote>"
+                    f"Silakan pilih tindakan di bawah:"
                 )
                 keyboard = InlineKeyboardMarkup([
                     [
@@ -222,9 +221,9 @@ async def handle_vcftotxt_file(update: Update, context: ContextTypes.DEFAULT_TYP
                     message_id=status_msg_id,
                     text=(
                         _get_breadcrumbs(sess["data"], 1) +
-                        f"<blockquote>\u26a0\ufe0f <b>[ FORMAT SALAH ]</b>\n"
+                        f"\u26a0\ufe0f <b>[ FORMAT SALAH ]</b>\n"
                         f"<code>{sent_name}</code> bukan berkas <code>.vcf</code>.\n\n"
-                        f"Kirim ulang berkas dengan format <code>.vcf</code>.</blockquote>"
+                        f"Kirim ulang berkas dengan format <code>.vcf</code>."
                     ),
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
@@ -299,8 +298,8 @@ async def handle_vcftotxt_file(update: Update, context: ContextTypes.DEFAULT_TYP
                             message_id=status_msg_id,
                             text=(
                                 _get_breadcrumbs(data, 1) +
-                                f"<blockquote>\u26a0\ufe0f <b>Batas sesi: <code>{MAX_FILES} file</code> telah tercapai.</b>\n"
-                                f"Klik <b>PROSES SEKARANG</b> untuk melanjutkan.</blockquote>"
+                                f"\u26a0\ufe0f <b>Batas sesi: <code>{MAX_FILES} file</code> telah tercapai.</b>\n"
+                                f"Klik <b>PROSES SEKARANG</b> untuk melanjutkan."
                             ),
                             parse_mode="HTML",
                             reply_markup=InlineKeyboardMarkup([[
@@ -326,8 +325,8 @@ async def handle_vcftotxt_file(update: Update, context: ContextTypes.DEFAULT_TYP
                             message_id=status_msg_id,
                             text=(
                                 _get_breadcrumbs(data, 1) +
-                                f"<blockquote>\u26a0\ufe0f <b>Batas ukuran: <code>{MAX_SIZE_MB} MB</code> telah tercapai.</b>\n"
-                                f"Klik <b>PROSES SEKARANG</b> untuk melanjutkan.</blockquote>"
+                                f"\u26a0\ufe0f <b>Batas ukuran: <code>{MAX_SIZE_MB} MB</code> telah tercapai.</b>\n"
+                                f"Klik <b>PROSES SEKARANG</b> untuk melanjutkan."
                             ),
                             parse_mode="HTML",
                             reply_markup=InlineKeyboardMarkup([[
@@ -386,9 +385,9 @@ async def handle_vcftotxt_done(update: Update, context: ContextTypes.DEFAULT_TYP
         message_id=status_msg_id,
         text=(
             _get_breadcrumbs(data, 2) +
-            f"<blockquote><b>[ LANGKAH 2: NAMA FILE OUTPUT ]</b>\n"
+            f"<b>[ LANGKAH 2: NAMA FILE OUTPUT ]</b>\n"
             f"Terdeteksi: <code>{data['count']}</code> file VCF (<code>{data.get('total_contacts', 0)}</code> kontak).\n\n"
-            f"Ketik nama file TXT output (contoh: <code>FEE</code>):</blockquote>"
+            f"Ketik nama file TXT output (contoh: <code>FEE</code>):"
         ),
         parse_mode="HTML",
         reply_markup=keyboard
@@ -425,8 +424,8 @@ async def handle_vcftotxt_naming(update: Update, context: ContextTypes.DEFAULT_T
         message_id=status_msg_id,
         text=(
             _get_breadcrumbs(data, 3) +
-            "<blockquote><b>[ LANGKAH 3: FORMAT PENGIRIMAN ]</b>\n"
-            "Pilih format pengiriman berkas TXT pada tombol di bawah:</blockquote>"
+            "<b>[ LANGKAH 3: FORMAT PENGIRIMAN ]</b>\n"
+            "Pilih format pengiriman berkas TXT pada tombol di bawah:"
         ),
         parse_mode="HTML",
         reply_markup=deliv_keyboard
@@ -482,7 +481,7 @@ async def handle_vcftotxt_process(update: Update, context: ContextTypes.DEFAULT_
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text="<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memproses dan mengurai data VCF...</blockquote>",
+            text="<b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memproses dan mengurai data VCF...",
             parse_mode="HTML"
         )
     except Exception:
@@ -545,7 +544,7 @@ async def handle_vcftotxt_process(update: Update, context: ContextTypes.DEFAULT_
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=f"<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memproses <code>{total_files}</code> file VCF... <code>{pct}%</code></blockquote>",
+                text=f"<b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memproses <code>{total_files}</code> file VCF... <code>{pct}%</code>",
                 parse_mode="HTML"
             )
         except Exception:
@@ -580,7 +579,7 @@ async def handle_vcftotxt_process(update: Update, context: ContextTypes.DEFAULT_
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="<blockquote><b>[ SYSTEM: COMPRESSING ZIP ]</b>\nMengompresi file ke berkas ZIP...</blockquote>",
+                    text="<b>[ SYSTEM: COMPRESSING ZIP ]</b>\nMengompresi file ke berkas ZIP...",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -598,7 +597,7 @@ async def handle_vcftotxt_process(update: Update, context: ContextTypes.DEFAULT_
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="<blockquote><b>[ SYSTEM: SENDING ZIP ]</b>\nMengirim berkas ZIP ke Telegram...</blockquote>",
+                    text="<b>[ SYSTEM: SENDING ZIP ]</b>\nMengirim berkas ZIP ke Telegram...",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -662,7 +661,7 @@ async def handle_vcftotxt_process(update: Update, context: ContextTypes.DEFAULT_
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text=f"<blockquote><b>[ SYSTEM: SENDING TXT ]</b>\nMengirim berkas TXT: <code>0</code> / <code>{total_created}</code> file terkirim.</blockquote>",
+                    text=f"<b>[ SYSTEM: SENDING TXT ]</b>\nMengirim berkas TXT: <code>0</code> / <code>{total_created}</code> file terkirim.",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -692,7 +691,7 @@ async def handle_vcftotxt_process(update: Update, context: ContextTypes.DEFAULT_
                             await context.bot.edit_message_text(
                                 chat_id=update.effective_chat.id,
                                 message_id=status_msg_id,
-                                text=f"<blockquote><b>[ SYSTEM: SENDING TXT ]</b>\nMengirim berkas TXT: <code>{sent_count}</code> / <code>{total_created}</code> file terkirim.</blockquote>",
+                                text=f"<b>[ SYSTEM: SENDING TXT ]</b>\nMengirim berkas TXT: <code>{sent_count}</code> / <code>{total_created}</code> file terkirim.",
                                 parse_mode="HTML"
                             )
                         except Exception:
