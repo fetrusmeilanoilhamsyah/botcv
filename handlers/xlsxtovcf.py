@@ -60,39 +60,30 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     
     parts = []
     if step == 1:
-        parts.append(f"<b>» BERKAS: {count} FILE «</b>" if count else "<b>» BERKAS «</b>")
+        parts.append(f"<b>[UPLOAD BERKAS: {count} FILE]</b>" if count else "<b>[UPLOAD BERKAS]</b>")
     else:
-        parts.append(f"Berkas: {count} file" if count else "Berkas ○")
+        parts.append(f"Berkas: <code>{count}</code>" if count else "Berkas: ➖")
         
     if step == 2:
-        if contact_name:
-            parts.append(f"<b>» NAMA: {contact_name.upper()} «</b>")
-        else:
-            parts.append("<b>» NAMA «</b>")
+        parts.append(f"<b>[NAMA: {contact_name.upper()}]</b>" if contact_name else "<b>[NAMA KONTAK]</b>")
     elif step > 2 and contact_name:
-        parts.append(f"Nama: {contact_name}")
+        parts.append(f"Nama: <code>{contact_name}</code>")
     else:
-        parts.append("Nama ○")
+        parts.append("Nama: ➖")
         
     if step == 3:
-        if per_file:
-            parts.append(f"<b>» JUMLAH: {per_file} «</b>")
-        else:
-            parts.append("<b>» JUMLAH «</b>")
+        parts.append(f"<b>[JUMLAH: {per_file}]</b>" if per_file else "<b>[JUMLAH]</b>")
     elif step > 3 and per_file:
-        parts.append(f"Jumlah: {per_file}")
+        parts.append(f"Jumlah: <code>{per_file}</code>")
     else:
-        parts.append("Jumlah ○")
+        parts.append("Jumlah: ➖")
         
     if step == 4:
-        if file_name:
-            parts.append(f"<b>» FILE: {file_name.upper()} «</b>")
-        else:
-            parts.append("<b>» FILE «</b>")
+        parts.append(f"<b>[FILE: {file_name.upper()}]</b>" if file_name else "<b>[NAMA FILE]</b>")
     elif step > 4 and file_name:
-        parts.append(f"File: {file_name}")
+        parts.append(f"File: <code>{file_name}</code>")
     else:
-        parts.append("File ○")
+        parts.append("File: ➖")
         
     num_style = data.get("file_num_style", "")
     style_suffix = ""
@@ -102,21 +93,29 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
         style_suffix = " (AKHIR)"
         
     if step == 5:
-        if awalan:
-            parts.append(f"<b>» URUTAN: {awalan}{style_suffix} «</b>")
-        else:
-            parts.append("<b>» URUTAN «</b>")
+        parts.append(f"<b>[URUTAN: {awalan}{style_suffix}]</b>" if awalan else "<b>[URUTAN]</b>")
     elif step > 5 and awalan:
-        parts.append(f"Urutan: {awalan}{style_suffix}")
+        parts.append(f"Urutan: <code>{awalan}{style_suffix}</code>")
     else:
-        parts.append("Urutan ○")
+        parts.append("Urutan: ➖")
         
     breadcrumbs = " ➔ ".join(parts)
     return (
-        "<b>[ EXCEL ➔ VCF CV ]</b>\n"
+        "<b>[ EXCEL/CSV ➔ VCF CONSOLE ]</b>\n"
         "────────────────────────────\n"
-        f"{breadcrumbs}\n"
+        f"<blockquote>{breadcrumbs}</blockquote>\n"
         "────────────────────────────\n\n"
+    )
+
+
+def _waiting_text(data: dict) -> str:
+    return (
+        _get_breadcrumbs(data, 1) +
+        f"<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+        f"Silakan kirim satu atau beberapa file <code>.xlsx</code> atau <code>.csv</code> sekarang.\n\n"
+        f"<b>Batas Sesi:</b>\n"
+        f"\u2022 Maksimum upload: <code>{MAX_FILES} file</code>\n"
+        f"\u2022 Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
     )
 
 
@@ -159,7 +158,12 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                     except Exception:
                         pass
                 
-                text = _get_breadcrumbs(data, 1) + f"<b>{jumlah}</b> file Excel/CSV diterima. Silakan pilih tindakan:"
+        text = (
+                    _get_breadcrumbs(data, 1) +
+                    f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
+                    f"Berhasil mengunduh <code>{jumlah}</code> berkas Excel/CSV.\n\n"
+                    f"Silakan pilih tindakan di bawah:</blockquote>"
+                )
                 keyboard = InlineKeyboardMarkup([
                     [
                         InlineKeyboardButton("PROSES SEKARANG", callback_data="done", style="success"),
@@ -260,13 +264,14 @@ async def cmd_xlsxtovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from handlers.start import transition_to_handler
     _cancel_timer(user_id)
     _clear_buffers(user_id)
-    db.set_session(user_id, S0, {"count": 0, "total_size": 0, "total_contacts": 0})
+    init_data = {"count": 0, "total_size": 0, "total_contacts": 0}
+    db.set_session(user_id, S0, init_data)
     
     msg = await transition_to_handler(
         context.bot,
         user_id,
         update.effective_chat.id,
-        _get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.xlsx</b> atau <b>.csv</b> sekarang.",
+        _waiting_text(init_data),
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
@@ -521,7 +526,31 @@ async def handle_xtv_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     ext = os.path.splitext(doc.file_name)[1].lower()
     if ext not in (".xlsx", ".csv"):
-        await update.message.reply_text("Kirim file dengan ekstensi .xlsx atau .csv.")
+        # Format salah — edit status in-place, JANGAN hapus file user
+        try:
+            status_msg_id = sess["data"].get("status_msg_id")
+            if status_msg_id:
+                await context.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=status_msg_id,
+                    text=(
+                        _get_breadcrumbs(sess["data"], 1) +
+                        f"<blockquote>⚠️ <b>[ FORMAT SALAH ]</b>\n"
+                        f"<code>{doc.file_name}</code> bukan berkas <code>.xlsx</code> atau <code>.csv</code>.</blockquote>"
+                    ),
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+                )
+                await asyncio.sleep(10)
+                await context.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=status_msg_id,
+                    text=_waiting_text(sess["data"]),
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+                )
+        except Exception:
+            pass
         return
         
     msg_id = update.message.message_id
@@ -639,7 +668,7 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text="⏳ Memproses...",
+            text="<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang mengekstrak dan memproses data...</blockquote>",
             parse_mode="HTML"
         )
     except Exception:
@@ -730,7 +759,7 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="Mengompresi file ke ZIP...",
+                    text="<blockquote><b>[ SYSTEM: COMPRESSING ]</b>\nMengompresi file ke format ZIP...</blockquote>",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -747,7 +776,7 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="Mengirim file ZIP...",
+                    text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file ZIP...</blockquote>",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -818,7 +847,7 @@ async def handle_xtv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="<b>Mengirim file VCF...</b>",
+                    text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file VCF satu per satu...</blockquote>",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -919,21 +948,31 @@ async def handle_show_xlsxtovcf_help_callback(update: Update, context: ContextTy
     asyncio.create_task(adb.increment_usage(user_id))
     _cancel_timer(user_id)
     _clear_buffers(user_id)
-    db.set_session(user_id, S0, {"count": 0, "total_size": 0, "total_contacts": 0})
+    init_data = {"count": 0, "total_size": 0, "total_contacts": 0}
+    db.set_session(user_id, S0, init_data)
+    text = _waiting_text(init_data)
+    markup = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
 
     try:
         await query.message.edit_text(
-            text=_get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.xlsx</b> atau <b>.csv</b> sekarang.",
-            parse_mode="HTML"
+            text=text,
+            parse_mode="HTML",
+            reply_markup=markup
         )
+        sess = db.get_session(user_id)
+        sess["data"]["status_msg_id"] = query.message.message_id
+        db.set_session(user_id, S0, sess["data"])
     except Exception:
         try:
             await query.message.delete()
         except Exception:
             pass
-        await context.bot.send_message(
+        msg = await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text=_get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.xlsx</b> atau <b>.csv</b> sekarang.",
-            reply_markup=ReplyKeyboardRemove(),
+            text=text,
+            reply_markup=markup,
             parse_mode="HTML"
         )
+        sess = db.get_session(user_id)
+        sess["data"]["status_msg_id"] = msg.message_id
+        db.set_session(user_id, S0, sess["data"])
