@@ -78,9 +78,9 @@ def _get_package(days: int):
     return next((p for p in PAKET if p["days"] == days), None)
 
 
-# ──────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
 # /vip
-# ──────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
 
 async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -106,7 +106,7 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
             status_line = "• Status: VIP 365 Hari\n"
 
     header_text = "<b>[ VIP MEMBER CV ]</b>\n"
-    header_text +=     if status_line:
+    if status_line:
         header_text += f"<blockquote><b>Status VIP Anda:</b>\n{status_line}</blockquote>\n"
     else:
         header_text += "<blockquote>• Status: User Biasa (Non-VIP)</blockquote>\n"
@@ -165,9 +165,9 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-# ──────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
 # Callback: buy_vip_{days}
-# ──────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
 
 async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -205,7 +205,7 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
         await query.edit_message_text(
             f"<b>[ TRANSAKSI TERTUNDA ]</b>\n"
-                        f"Kamu masih memiliki pembayaran yang belum selesai.\n\n"
+            f"Kamu masih memiliki pembayaran yang belum selesai.\n\n"
             f"<blockquote>• Paket: <b>{label_pending}</b>\n"
             f"• Total: <code>{_fmt_price(pending['amount'])}</code>\n"
             f"• Order: <code>{pending['order_id']}</code></blockquote>\n"
@@ -267,7 +267,7 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     fee = payment.get("fee", 0)
     caption = (
         f"<b>[ QRIS PAYMENT INVOICE ]</b>\n"
-                f"<blockquote>• Paket: <b>{package['label']}</b>\n"
+        f"<blockquote>• Paket: <b>{package['label']}</b>\n"
         f"• Total: <code>{_fmt_price(total_payment)}</code>\n"
         f"• Limit: <code>{exp_text}</code>\n"
         f"• Order: <code>{order_id}</code></blockquote>\n"
@@ -338,9 +338,9 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.warning("[VIP] Gagal simpan qr_message_id: %s", exc)
 
 
-# ──────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
 # Callback: check_payment_{order_id}
-# ──────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
 
 async def handle_check_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -416,9 +416,9 @@ async def handle_check_payment(update: Update, context: ContextTypes.DEFAULT_TYP
         await query.answer("Gagal mengecek status. Silakan coba lagi.", show_alert=True)
 
 
-# ──────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
 # Callback: cancel_payment_{order_id}
-# ──────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
 
 async def handle_cancel_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -478,9 +478,9 @@ async def handle_cancel_payment(update: Update, context: ContextTypes.DEFAULT_TY
         await query.answer("Terjadi kesalahan. Silakan coba lagi.", show_alert=True)
 
 
-# ──────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
 # Callback: vip_history
-# ──────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
 async def handle_vip_history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -497,7 +497,7 @@ async def handle_vip_history(update: Update, context: ContextTypes.DEFAULT_TYPE)
         if not payments:
             await query.edit_message_text(
                 "<b>[ VIP BILLING HISTORY ]</b>\n"
-                                "Belum ada riwayat pembayaran.\n"
+                "Belum ada riwayat pembayaran.\n"
                 "Beli paket VIP untuk mulai.",
                 parse_mode="HTML",
                 reply_markup=back_markup
@@ -538,9 +538,9 @@ async def handle_vip_history(update: Update, context: ContextTypes.DEFAULT_TYPE)
             )
 
 
-# ──────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
 # Helper: hapus pesan QR lama setelah pembayaran selesai
-# ──────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
 
 async def _delete_qr_message(bot, payment: dict):
     """
