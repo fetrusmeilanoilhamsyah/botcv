@@ -45,39 +45,39 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     
     # Step 1: Admin numbers
     if step == 1:
-        parts.append(f"<b>» ADMIN: {admin_count} «</b>" if admin_count else "<b>» ADMIN «</b>")
+        parts.append(f"<b>[ADMIN: {admin_count}]</b>" if admin_count else "<b>[ADMIN]</b>")
     else:
-        parts.append(f"Admin: {admin_count}" if admin_count else "Admin ○")
+        parts.append(f"Admin: <code>{admin_count}</code>" if admin_count else "Admin: ➖")
         
     # Step 2: Navy numbers
     if step == 2:
-        parts.append(f"<b>» NAVY: {navy_count} «</b>" if navy_count else "<b>» NAVY «</b>")
+        parts.append(f"<b>[NAVY: {navy_count}]</b>" if navy_count else "<b>[NAVY]</b>")
     elif step > 2:
-        parts.append(f"Navy: {navy_count}")
+        parts.append(f"Navy: <code>{navy_count}</code>")
     else:
-        parts.append("Navy ○")
+        parts.append("Navy: ➖")
         
     # Step 3: Admin name
     if step == 3:
-        parts.append(f"<b>» NAMA ADMIN: {admin_name.upper()} «</b>" if admin_name else "<b>» NAMA ADMIN «</b>")
+        parts.append(f"<b>[NAMA ADMIN: {admin_name.upper()}]</b>" if admin_name else "<b>[NAMA ADMIN]</b>")
     elif step > 3:
-        parts.append(f"Nama Admin: {admin_name}")
+        parts.append(f"Nama Admin: <code>{admin_name}</code>")
     else:
-        parts.append("Nama Admin ○")
+        parts.append("Nama Admin: ➖")
         
     # Step 4: Navy name
     if step == 4:
-        parts.append(f"<b>» NAMA NAVY: {navy_name.upper()} «</b>" if navy_name else "<b>» NAMA NAVY «</b>")
+        parts.append(f"<b>[NAMA NAVY: {navy_name.upper()}]</b>" if navy_name else "<b>[NAMA NAVY]</b>")
     elif step > 4:
-        parts.append(f"Nama Navy: {navy_name}")
+        parts.append(f"Nama Navy: <code>{navy_name}</code>")
     else:
-        parts.append("Nama Navy ○")
+        parts.append("Nama Navy: ➖")
 
     # Step 5: File name
     if step == 5:
-        parts.append(f"<b>» FILE: {file_name.upper()} «</b>" if file_name else "<b>» FILE «</b>")
+        parts.append(f"<b>[FILE: {file_name.upper()}]</b>" if file_name else "<b>[NAMA FILE]</b>")
     else:
-        parts.append("File ○")
+        parts.append("File: ➖")
 
     breadcrumbs = " ➔ ".join(parts)
 
@@ -87,7 +87,7 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     navy_list = data.get("navy_numbers", [])
     
     if admin_list or navy_list or admin_name or navy_name:
-        preview += "<b>PREVIEW INPUT:</b>\n"
+        preview += "<b>[ PREVIEW INPUT ]</b>\n"
         if admin_list:
             preview += f"• Nomor Admin ({len(admin_list)}):\n"
             for idx, num in enumerate(admin_list, 1):
@@ -103,9 +103,9 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
         preview += "────────────────────────────\n\n"
 
     return (
-        "<b>[ ADMIN VCF CV ]</b>\n"
+        "<b>[ ADMIN VCF CV CONSOLE ]</b>\n"
         "────────────────────────────\n"
-        f"{breadcrumbs}\n"
+        f"<blockquote>{breadcrumbs}</blockquote>\n"
         "────────────────────────────\n\n"
         f"{preview}"
     )
@@ -119,7 +119,11 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.set_session(user_id, STATES["WAIT_ADMIN_NUMBERS"], {"admin_numbers": [], "navy_numbers": []})
     from handlers.start import transition_to_handler
     
-    text = _get_breadcrumbs({"admin_numbers": [], "navy_numbers": []}, 1) + "<b>[ ➔ ] Menunggu nomor ADMIN...</b>\nKirim nomor <b>ADMIN</b> sekarang (satu per baris):"
+    text = (
+        _get_breadcrumbs({"admin_numbers": [], "navy_numbers": []}, 1) + 
+        "<blockquote><b>[ STATUS: WAITING FOR ADMIN NUMBERS ]</b>\n"
+        "Silakan kirim daftar nomor <b>ADMIN</b> sekarang (satu nomor per baris).</blockquote>"
+    )
     
     msg = await transition_to_handler(
         context.bot,
@@ -139,11 +143,7 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     text = update.message.text.strip()
 
-    try:
-        await update.message.delete()
-    except Exception:
-        pass
-
+    # User message (nomor/teks) dibiarkan di chat — tidak dihapus
     async with get_user_lock(user_id):
         sess = db.get_session(user_id)
         if not sess or sess["state"] not in STATES.values():
@@ -161,7 +161,10 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await context.bot.edit_message_text(
                         chat_id=update.effective_chat.id,
                         message_id=status_msg_id,
-                        text=_get_breadcrumbs(data, 1) + "Kirim minimal 1 nomor <b>ADMIN</b>:",
+                        text=(
+                            _get_breadcrumbs(data, 1) + 
+                            "<blockquote>⚠️ <b>Harap kirim minimal 1 nomor ADMIN (satu nomor per baris).</b></blockquote>"
+                        ),
                         parse_mode="HTML",
                         reply_markup=keyboard
                     )
@@ -175,7 +178,11 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text=_get_breadcrumbs(data, 2) + "Kirim nomor <b>NAVY</b> sekarang (satu per baris):",
+                    text=(
+                        _get_breadcrumbs(data, 2) + 
+                        "<blockquote><b>[ STATUS: WAITING FOR NAVY NUMBERS ]</b>\n"
+                        "Silakan kirim daftar nomor <b>NAVY</b> sekarang (satu nomor per baris).</blockquote>"
+                    ),
                     parse_mode="HTML",
                     reply_markup=keyboard
                 )
@@ -189,7 +196,10 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await context.bot.edit_message_text(
                         chat_id=update.effective_chat.id,
                         message_id=status_msg_id,
-                        text=_get_breadcrumbs(data, 2) + "Kirim minimal 1 nomor <b>NAVY</b>:",
+                        text=(
+                            _get_breadcrumbs(data, 2) + 
+                            "<blockquote>⚠️ <b>Harap kirim minimal 1 nomor NAVY (satu nomor per baris).</b></blockquote>"
+                        ),
                         parse_mode="HTML",
                         reply_markup=keyboard
                     )
@@ -203,7 +213,11 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text=_get_breadcrumbs(data, 3) + "<b>NAMA KONTAK ADMIN:</b>",
+                    text=(
+                        _get_breadcrumbs(data, 3) + 
+                        "<blockquote><b>[ LANGKAH 3: NAMA KONTAK ADMIN ]</b>\n"
+                        "Ketik nama kontak untuk nomor ADMIN (contoh: <code>ADMIN CV</code>):</blockquote>"
+                    ),
                     parse_mode="HTML",
                     reply_markup=keyboard
                 )
@@ -218,7 +232,11 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text=_get_breadcrumbs(data, 4) + "<b>NAMA KONTAK NAVY:</b>",
+                    text=(
+                        _get_breadcrumbs(data, 4) + 
+                        "<blockquote><b>[ LANGKAH 4: NAMA KONTAK NAVY ]</b>\n"
+                        "Ketik nama kontak untuk nomor NAVY (contoh: <code>NAVY CV</code>):</blockquote>"
+                    ),
                     parse_mode="HTML",
                     reply_markup=keyboard
                 )
@@ -233,7 +251,11 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text=_get_breadcrumbs(data, 5) + "Masukkan nama file hasil? Contoh: <b>ADMIN NAVY</b>",
+                    text=(
+                        _get_breadcrumbs(data, 5) + 
+                        "<blockquote><b>[ LANGKAH 5: NAMA FILE OUTPUT ]</b>\n"
+                        "Ketik nama file hasil VCF (contoh: <code>ADMIN NAVY</code>):</blockquote>"
+                    ),
                     parse_mode="HTML",
                     reply_markup=keyboard
                 )
@@ -247,7 +269,7 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="<b>Memproses...</b>",
+                    text="<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memproses dan menyusun berkas VCF...</blockquote>",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -334,7 +356,11 @@ async def handle_show_admin_help_callback(update: Update, context: ContextTypes.
     
     db.set_session(user_id, STATES["WAIT_ADMIN_NUMBERS"], {"admin_numbers": [], "navy_numbers": []})
 
-    text = _get_breadcrumbs({"admin_numbers": [], "navy_numbers": []}, 1) + "<b>[ ➔ ] Menunggu nomor ADMIN...</b>\nKirim nomor <b>ADMIN</b> sekarang (satu per baris):"
+    text = (
+        _get_breadcrumbs({"admin_numbers": [], "navy_numbers": []}, 1) + 
+        "<blockquote><b>[ STATUS: WAITING FOR ADMIN NUMBERS ]</b>\n"
+        "Silakan kirim daftar nomor <b>ADMIN</b> sekarang (satu nomor per baris).</blockquote>"
+    )
     
     try:
         await query.message.edit_text(
