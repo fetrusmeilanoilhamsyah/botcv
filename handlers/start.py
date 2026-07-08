@@ -114,7 +114,7 @@ def build_menu_text(first_name: str, user_id: int) -> str:
         "• /manual — KONTAK MANUAL\n"
         "• /walink — LINK WA EXCEL\n"
         "• /walinkweb — LINK WA HTML"
-        "</blockquote>\n"
+        "</blockquote>\n\n"
         "<b>[ LAINNYA ]</b>\n"
         "<blockquote>"
         "• /vip — PAKET VIP\n"
@@ -139,10 +139,8 @@ def build_menu_text(first_name: str, user_id: int) -> str:
         )
 
     return (
-        "────────────────────────────\n"
         f"<blockquote><b>[ Halo, {first_name}! ]</b>\n"
-        f"Selamat datang di <b>Haifee CV</b>. Pilih fitur di bawah:</blockquote>\n"
-        "────────────────────────────\n\n"
+        f"Selamat datang di <b>Haifee CV</b>. Pilih fitur di bawah:</blockquote>\n\n"
         f"{fitur}"
     )
 
