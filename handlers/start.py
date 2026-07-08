@@ -37,16 +37,16 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
             import logging
             logging.getLogger(__name__).warning("Gagal menghapus pesan user: %s", e)
 
-    # Ambil pesan welcome yang sedang aktif
-    msg_ids = _welcome_messages.pop(user_id, [])
+    # Ambil pesan welcome yang sedang aktif (gunakan get() agar tidak hilang saat proses async berjalan)
+    msg_ids = _welcome_messages.get(user_id, [])
     if msg_ids:
-        # Pesan pertama (msg_ids[0]) adalah pesan bot yang panjang (menu utama).
-        # Kita EDIT pesan panjang ini langsung menjadi prompt baru agar tidak menumpuk!
         edit_msg_id = msg_ids[0]
         
         # Pesan-pesan lain di bawahnya kita hapus semuanya
         delete_ids = msg_ids[1:]
         if delete_ids:
+            # Update _welcome_messages agar hanya menyimpan pesan utama saja
+            _welcome_messages[user_id] = [edit_msg_id]
             async def safe_delete(msg_id):
                 try:
                     await bot.delete_message(chat_id=chat_id, message_id=msg_id)
@@ -68,20 +68,20 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
                 reply_markup=actual_markup,
                 disable_web_page_preview=True
             )
-            # Daftarkan kembali pesan yang diedit ini sebagai welcome message aktif
-            register_welcome_messages(user_id, [edit_msg_id])
             return msg
         except Exception as e:
             if "Message is not modified" in str(e):
                 class MockMessage:
                     def __init__(self, msg_id):
                         self.message_id = msg_id
-                register_welcome_messages(user_id, [edit_msg_id])
                 return MockMessage(edit_msg_id)
             import logging
             logging.getLogger(__name__).warning("Gagal mengedit pesan welcome: %s", e)
 
     # Fallback: Kirim pesan baru jika edit gagal / tidak ada welcome messages
+    # Hapus welcome messages lama karena kita akan membuat pesan baru fresh
+    _welcome_messages.pop(user_id, None)
+    
     msg = await bot.send_message(
         chat_id=chat_id,
         text=text,
