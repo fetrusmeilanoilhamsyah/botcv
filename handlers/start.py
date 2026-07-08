@@ -38,13 +38,7 @@ async def delete_welcome_messages(bot, user_id: int, chat_id: int):
 
 async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, reply_markup=None, update: Update = None):
     # Gunakan per-user lock agar tidak ada 2 transisi berjalan bersamaan untuk user yang sama.
-    # Ini mencegah race condition saat user klik command sangat cepat berturut-turut.
     lock = _get_transition_lock(user_id)
-
-    # Jika lock sedang dipakai (ada transisi yang sedang berjalan), skip saja.
-    # Jangan tunggu — ini mencegah antrean yang bikin bot numpuk dan terasa hang.
-    if lock.locked():
-        return None
 
     async with lock:
         # 1. Hapus command user jika update dikirim agar chat bersih dan smooth
