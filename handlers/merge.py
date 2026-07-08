@@ -17,13 +17,6 @@ from core.vcf_parser import parse_vcf_file, contacts_to_vcf
 from core.utils import sanitize_filename
 
 STATE        = "MERGE_COLLECTING"
-
-def _fit(val, max_len=22) -> str:
-    s = str(val)
-    if len(s) > max_len:
-        return s[:max_len-3] + "..."
-    return s
-
 STATE_NAMING = "MERGE_NAMING"
 
 from config import MAX_FILES_PER_SESSION as MAX_FILES, MAX_UPLOAD_SIZE_MB as MAX_SIZE_MB
@@ -35,6 +28,56 @@ _user_timers: dict = {}
 
 def get_user_lock(user_id: int) -> asyncio.Lock:
     return _user_locks.setdefault(user_id, asyncio.Lock())
+
+
+def _fit(val, max_len=22) -> str:
+    s = str(val)
+    if len(s) > max_len:
+        return s[:max_len-3] + "..."
+    return s
+
+
+def _get_breadcrumbs(data: dict, step: int) -> str:
+    count = data.get("count", 0)
+    mode = (data.get("mode") or "").upper()
+    file_name = data.get("file_name", "")
+    
+    parts = []
+    # Step 1: Berkas
+    if step == 1:
+        if count:
+            parts.append(f"<b>[UPLOAD BERKAS: {count} {mode}]</b>")
+        else:
+            parts.append("<b>[UPLOAD BERKAS]</b>")
+    else:
+        parts.append(f"Berkas: <code>{count} {mode}</code>" if count else "Berkas: ➖")
+        
+    # Step 2: Nama
+    if step == 2:
+        parts.append("<b>[NAMA FILE]</b>")
+    elif step > 2 and file_name:
+        parts.append(f"Nama: <code>{file_name}</code>")
+    else:
+        parts.append("Nama: ➖")
+        
+    breadcrumbs = " ➔ ".join(parts)
+    return (
+        "<b>[ MERGE VCF/TXT CONSOLE ]</b>\n"
+        "────────────────────────────\n"
+        f"<blockquote>{breadcrumbs}</blockquote>\n"
+        "────────────────────────────\n\n"
+    )
+
+
+def _waiting_text(data: dict) -> str:
+    return (
+        _get_breadcrumbs(data, 1) +
+        f"<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+        f"Silakan kirim satu atau beberapa file <code>.vcf</code> atau <code>.txt</code> sekarang.\n\n"
+        f"<b>Batas Sesi:</b>\n"
+        f"• Maksimum upload: <code>{MAX_FILES} file</code>\n"
+        f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
+    )
 
 
 def cleanup_inactive_users(inactive_ids: list) -> int:
@@ -67,7 +110,12 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                     except Exception:
                         pass
                 
-                text = f"<b>{jumlah}</b> file {mode} diterima. Silakan pilih tindakan:"
+                text = (
+                    _get_breadcrumbs(data, 1) +
+                    f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
+                    f"Berhasil mengunduh <code>{jumlah}</code> berkas {mode}.\n\n"
+                    f"Silakan pilih tindakan di bawah:</blockquote>"
+                )
                 keyboard = InlineKeyboardMarkup([
                     [
                         InlineKeyboardButton("PROSES SEKARANG", callback_data="done", style="success"),
@@ -92,7 +140,7 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 data["status_msg_id"] = msg.message_id
                 db.set_session(user_id, STATE, data)
     except asyncio.CancelledError:
-        pass  # Normal cancellation, tidak perlu log
+        pass
     except Exception as e:
         import logging
         logging.getLogger(__name__).error("Debounce notify error: %s", e)
@@ -125,15 +173,18 @@ async def cmd_merge(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     asyncio.create_task(adb.increment_usage(user_id))
 
-    from handlers.start import transition_to_handler, get_start_keyboard
+    from handlers.start import transition_to_handler
     _cancel_timer(user_id)
     _clear_buffers(user_id)
-    db.set_session(user_id, STATE, {"count": 0, "total_size": 0, "mode": None})
+    
+    init_data = {"count": 0, "total_size": 0, "mode": None}
+    db.set_session(user_id, STATE, init_data)
+    
     msg = await transition_to_handler(
         context.bot,
         user_id,
         update.effective_chat.id,
-        "<b>[ FILE MERGE CV ]</b>\n────────────────────────────\n<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.VCF</b> atau <b>.TXT</b> sekarang. Ketik /done jika sudah.",
+        _waiting_text(init_data),
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
@@ -141,7 +192,6 @@ async def cmd_merge(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sess = db.get_session(user_id)
         sess["data"]["status_msg_id"] = msg.message_id
         db.set_session(user_id, STATE, sess["data"])
-
 
 
 async def handle_merge_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -158,17 +208,60 @@ async def handle_merge_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if sess["data"].get("is_processing"):
         return
 
-    # Validasi ekstensi file
+    # Validasi eksensi file (User file tidak didelete)
     if not doc or not doc.file_name:
-        await update.message.reply_text("Kirim file VCF atau TXT yang valid.")
+        try:
+            status_msg_id = sess["data"].get("status_msg_id")
+            if status_msg_id:
+                await context.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=status_msg_id,
+                    text=(
+                        _get_breadcrumbs(sess["data"], 1) +
+                        "<blockquote>⚠️ <b>[ FORMAT SALAH ]</b>\n"
+                        "Berkas tidak valid atau nama berkas kosong.</blockquote>"
+                    ),
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+                )
+                await asyncio.sleep(10)
+                await context.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=status_msg_id,
+                    text=_waiting_text(sess["data"]),
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+                )
+        except Exception:
+            pass
         return
 
     ext = os.path.splitext(doc.file_name)[1].lower()
     if ext not in ALLOWED_EXT:
-        await update.message.reply_text(
-            f"Format tidak didukung: {ext}\n"
-            "Hanya file .vcf atau .txt."
-        )
+        try:
+            status_msg_id = sess["data"].get("status_msg_id")
+            if status_msg_id:
+                await context.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=status_msg_id,
+                    text=(
+                        _get_breadcrumbs(sess["data"], 1) +
+                        f"<blockquote>⚠️ <b>[ FORMAT SALAH ]</b>\n"
+                        f"<code>{doc.file_name}</code> bukan berkas <code>.vcf</code> atau <code>.txt</code>.</blockquote>"
+                    ),
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+                )
+                await asyncio.sleep(10)
+                await context.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=status_msg_id,
+                    text=_waiting_text(sess["data"]),
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+                )
+        except Exception:
+            pass
         return
 
     # Ambil mode dari file pertama yang diterima
@@ -186,18 +279,75 @@ async def handle_merge_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Tolak jika mencampur VCF dan TXT
         if current_mode and current_mode != file_mode:
-            await update.message.reply_text(
-                f"Tidak bisa campur VCF dan TXT.\n"
-                f"Sesi ini hanya menerima file .{current_mode}."
-            )
+            try:
+                status_msg_id = data.get("status_msg_id")
+                if status_msg_id:
+                    await context.bot.edit_message_text(
+                        chat_id=chat_id,
+                        message_id=status_msg_id,
+                        text=(
+                            _get_breadcrumbs(data, 1) +
+                            f"<blockquote>⚠️ <b>[ TIPE BERBEDA ]</b>\n"
+                            f"Tidak bisa mencampur file VCF dan TXT dalam satu sesi.\n\n"
+                            f"Sesi ini dikunci untuk tipe <code>.{current_mode.upper()}</code>.</blockquote>"
+                        ),
+                        parse_mode="HTML",
+                        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+                    )
+                    await asyncio.sleep(10)
+                    await context.bot.edit_message_text(
+                        chat_id=chat_id,
+                        message_id=status_msg_id,
+                        text=_waiting_text(data),
+                        parse_mode="HTML",
+                        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+                    )
+            except Exception:
+                pass
             return
 
         if data["count"] >= MAX_FILES:
-            await update.message.reply_text(f"Batas <b>{MAX_FILES}</b> file. Ketik /done.")
+            try:
+                status_msg_id = data.get("status_msg_id")
+                if status_msg_id:
+                    await context.bot.edit_message_text(
+                        chat_id=chat_id,
+                        message_id=status_msg_id,
+                        text=(
+                            _get_breadcrumbs(data, 1) +
+                            f"<blockquote>⚠️ <b>Batas sesi: <code>{MAX_FILES} file</code> telah tercapai.</b>\n"
+                            f"Klik <b>PROSES SEKARANG</b> untuk melanjutkan.</blockquote>"
+                        ),
+                        parse_mode="HTML",
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton("PROSES SEKARANG", callback_data="done", style="success"),
+                            InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")
+                        ]])
+                    )
+            except Exception:
+                pass
             return
 
         if (data["total_size"] + doc.file_size) / (1024 * 1024) > MAX_SIZE_MB:
-            await update.message.reply_text(f"Batas <b>{MAX_SIZE_MB}MB</b>. Ketik /done.")
+            try:
+                status_msg_id = data.get("status_msg_id")
+                if status_msg_id:
+                    await context.bot.edit_message_text(
+                        chat_id=chat_id,
+                        message_id=status_msg_id,
+                        text=(
+                            _get_breadcrumbs(data, 1) +
+                            f"<blockquote>⚠️ <b>Batas ukuran: <code>{MAX_SIZE_MB} MB</code> telah tercapai.</b>\n"
+                            f"Klik <b>PROSES SEKARANG</b> untuk melanjutkan.</blockquote>"
+                        ),
+                        parse_mode="HTML",
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton("PROSES SEKARANG", callback_data="done", style="success"),
+                            InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")
+                        ]])
+                    )
+            except Exception:
+                pass
             return
 
         # Set mode jika belum ada
@@ -221,7 +371,6 @@ async def handle_merge_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         async with get_user_lock(user_id):
             sess = db.get_session(user_id)
             if sess["state"] != STATE:
-                # State berubah saat download — hapus file
                 try:
                     if os.path.exists(out_path):
                         os.remove(out_path)
@@ -231,7 +380,6 @@ async def handle_merge_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             data = sess["data"]
             if data.get("is_processing"):
-                # Cleanup file karena proses sudah dimulai
                 try:
                     if os.path.exists(out_path):
                         os.remove(out_path)
@@ -239,7 +387,6 @@ async def handle_merge_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     pass
                 return
 
-            # Set mode jika belum ada
             if not data.get("mode"):
                 data["mode"] = file_mode
 
@@ -250,7 +397,6 @@ async def handle_merge_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         _reset_timer(user_id, context, chat_id)
         
     except Exception as e:
-        # Cleanup jika download failed
         import logging
         logging.getLogger(__name__).error("Download failed: %s", e)
         if os.path.exists(out_path):
@@ -270,14 +416,12 @@ async def handle_merge_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     data = sess["data"]
     
-    # Hapus input teks 'done' jika user mengetik manual
     if update.message and update.message.text in ("done", "selesai", "/done"):
         try:
             await update.message.delete()
         except Exception:
             pass
 
-    # Hapus status message agar tidak menumpuk
     status_msg_id = data.get("status_msg_id")
     if status_msg_id:
         try:
@@ -291,10 +435,14 @@ async def handle_merge_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
     mode = data.get("mode", "vcf")
     db.set_session(user_id, STATE_NAMING, data)
     
-    # Kirim status_msg baru di paling bawah untuk kelanjutan wizard
     msg = await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text=f"<b>{data['count']}</b> file {mode.upper()} diterima. Nama file hasil? Contoh: <b>FEE</b>",
+        text=(
+            _get_breadcrumbs(data, 2) +
+            f"<blockquote><b>[ LANGKAH 2: NAMA FILE GABUNGAN ]</b>\n"
+            f"Terdeteksi: <code>{data['count']}</code> file {mode.upper()}.\n\n"
+            f"Ketik nama file hasil gabungan (contoh: <code>FEE</code>):</blockquote>"
+        ),
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
     )
@@ -325,22 +473,20 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     file_name   = sanitize_filename(update.message.text.strip())
     total_files = data["count"]
-    mode        = data.get("mode", "vcf")   # "vcf" atau "txt"
+    mode        = data.get("mode", "vcf")
 
     status_msg_id = data.get("status_msg_id")
     
-    # Edit status message in-place
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text=f"Menggabungkan {total_files} file {mode.upper()}... 0%",
+        text="<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang menggabungkan berkas...</blockquote>",
         parse_mode="HTML"
     )
 
     user_dir  = get_user_dir(user_id)
     merge_dir = os.path.join(user_dir, "merge")
 
-    # Kumpulkan file sesuai mode, urut by msg_id
     ext_filter = f".{mode}"
     files = []
     if os.path.exists(merge_dir):
@@ -356,7 +502,7 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=f"Menggabungkan {total_files} file {mode.upper()}... {pct}%",
+                text=f"<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang menggabungkan <code>{total_files}</code> file {mode.upper()}... <code>{pct}%</code></blockquote>",
                 parse_mode="HTML"
             )
         except Exception:
@@ -366,7 +512,6 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
     success  = False
     try:
         if mode == "vcf":
-            # ── Mode VCF: parse & gabung semua kontak ──────────────────────
             def parse_one(fname):
                 path = os.path.join(merge_dir, fname)
                 try:
@@ -380,14 +525,13 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                 for idx, fname in enumerate(files):
                     results[idx] = parse_one(fname)
 
-                # Gabung semua kontak DENGAN anti-duplikat berdasarkan nomor telepon
                 seen_tel = set()
                 all_contacts = []
                 for i in range(len(files)):
                     for contact in results.get(i, []):
                         tel = (contact.get("tel") or "").strip()
                         if tel and tel in seen_tel:
-                            continue  # duplikat — skip
+                            continue
                         if tel:
                             seen_tel.add(tel)
                         all_contacts.append(contact)
@@ -403,7 +547,7 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="Gagal. Kontak tidak ditemukan di file VCF.",
+                    text="<blockquote>⚠️ <b>Gagal. Kontak tidak ditemukan di file VCF.</b></blockquote>",
                     parse_mode="HTML"
                 )
                 return
@@ -412,7 +556,6 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
             with open(out_path, "w", encoding="utf-8") as f:
                 f.write(contacts_to_vcf(all_contacts))
 
-            # Hapus status message lama sebelum mengirim agar laporan sukses ada di paling bawah
             try:
                 await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
             except Exception:
@@ -425,12 +568,10 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                     read_timeout=120, write_timeout=120, connect_timeout=60
                 )
 
-            # Clear buffers and session immediately after reply_document confirms success
             _clear_buffers(user_id)
             db.clear_session(user_id)
             success = True
 
-            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
             keyboard = InlineKeyboardMarkup([
                 [
                     InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_merge_help", style="success"),
@@ -463,7 +604,6 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
             register_welcome_messages(user_id, [final_msg.message_id])
 
         else:
-            # ── Mode TXT: gabung semua baris nomor, dedup ──────────────────
             def do_merge_txt():
                 seen    = set()
                 numbers = []
@@ -490,7 +630,7 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="Gagal. Nomor tidak ditemukan di file TXT.",
+                    text="<blockquote>⚠️ <b>Gagal. Nomor tidak ditemukan di file TXT.</b></blockquote>",
                     parse_mode="HTML"
                 )
                 return
@@ -499,7 +639,6 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
             with open(out_path, "w", encoding="utf-8") as f:
                 f.write("\n".join(numbers))
 
-            # Hapus status message lama sebelum mengirim agar laporan sukses ada di paling bawah
             try:
                 await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
             except Exception:
@@ -512,12 +651,10 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                     read_timeout=120, write_timeout=120, connect_timeout=60
                 )
 
-            # Clear buffers and session immediately after reply_document confirms success
             _clear_buffers(user_id)
             db.clear_session(user_id)
             success = True
 
-            from telegram import InlineKeyboardButton, InlineKeyboardMarkup
             keyboard = InlineKeyboardMarkup([
                 [
                     InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_merge_help", style="success"),
@@ -551,7 +688,6 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     except Exception as e:
         logger.error("Merge error for user %s: %s", user_id, e)
-        # Kirim laporan error
         try:
             await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
         except Exception:
@@ -563,7 +699,6 @@ async def handle_merge_naming(update: Update, context: ContextTypes.DEFAULT_TYPE
                 "File mentah Anda masih tersimpan aman. Silakan ketik nama file baru untuk mencoba kembali."
             )
         )
-        # Buka kembali status processing agar user bisa ketik nama file ulang
         sess = db.get_session(user_id)
         if sess and sess["state"] == STATE_NAMING:
             sess["data"]["is_processing"] = False
@@ -586,24 +721,25 @@ async def handle_show_merge_help_callback(update: Update, context: ContextTypes.
     asyncio.create_task(adb.increment_usage(user_id))
     _cancel_timer(user_id)
     _clear_buffers(user_id)
-    db.set_session(user_id, STATE, {"count": 0, "total_size": 0, "mode": None})
-    from handlers.start import get_start_keyboard
-
-    # Edit the message in-place instead of deleting it to provide a smooth morphing transition
+    
+    init_data = {"count": 0, "total_size": 0, "mode": None}
+    db.set_session(user_id, STATE, init_data)
+    text = _waiting_text(init_data)
+    
     try:
         await query.message.edit_text(
-            text="<b>[ FILE MERGE CV ]</b>\n────────────────────────────\n<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.VCF</b> atau <b>.TXT</b> sekarang. Ketik /done jika sudah.",
-            parse_mode="HTML"
+            text=text,
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
         )
     except Exception:
-        # Fallback if editing fails
         try:
             await query.message.delete()
         except Exception:
             pass
         await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text="<b>[ FILE MERGE CV ]</b>\n────────────────────────────\n<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.VCF</b> atau <b>.TXT</b> sekarang. Ketik /done jika sudah.",
+            text=text,
             parse_mode="HTML",
-            reply_markup=ReplyKeyboardRemove()
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
         )

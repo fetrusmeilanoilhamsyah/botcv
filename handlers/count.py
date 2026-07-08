@@ -1,6 +1,6 @@
 """
 handlers/count.py — Pembuat hitung kontak otomatis untuk berkas TXT dan VCF.
-Single-Message Morphing Wizard. Tanya file dulu, edit disatu pesan, hapus chat iseng/file user.
+Single-Message Morphing Wizard. Tanya file dulu, edit disatu pesan.
 """
 import os
 import shutil
@@ -38,23 +38,32 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     
     parts = []
     if step == 1:
-        parts.append(f"<b>» BERKAS: {count} FILE «</b>" if count else "<b>» BERKAS «</b>")
+        parts.append(f"<b>[UPLOAD BERKAS: {count} FILE]</b>" if count else "<b>[UPLOAD BERKAS]</b>")
     else:
-        parts.append(f"Berkas: {count} file" if count else "Berkas ○")
+        parts.append(f"Berkas: <code>{count}</code>" if count else "Berkas: ➖")
         
     if step == 2:
-        parts.append("<b>» HITUNG «</b>")
+        parts.append("<b>[HITUNG]</b>")
     else:
-        parts.append("Hitung ○")
+        parts.append("Hitung: ➖")
         
     breadcrumbs = " ➔ ".join(parts)
     return (
-        "<b>[ CONTACT COUNT CV ]</b>\n"
+        "<b>[ CONTACT COUNT CONSOLE ]</b>\n"
         "────────────────────────────\n"
-        f"{breadcrumbs}\n"
+        f"<blockquote>{breadcrumbs}</blockquote>\n"
         "────────────────────────────\n\n"
     )
 
+def _waiting_text(data: dict) -> str:
+    return (
+        _get_breadcrumbs(data, 1) +
+        f"<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+        f"Silakan kirim satu atau beberapa file <code>.txt</code> atau <code>.vcf</code> sekarang.\n\n"
+        f"<b>Batas Sesi:</b>\n"
+        f"• Maksimum upload: <code>{MAX_FILES} file</code>\n"
+        f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
+    )
 
 def _count_contacts_sync(filepath: str, ext: str) -> int:
     count = 0
@@ -90,7 +99,12 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 data = sess["data"]
                 jumlah = data["count"]
                 
-                text = _get_breadcrumbs(data, 1) + f"<b>{jumlah}</b> file diterima. Silakan pilih tindakan:"
+                text = (
+                    _get_breadcrumbs(data, 1) +
+                    f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
+                    f"Berhasil mengunduh <code>{jumlah}</code> berkas.\n\n"
+                    f"Silakan pilih tindakan di bawah:</blockquote>"
+                )
                 keyboard = InlineKeyboardMarkup([
                     [
                         InlineKeyboardButton("PROSES SEKARANG", callback_data="done", style="success"),
@@ -146,13 +160,14 @@ async def cmd_count(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     
-    db.set_session(user_id, STATE, {"count": 0, "total_size": 0})
+    init_data = {"count": 0, "total_size": 0}
+    db.set_session(user_id, STATE, init_data)
     
     msg = await transition_to_handler(
         context.bot,
         user_id,
         update.effective_chat.id,
-        _get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> atau <b>.VCF</b> sekarang.",
+        _waiting_text(init_data),
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
@@ -171,17 +186,32 @@ async def handle_count_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     doc = update.message.document
-    if not doc or not doc.file_name:
+    if not doc or not doc.file_name or not os.path.splitext(doc.file_name)[1].lower() in (".txt", ".vcf"):
+        # Format salah (User file tidak didelete)
         try:
-            await update.message.delete()
-        except Exception:
-            pass
-        return
-        
-    ext = os.path.splitext(doc.file_name)[1].lower()
-    if ext not in (".txt", ".vcf"):
-        try:
-            await update.message.delete()
+            status_msg_id = sess["data"].get("status_msg_id")
+            if status_msg_id:
+                sent_name = doc.file_name if doc and doc.file_name else "file tersebut"
+                await context.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=status_msg_id,
+                    text=(
+                        _get_breadcrumbs(sess["data"], 1) +
+                        f"<blockquote>⚠️ <b>[ FORMAT SALAH ]</b>\n"
+                        f"<code>{sent_name}</code> bukan berkas <code>.txt</code> atau <code>.vcf</code>.\n\n"
+                        f"Kirim ulang berkas dengan format <code>.txt</code> atau <code>.vcf</code>.</blockquote>"
+                    ),
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+                )
+                await asyncio.sleep(10)
+                await context.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=status_msg_id,
+                    text=_waiting_text(sess["data"]),
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+                )
         except Exception:
             pass
         return
@@ -189,6 +219,7 @@ async def handle_count_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg_id = update.message.message_id
     count_dir = os.path.join(get_user_dir(user_id), "count")
     os.makedirs(count_dir, exist_ok=True)
+    ext = os.path.splitext(doc.file_name)[1].lower()
     out_path = os.path.join(count_dir, f"{msg_id}{ext}")
     
     try:
@@ -254,11 +285,13 @@ async def handle_show_count_help_callback(update: Update, context: ContextTypes.
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     
-    db.set_session(user_id, STATE, {"count": 0, "total_size": 0})
+    init_data = {"count": 0, "total_size": 0}
+    db.set_session(user_id, STATE, init_data)
+    text = _waiting_text(init_data)
     
     try:
         await query.message.edit_text(
-            text=_get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> atau <b>.VCF</b> sekarang.",
+            text=text,
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
         )
@@ -266,14 +299,13 @@ async def handle_show_count_help_callback(update: Update, context: ContextTypes.
         sess["data"]["status_msg_id"] = query.message.message_id
         db.set_session(user_id, STATE, sess["data"])
     except Exception:
-        # Fallback if editing fails
         try:
             await query.message.delete()
         except Exception:
             pass
         msg = await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text=_get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> atau <b>.VCF</b> sekarang.",
+            text=text,
             parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
         )
@@ -292,17 +324,18 @@ async def handle_count_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.set_session(update.effective_user.id, S2, data)
     
     status_msg_id = data.get("status_msg_id")
+    process_text = "<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang menghitung kontak...</blockquote>"
     
     if update.callback_query:
         await update.callback_query.message.edit_text(
-            text="<b>Memproses...</b>",
+            text=process_text,
             parse_mode="HTML"
         )
     else:
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text="<b>Memproses...</b>",
+            text=process_text,
             parse_mode="HTML"
         )
     
@@ -350,7 +383,6 @@ async def handle_count_process(update: Update, context: ContextTypes.DEFAULT_TYP
 
         total_kontak = await loop.run_in_executor(None, do_count)
 
-        # Hapus status message
         try:
             await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
         except Exception:
@@ -398,7 +430,7 @@ async def handle_count_process(update: Update, context: ContextTypes.DEFAULT_TYP
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text="Terjadi kesalahan saat memproses.",
+                text="<blockquote>⚠️ <b>Terjadi kesalahan saat memproses.</b></blockquote>",
                 parse_mode="HTML"
             )
         except Exception:
