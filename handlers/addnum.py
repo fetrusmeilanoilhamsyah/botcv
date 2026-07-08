@@ -308,6 +308,8 @@ async def _show_wait_numbers_menu(update: Update, context, data: dict, user_id: 
             if sess:
                 sess["data"]["status_msg_id"] = new_msg.message_id
                 db.set_session(user_id, S1, sess["data"])
+            from handlers.start import register_welcome_messages
+            register_welcome_messages(user_id, [new_msg.message_id])
     else:
         # Saat user sudah kirim nomor sebelumnya → edit in-place saja
         try:

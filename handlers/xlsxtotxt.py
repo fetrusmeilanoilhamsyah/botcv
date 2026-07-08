@@ -165,7 +165,14 @@ def _schedule_debounce(user_id: int, chat_id: int, bot):
         status_msg_id = data.get("status_msg_id")
         if status_msg_id:
             try:
-                await bot.delete_message(chat_id=chat_id, message_id=status_msg_id)
+                await bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=status_msg_id,
+                    text=text,
+                    reply_markup=keyboard,
+                    parse_mode="HTML"
+                )
+                return
             except Exception:
                 pass
 
@@ -178,6 +185,8 @@ def _schedule_debounce(user_id: int, chat_id: int, bot):
             )
             data["status_msg_id"] = new_msg.message_id
             db.set_session(user_id, STATE, data)
+            from handlers.start import register_welcome_messages
+            register_welcome_messages(user_id, [new_msg.message_id])
         except Exception:
             pass
 

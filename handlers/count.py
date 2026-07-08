@@ -114,7 +114,14 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 status_msg_id = data.get("status_msg_id")
                 if status_msg_id:
                     try:
-                        await context.bot.delete_message(chat_id=chat_id, message_id=status_msg_id)
+                        await context.bot.edit_message_text(
+                            chat_id=chat_id,
+                            message_id=status_msg_id,
+                            text=text,
+                            reply_markup=keyboard,
+                            parse_mode="HTML"
+                        )
+                        return
                     except Exception:
                         pass
                 
@@ -126,6 +133,8 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 )
                 data["status_msg_id"] = msg.message_id
                 db.set_session(user_id, STATE, data)
+                from handlers.start import register_welcome_messages
+                register_welcome_messages(user_id, [msg.message_id])
     except asyncio.CancelledError:
         pass
     except Exception as e:
