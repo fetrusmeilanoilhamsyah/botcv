@@ -104,52 +104,55 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
     try:
         await asyncio.sleep(1)
         if _user_timers.get(user_id) is asyncio.current_task():
-            sess = db.get_session(user_id)
-            if sess and sess.get("state") == STATE:
-                data = sess["data"]
-                jumlah_file = data["count"]
-                jumlah_kontak = data.get("total_contacts", 0)
-                
-                # Hapus welcome messages lama (hanya sekali saat file pertama masuk)
-                from handlers.start import _welcome_messages
-                welcome_ids = _welcome_messages.pop(user_id, [])
-                for w_id in welcome_ids:
-                    try:
-                        await context.bot.delete_message(chat_id=chat_id, message_id=w_id)
-                    except Exception:
-                        pass
-                
-                text = (
-                    _get_breadcrumbs(data, 1) +
-                    f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
-                    f"Berhasil mengunduh <code>{jumlah_file}</code> berkas VCF.\n"
-                    f"Total kontak terdeteksi: <code>{jumlah_kontak}</code> baris.\n\n"
-                    f"Silakan pilih tindakan di bawah:</blockquote>"
-                )
-                keyboard = InlineKeyboardMarkup([
-                    [
-                        InlineKeyboardButton("PROSES SEKARANG", callback_data="done", style="success"),
-                        InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")
-                    ]
-                ])
-                
-                status_msg_id = data.get("status_msg_id")
-                if status_msg_id:
-                    try:
-                        await context.bot.delete_message(chat_id=chat_id, message_id=status_msg_id)
-                    except Exception:
-                        pass
-                
-                msg = await context.bot.send_message(
-                    chat_id=chat_id,
-                    text=text,
-                    reply_markup=keyboard,
-                    parse_mode="HTML"
-                )
-                data["status_msg_id"] = msg.message_id
-                db.set_session(user_id, STATE, data)
-                from handlers.start import register_welcome_messages
-                register_welcome_messages(user_id, [msg.message_id])
+            from handlers.start import _get_transition_lock, register_welcome_messages, _welcome_messages
+            async with _get_transition_lock(user_id):
+                sess = db.get_session(user_id)
+                if sess and sess.get("state") == STATE:
+                    data = sess["data"]
+                    jumlah_file = data["count"]
+                    jumlah_kontak = data.get("total_contacts", 0)
+                    
+                    text = (
+                        _get_breadcrumbs(data, 1) +
+                        f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
+                        f"Berhasil mengunduh <code>{jumlah_file}</code> berkas VCF.\n"
+                        f"Total kontak terdeteksi: <code>{jumlah_kontak}</code> baris.\n\n"
+                        f"Silakan pilih tindakan di bawah:</blockquote>"
+                    )
+                    keyboard = InlineKeyboardMarkup([
+                        [
+                            InlineKeyboardButton("PROSES SEKARANG", callback_data="done", style="success"),
+                            InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")
+                        ]
+                    ])
+
+                    # 1. Hapus status message lama
+                    status_msg_id = data.get("status_msg_id")
+                    if status_msg_id:
+                        try:
+                            await context.bot.delete_message(chat_id=chat_id, message_id=status_msg_id)
+                        except Exception:
+                            pass
+
+                    # 2. Hapus welcome messages lama
+                    welcome_ids = _welcome_messages.pop(user_id, [])
+                    for w_id in welcome_ids:
+                        if w_id != status_msg_id:
+                            try:
+                                await context.bot.delete_message(chat_id=chat_id, message_id=w_id)
+                            except Exception:
+                                pass
+
+                    # 3. Kirim baru di bawah berkas
+                    msg = await context.bot.send_message(
+                        chat_id=chat_id,
+                        text=text,
+                        reply_markup=keyboard,
+                        parse_mode="HTML"
+                    )
+                    data["status_msg_id"] = msg.message_id
+                    db.set_session(user_id, STATE, data)
+                    register_welcome_messages(user_id, [msg.message_id])
     except asyncio.CancelledError:
         pass
     except Exception as e:

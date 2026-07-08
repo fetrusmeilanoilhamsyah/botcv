@@ -133,55 +133,57 @@ def _schedule_debounce(user_id: int, chat_id: int, bot):
 
     async def _wait_then_notify():
         await asyncio.sleep(DEBOUNCE_SECONDS)
-        sess = db.get_session(user_id)
-        if not sess or sess.get("state") != STATE:
-            return
-        data = sess["data"]
-        jumlah = data.get("total_file", 0)
-        kontak = data.get("total_kontak", 0)
+        from handlers.start import _get_transition_lock, register_welcome_messages, _welcome_messages
+        async with _get_transition_lock(user_id):
+            sess = db.get_session(user_id)
+            if not sess or sess.get("state") != STATE:
+                return
+            data = sess["data"]
+            jumlah = data.get("total_file", 0)
+            kontak = data.get("total_kontak", 0)
 
-        text = (
-            _get_breadcrumbs(data, 1) +
-            f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
-            f"Berhasil mengunduh <code>{jumlah}</code> berkas ({kontak:,} nomor unik).\n\n"
-            f"Silakan pilih tindakan di bawah:</blockquote>"
-        )
-        keyboard = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("PROSES SEKARANG", callback_data="done", style="success"),
-                InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")
-            ]
-        ])
-
-        # Hapus welcome messages lama lalu kirim status baru di bawah berkas
-        from handlers.start import _welcome_messages
-        welcome_ids = _welcome_messages.pop(user_id, [])
-        for w_id in welcome_ids:
-            try:
-                await bot.delete_message(chat_id=chat_id, message_id=w_id)
-            except Exception:
-                pass
-
-        status_msg_id = data.get("status_msg_id")
-        if status_msg_id:
-            try:
-                await bot.delete_message(chat_id=chat_id, message_id=status_msg_id)
-            except Exception:
-                pass
-
-        try:
-            new_msg = await bot.send_message(
-                chat_id=chat_id,
-                text=text,
-                reply_markup=keyboard,
-                parse_mode="HTML"
+            text = (
+                _get_breadcrumbs(data, 1) +
+                f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
+                f"Berhasil mengunduh <code>{jumlah}</code> berkas ({kontak:,} nomor unik).\n\n"
+                f"Silakan pilih tindakan di bawah:</blockquote>"
             )
-            data["status_msg_id"] = new_msg.message_id
-            db.set_session(user_id, STATE, data)
-            from handlers.start import register_welcome_messages
-            register_welcome_messages(user_id, [new_msg.message_id])
-        except Exception:
-            pass
+            keyboard = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("PROSES SEKARANG", callback_data="done", style="success"),
+                    InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")
+                ]
+            ])
+
+            # 1. Hapus status message lama
+            status_msg_id = data.get("status_msg_id")
+            if status_msg_id:
+                try:
+                    await bot.delete_message(chat_id=chat_id, message_id=status_msg_id)
+                except Exception:
+                    pass
+
+            # 2. Hapus welcome messages lama
+            welcome_ids = _welcome_messages.pop(user_id, [])
+            for w_id in welcome_ids:
+                if w_id != status_msg_id:
+                    try:
+                        await bot.delete_message(chat_id=chat_id, message_id=w_id)
+                    except Exception:
+                        pass
+
+            try:
+                new_msg = await bot.send_message(
+                    chat_id=chat_id,
+                    text=text,
+                    reply_markup=keyboard,
+                    parse_mode="HTML"
+                )
+                data["status_msg_id"] = new_msg.message_id
+                db.set_session(user_id, STATE, data)
+                register_welcome_messages(user_id, [new_msg.message_id])
+            except Exception:
+                pass
 
     task = asyncio.create_task(_wait_then_notify())
     _debounce_tasks[user_id] = task
