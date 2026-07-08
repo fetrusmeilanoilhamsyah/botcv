@@ -202,11 +202,11 @@ from config import (
     USER_CLICK_COOLDOWN,
 )
 
-MAX_CONCURRENT_PER_USER = 2
+MAX_CONCURRENT_PER_USER = 3
 user_semaphores      = defaultdict(lambda: Semaphore(MAX_CONCURRENT_PER_USER))
 
-global_semaphore      = Semaphore(GLOBAL_MAX_CONCURRENT)
-global_file_semaphore = Semaphore(GLOBAL_MAX_CONCURRENT_FILE)
+global_semaphore      = Semaphore(GLOBAL_MAX_CONCURRENT)       # untuk proses berat (file)
+global_light_semaphore = Semaphore(128)                         # untuk command ringan (navigasi/menu)
 
 _user_last_click: dict = {}
 _user_last_active: dict = {}
@@ -268,9 +268,43 @@ def file_rate_limiter(func):
         if not await require_channel_join(update, context):
             return
 
-        # Hanya gunakan 1 global semaphore — tidak ada antrian per-user untuk file
-        # User bisa upload banyak file paralel, yang dibatasi hanya total global
-        async with global_file_semaphore:
+        # File processing pakai semaphore berat
+        async with global_semaphore:
+            return await func(update, context)
+
+    wrapper.__name__ = func.__name__
+    return wrapper
+
+
+def light_rate_limiter(func):
+    """Rate limiter untuk command navigasi ringan (menu, back, start) — tidak blokir proses file."""
+    async def wrapper(update: Update, context):
+        if not update or not update.effective_user:
+            return await func(update, context)
+
+        user_id = update.effective_user.id
+        _user_last_active[user_id] = time.time()
+
+        if update.callback_query:
+            now = time.time()
+            last_click = _user_last_click.get(user_id, 0)
+            if now - last_click < USER_CLICK_COOLDOWN:
+                try:
+                    await update.callback_query.answer()
+                except Exception:
+                    pass
+                return
+            _user_last_click[user_id] = now
+
+        if update.callback_query and update.callback_query.data == "check_channel_join":
+            pass
+        else:
+            from middleware.auth import require_channel_join
+            if not await require_channel_join(update, context):
+                return
+
+        # Gunakan semaphore ringan — tidak terblokir proses file berat
+        async with global_light_semaphore:
             return await func(update, context)
 
     wrapper.__name__ = func.__name__
@@ -849,7 +883,7 @@ def main():
 
 
     # ── Command handlers ──
-    app.add_handler(CommandHandler("start",                              rate_limiter(cmd_start)))
+    app.add_handler(CommandHandler("start",                              light_rate_limiter(cmd_start)))
     app.add_handler(CommandHandler(["reset", "resetdatabase"],          rate_limiter(cmd_reset)))
     app.add_handler(CommandHandler(["admin", "Admin"],                  rate_limiter(cmd_admin)))
     app.add_handler(CommandHandler("txttovcf",                          rate_limiter(cmd_txttovcf)))
@@ -872,22 +906,22 @@ def main():
     app.add_handler(CommandHandler("stopbroadcast",                     rate_limiter(cmd_stop_broadcast)))
     app.add_handler(CommandHandler("newmember",                         rate_limiter(cmd_newmember)))
     app.add_handler(CommandHandler(["delmember", "copotmember"],        rate_limiter(cmd_delmember)))
-    app.add_handler(CommandHandler(["referal", "referral"],             rate_limiter(cmd_referral)))
+    app.add_handler(CommandHandler(["referal", "referral"],             light_rate_limiter(cmd_referral)))
     app.add_handler(CommandHandler("daftar",                            rate_limiter(cmd_daftar)))
-    app.add_handler(CommandHandler("vip",                               rate_limiter(cmd_vip)))
+    app.add_handler(CommandHandler("vip",                               light_rate_limiter(cmd_vip)))
     app.add_handler(CommandHandler("addvip",                            rate_limiter(cmd_addvip)))
     app.add_handler(CommandHandler("delvip",                            rate_limiter(cmd_delvip)))
     app.add_handler(CommandHandler("stat",                              rate_limiter(cmd_stat)))
     app.add_handler(CommandHandler("backup",                            rate_limiter(cmd_backup)))
-    app.add_handler(CommandHandler("akun",                             rate_limiter(cmd_akun)))
+    app.add_handler(CommandHandler("akun",                             light_rate_limiter(cmd_akun)))
     app.add_handler(CommandHandler("addnum",                            rate_limiter(cmd_addnum)))
     app.add_handler(CommandHandler("done",                              rate_limiter(done_router)))
 
     # ── Callback handlers ──
-    app.add_handler(CallbackQueryHandler(rate_limiter(cb_check_channel_join),  pattern="^check_channel_join$"))
-    app.add_handler(CallbackQueryHandler(rate_limiter(cb_show_vip_menu),       pattern="^show_vip_menu$"))
-    app.add_handler(CallbackQueryHandler(rate_limiter(cb_show_referral_menu),  pattern="^show_referral_menu$"))
-    app.add_handler(CallbackQueryHandler(rate_limiter(handle_back_to_start),   pattern="^back_to_start$"))
+    app.add_handler(CallbackQueryHandler(light_rate_limiter(cb_check_channel_join),  pattern="^check_channel_join$"))
+    app.add_handler(CallbackQueryHandler(light_rate_limiter(cb_show_vip_menu),       pattern="^show_vip_menu$"))
+    app.add_handler(CallbackQueryHandler(light_rate_limiter(cb_show_referral_menu),  pattern="^show_referral_menu$"))
+    app.add_handler(CallbackQueryHandler(light_rate_limiter(handle_back_to_start),   pattern="^back_to_start$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_ttv_style_callback), pattern="^ttv_style_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_ttv_numstyle_callback), pattern="^ttv_numstyle_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_ttv_delivery_callback), pattern="^ttv_deliv_"))
