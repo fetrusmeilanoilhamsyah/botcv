@@ -105,10 +105,19 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 status_msg_id = data.get("status_msg_id")
                 if status_msg_id:
                     try:
-                        await context.bot.delete_message(chat_id=chat_id, message_id=status_msg_id)
+                        # FIX Bug#1: edit in-place, tidak ada gap delete→send
+                        await context.bot.edit_message_text(
+                            chat_id=chat_id,
+                            message_id=status_msg_id,
+                            text=text,
+                            reply_markup=keyboard,
+                            parse_mode="HTML"
+                        )
+                        return  # edit berhasil, selesai
                     except Exception:
                         pass
-                
+
+                # Fallback: edit gagal atau belum ada status_msg_id
                 msg = await context.bot.send_message(
                     chat_id=chat_id,
                     text=text,
@@ -152,7 +161,8 @@ async def cmd_cleanup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     
-    db.set_session(user_id, STATE, {"count": 0, "total_size": 0})
+    init_data = {"count": 0, "total_size": 0}
+    db.set_session(user_id, STATE, init_data)
     
     msg = await transition_to_handler(
         context.bot,
@@ -164,9 +174,9 @@ async def cmd_cleanup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     if msg:
-        sess = db.get_session(user_id)
-        sess["data"]["status_msg_id"] = msg.message_id
-        db.set_session(user_id, STATE, sess["data"])
+        # FIX Bug#3: pakai init_data langsung, tidak ambil ulang dari db setelah await
+        init_data["status_msg_id"] = msg.message_id
+        db.set_session(user_id, STATE, init_data)
 
 async def handle_cleanup_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -274,14 +284,34 @@ async def handle_show_cleanup_help_callback(update: Update, context: ContextType
         db.set_session(user_id, STATE, sess["data"])
 
 async def handle_cleanup_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    sess = db.get_session(update.effective_user.id)
-    if not sess or sess["state"] != STATE:
-        return
-    data = sess["data"]
-    if data["count"] == 0:
-        return
-
-    db.set_session(update.effective_user.id, S2, data)
+    user_id = update.effective_user.id
+    # FIX Bug#4: gunakan lock agar tidak bisa double-process jika user double-klik
+    async with _get_lock(user_id):
+        sess = db.get_session(user_id)
+        if not sess or sess["state"] != STATE:
+            if update.callback_query:
+                try:
+                    await update.callback_query.answer()
+                except Exception:
+                    pass
+            return
+        data = sess["data"]
+        if data["count"] == 0:
+            if update.callback_query:
+                try:
+                    await update.callback_query.answer()
+                except Exception:
+                    pass
+            return
+        if data.get("is_processing"):
+            if update.callback_query:
+                try:
+                    await update.callback_query.answer("Sedang diproses...")
+                except Exception:
+                    pass
+            return
+        data["is_processing"] = True
+        db.set_session(user_id, S2, data)
     status_msg_id = data.get("status_msg_id")
 
     if update.callback_query:

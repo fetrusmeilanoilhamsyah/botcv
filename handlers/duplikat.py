@@ -104,10 +104,19 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 status_msg_id = data.get("status_msg_id")
                 if status_msg_id:
                     try:
-                        await context.bot.delete_message(chat_id=chat_id, message_id=status_msg_id)
+                        # FIX Bug#1: edit in-place, tidak ada gap delete→send
+                        await context.bot.edit_message_text(
+                            chat_id=chat_id,
+                            message_id=status_msg_id,
+                            text=text,
+                            reply_markup=keyboard,
+                            parse_mode="HTML"
+                        )
+                        return  # edit berhasil, selesai
                     except Exception:
                         pass
-                
+
+                # Fallback: edit gagal atau belum ada status_msg_id
                 msg = await context.bot.send_message(
                     chat_id=chat_id,
                     text=text,
@@ -164,9 +173,9 @@ async def cmd_duplikat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     if msg:
-        sess = db.get_session(user_id)
-        sess["data"]["status_msg_id"] = msg.message_id
-        db.set_session(user_id, STATE, sess["data"])
+        # FIX Bug#3: pakai init_data langsung, tidak ambil ulang dari db setelah await
+        init_data["status_msg_id"] = msg.message_id
+        db.set_session(user_id, STATE, init_data)
 
 async def handle_duplikat_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
