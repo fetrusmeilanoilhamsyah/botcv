@@ -537,7 +537,7 @@ async def handle_ttv_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
                 )
-                await asyncio.sleep(3)
+                await asyncio.sleep(10)
                 # Kembalikan ke tampilan waiting for upload semula
                 await context.bot.edit_message_text(
                     chat_id=chat_id,
