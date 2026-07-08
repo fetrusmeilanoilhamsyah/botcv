@@ -143,7 +143,11 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     text = update.message.text.strip()
 
-    # User message (nomor/teks) dibiarkan di chat — tidak dihapus
+    try:
+        await update.message.delete()
+    except Exception:
+        pass
+
     async with get_user_lock(user_id):
         sess = db.get_session(user_id)
         if not sess or sess["state"] not in STATES.values():
