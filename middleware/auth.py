@@ -17,6 +17,19 @@ def is_admin(user_id: int) -> bool:
     return user_id in ADMIN_IDS
 
 
+import asyncio
+
+# Semaphore: max 5 concurrent get_chat_member calls ke Telegram API
+# Mencegah flood setelah restart saat 188 user aktif bersamaan cek membership
+_membership_api_sem: asyncio.Semaphore | None = None
+
+def _get_membership_api_sem() -> asyncio.Semaphore:
+    global _membership_api_sem
+    if _membership_api_sem is None:
+        _membership_api_sem = asyncio.Semaphore(5)
+    return _membership_api_sem
+
+
 async def check_channel_membership(bot, user_id: int) -> bool:
     """Checks if a user is a member of the configured Telegram channel, with RAM caching."""
     if not FORCE_SUB_CHANNEL:
@@ -28,21 +41,20 @@ async def check_channel_membership(bot, user_id: int) -> bool:
             return True
 
     try:
-        # Convert channel ID to integer if it is a numeric string (e.g. -100123456789)
         channel_id = FORCE_SUB_CHANNEL
         if str(channel_id).strip().replace("-", "").isdigit():
             channel_id = int(channel_id)
 
-        member = await bot.get_chat_member(chat_id=channel_id, user_id=user_id)
+        # Rate-limit concurrent API calls: max 5 sekaligus agar tidak flood Telegram
+        async with _get_membership_api_sem():
+            member = await bot.get_chat_member(chat_id=channel_id, user_id=user_id)
+
         if member.status in ('creator', 'administrator', 'member', 'restricted'):
             _membership_cache[user_id] = now
             return True
     except Exception as e:
         logger.warning(f"Error checking channel membership for user {user_id}: {e}")
-        # Note: If the bot is not admin in the channel, it will raise an error (e.g. ChatNotFound).
-        # We fail open if get_chat_member raises a non-user exception to prevent blocking the bot entirely if setup is wrong,
-        # but for safety, if user is not a member we should return False.
-        # If the error is ChatNotFound or similar, let's log it.
+        # Fail open hanya jika error bukan user related (e.g. bot bukan admin channel)
         pass
     return False
 
