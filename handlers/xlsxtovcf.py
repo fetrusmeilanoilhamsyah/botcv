@@ -158,7 +158,7 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                     except Exception:
                         pass
                 
-        text = (
+                text = (
                     _get_breadcrumbs(data, 1) +
                     f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
                     f"Berhasil mengunduh <code>{jumlah}</code> berkas Excel/CSV.\n\n"
