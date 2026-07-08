@@ -71,16 +71,20 @@ async def require_channel_join(update, context) -> bool:
 
     channel_display = FORCE_SUB_CHANNEL if str(FORCE_SUB_CHANNEL).startswith("@") else "@tutorialnotceve"
     text = (
-        "               <b>« VERIFIKASI MEMBER »</b>\n\n"
-        f"Untuk menggunakan bot ini, kamu wajib bergabung ke channel {channel_display} terlebih dahulu.\n\n"
-        "1. Klik tombol <b>MASUK CHANNEL</b> di bawah\n"
-        "2. Bergabung ke channel\n"
-        "3. Kembali ke sini dan klik <b>SUDAH BERGABUNG</b>"
+        "<b>[ HAIFEE CV CONSOLE ]</b>\n"
+        "────────────────────────────\n"
+        "<blockquote><b>[ STATUS: AKSES DITOLAK ]</b>\n"
+        f"Kamu belum bergabung ke channel resmi <b>{channel_display}</b>.</blockquote>\n"
+        "────────────────────────────\n\n"
+        "Untuk menggunakan bot ini, ikuti langkah berikut:\n\n"
+        "<b>1.</b> Klik tombol <b>MASUK CHANNEL</b> di bawah\n"
+        "<b>2.</b> Bergabung ke channel kami\n"
+        "<b>3.</b> Kembali ke sini, lalu klik <b>SUDAH BERGABUNG \u2713</b>"
     )
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("MASUK CHANNEL", url=FORCE_SUB_LINK, style="primary")],
-        [InlineKeyboardButton("SUDAH BERGABUNG", callback_data="check_channel_join", style="success")]
+        [InlineKeyboardButton("\ud83d\udce2 MASUK CHANNEL", url=FORCE_SUB_LINK, style="primary")],
+        [InlineKeyboardButton("\u2705 SUDAH BERGABUNG", callback_data="check_channel_join", style="success")]
     ])
 
     if update.callback_query:
@@ -140,11 +144,15 @@ async def require_member(update, context) -> bool:
     ])
     
     text = (
-        "          <b>« Akses Terbatas »</b>\n\n"
-        "Fitur ini hanya tersedia untuk member <b>VIP</b>.\n"
-        "Masa coba gratis 7 hari Anda telah berakhir.\n\n"
-        "• Upgrade mulai dari <b>Rp 2.000</b>\n"
-        "• Atau undang teman via tautan referral untuk mendapatkan <b>VIP Gratis</b>"
+        "<b>[ HAIFEE CV CONSOLE ]</b>\n"
+        "────────────────────────────\n"
+        "<blockquote><b>[ STATUS: VIP DIPERLUKAN ]</b>\n"
+        "Masa coba gratis <b>7 hari</b> Anda telah berakhir.\n"
+        "Fitur ini hanya tersedia untuk member <b>VIP</b>.</blockquote>\n"
+        "────────────────────────────\n\n"
+        "Pilih salah satu opsi untuk melanjutkan:\n\n"
+        "• <b>LIHAT PAKET</b> — Upgrade mulai dari <b>Rp 2.000</b>\n"
+        "• <b>VIP GRATIS</b> — Undang teman & tukarkan poin"
     )
 
     # 1. Jika dipanggil dari Callback Query (user klik tombol inline di menu)

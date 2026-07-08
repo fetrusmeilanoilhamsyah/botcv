@@ -95,7 +95,8 @@ def get_start_keyboard():
 
 def build_menu_text(first_name: str, user_id: int) -> str:
     fitur = (
-        "<b>FITUR UTAMA</b>\n"
+        "<b>[ FITUR UTAMA ]</b>\n"
+        "<blockquote>"
         "• /txttovcf — TXT KE VCF\n"
         "• /vcfsimple — VCF SIMPLE\n"
         "• /vcftotxt — VCF KE TXT\n"
@@ -112,16 +113,20 @@ def build_menu_text(first_name: str, user_id: int) -> str:
         "• /cleanup — CLEANUP NOMOR\n"
         "• /manual — KONTAK MANUAL\n"
         "• /walink — LINK WA EXCEL\n"
-        "• /walinkweb — LINK WA HTML\n\n"
-        "<b>LAINNYA</b>\n"
+        "• /walinkweb — LINK WA HTML"
+        "</blockquote>\n"
+        "<b>[ LAINNYA ]</b>\n"
+        "<blockquote>"
         "• /vip — PAKET VIP\n"
         "• /referal — VIP GRATIS\n"
         "• /akun — INFO AKUN\n"
         "• /reset — RESET SESI"
+        "</blockquote>"
     )
     if is_admin(user_id):
         fitur += (
-            "\n\n<b>ADMIN</b>\n"
+            "\n<b>[ ADMIN ]</b>\n"
+            "<blockquote>"
             "• /stat — Statistik\n"
             "• /daftar — Daftar user\n"
             "• /backup — Backup database\n"
@@ -130,12 +135,15 @@ def build_menu_text(first_name: str, user_id: int) -> str:
             "• /stopbroadcast — Hentikan broadcast\n"
             "• /addvip /delvip — Kelola VIP\n"
             "• /resetdatabase — Bersihkan cache"
+            "</blockquote>"
         )
 
-    header_text = "               <b>«  H A I F E E   C V  »</b>\n\n"
     return (
-        f"{header_text}"
-        f"Halo <b>{first_name}</b>! Selamat datang di <b>Haifee CV</b>.\n\n"
+        "<b>[ HAIFEE CV CONSOLE ]</b>\n"
+        "────────────────────────────\n"
+        f"<blockquote><b>[ USER: {first_name.upper()} ]</b>\n"
+        f"Selamat datang di <b>Haifee CV</b>. Pilih fitur di bawah:</blockquote>\n"
+        "────────────────────────────\n\n"
         f"{fitur}"
     )
 
@@ -194,8 +202,12 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     try:
                         welcome_text = build_menu_text(first_name, user.id)
                         vip_note = (
-                            "\n\n<b>Hadiah Pengguna Baru!</b>\n"
-                            "Kamu mendapatkan akses <b>VIP 7 Hari GRATIS</b> secara otomatis."
+                            "\n\n<b>[ HADIAH PENGGUNA BARU ]</b>\n"
+                            "────────────────────────────\n"
+                            "<blockquote><b>[ STATUS: VIP 7 HARI AKTIF ]</b>\n"
+                            "🎉 Selamat! Kamu mendapat akses <b>VIP 7 Hari GRATIS</b> secara otomatis sebagai pengguna baru.\n\n"
+                            "• Semua fitur premium sudah bisa digunakan\n"
+                            "• Perpanjang atau dapatkan VIP Gratis via /referal</blockquote>"
                         )
                         from telegram import InlineKeyboardButton, InlineKeyboardMarkup
                         from config import TUTORIAL_LINK, ADMIN_CONTACT
