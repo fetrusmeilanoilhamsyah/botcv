@@ -440,6 +440,16 @@ async def file_router(update: Update, context):
         if not is_doc:
             await update.message.reply_text(f"Kirim {hint}.")
             return
+
+        # Centralized Disk protection checks
+        from middleware.session import check_global_disk_limit, check_session_disk_limit
+        if not check_global_disk_limit():
+            await update.message.reply_text("⚠️ <b>[ DISK VPS PENUH ]</b>\nDisk penyimpanan penuh. Mohon hubungi admin.", parse_mode="HTML")
+            return
+        if not check_session_disk_limit(user_id):
+            await update.message.reply_text("⚠️ <b>[ LIMIT DISK SESI ]</b>\nSesi Anda melebihi batas penggunaan folder (maks 200 MB). Ketik /reset untuk membersihkan sesi.", parse_mode="HTML")
+            return
+
         await handler(update, context)
     elif state == MEDIA_BROADCAST_STATE:
         await handle_broadcast_media(update, context)
@@ -605,7 +615,7 @@ async def _job_cleanup_sessions(context):
         for uid in list(user_semaphores.keys()):
             last_active = _user_last_active.get(uid, 0)
             if last_active == 0:
-                user = db.get_user(uid)
+                user = await adb.get_user(uid)
                 if user:
                     try:
                         from datetime import datetime
@@ -679,7 +689,7 @@ async def _job_cleanup_sessions(context):
             from datetime import datetime
             now = datetime.now()
             for uid in active_uids:
-                user = db.get_user(uid)
+                user = await adb.get_user(uid)
                 if user:
                     try:
                         last = datetime.fromisoformat(dict(user)["last_active"])

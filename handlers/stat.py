@@ -83,8 +83,11 @@ async def cmd_stat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     now_jakarta = datetime.now(_JAKARTA)
 
+    from database.db_async import adb
+    import asyncio
+
     # ── User stats ──────
-    users        = db.get_all_users_detail()
+    users        = await adb.get_all_users_detail()
     total        = len(users)
     members_list = [u for u in users if u["is_member"]]
     total_member = len(members_list)
@@ -93,14 +96,14 @@ async def cmd_stat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     vip_perm     = [u for u in members_list if not u.get("expired_at")]
 
     # ── Payment stats ───
-    pay = db.get_payment_stats()
+    pay = await adb.get_payment_stats()
 
     # ── Top 3 user aktif (exclude admin) ────────────
-    all_top = db.get_top_users(50)
+    all_top = await adb.get_top_users(50)
     top3 = [u for u in all_top if not is_admin(u.get("id", 0))][:3]
 
     # ── Server health ───
-    health = _server_health()
+    health = await asyncio.to_thread(_server_health)
 
     # ── VIP list (maks 10, urutkan expired terdekat) 
     try:
