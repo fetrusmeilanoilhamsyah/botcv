@@ -8,7 +8,7 @@ import shutil
 import asyncio
 import logging
 import zipfile
-from telegram import Update, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaDocument
+from telegram import Update, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.error import RetryAfter
 from telegram.ext import ContextTypes
 from database import db
@@ -38,6 +38,8 @@ S1 = "PECAHTXT_PER_FILE"
 S2 = "PECAHTXT_DELIVERY"
 S3 = "PECAHTXT_PROCESSING"
 
+DEBOUNCE_SECONDS = 1.2
+
 def _fit(val, max_len=22) -> str:
     s = str(val)
     if len(s) > max_len:
@@ -50,53 +52,55 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     
     parts = []
     if step == 1:
-        parts.append(f"<b>» BERKAS: {count} FILE «</b>" if count else "<b>» BERKAS «</b>")
+        parts.append(f"<b>[UPLOAD BERKAS: {count} FILE]</b>" if count else "<b>[UPLOAD BERKAS]</b>")
     else:
-        parts.append(f"Berkas: {count} file" if count else "Berkas ○")
+        parts.append(f"Berkas: <code>{count}</code>" if count else "Berkas: ➖")
         
     if step == 2:
-        if per_file:
-            parts.append(f"<b>» JUMLAH: {per_file} «</b>")
-        else:
-            parts.append("<b>» JUMLAH «</b>")
+        parts.append(f"<b>[PECAH / {per_file}]</b>" if per_file else "<b>[PECAH / FILE]</b>")
     elif step > 2 and per_file:
-        parts.append(f"Jumlah: {per_file}")
+        parts.append(f"Pecah: <code>{per_file}</code>")
     else:
-        parts.append("Jumlah ○")
+        parts.append("Pecah: ➖")
         
     if step == 3:
-        parts.append("<b>» KIRIM «</b>")
+        parts.append("<b>[KIRIM]</b>")
     else:
-        parts.append("Kirim ○")
+        parts.append("Kirim: ➖")
         
     breadcrumbs = " ➔ ".join(parts)
     return (
-        "<b>[ TXT SPLIT CV ]</b>\n"
+        "<b>[ TXT SPLIT CONSOLE ]</b>\n"
         "────────────────────────────\n"
-        f"{breadcrumbs}\n"
+        f"<blockquote>{breadcrumbs}</blockquote>\n"
         "────────────────────────────\n\n"
     )
 
+def _waiting_text(data: dict) -> str:
+    return (
+        _get_breadcrumbs(data, 1) +
+        f"<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+        f"Silakan kirim satu atau beberapa file <code>.txt</code> sekarang.\n\n"
+        f"<b>Batas Sesi:</b>\n"
+        f"\u2022 Maksimum upload: <code>{MAX_FILES} file</code>\n"
+        f"\u2022 Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
+    )
 
 _user_timers: dict = {}
 _user_locks: dict  = {}
 
-
 def get_user_lock(user_id: int) -> asyncio.Lock:
     return _user_locks.setdefault(user_id, asyncio.Lock())
-
 
 def _cancel_timer(user_id: int):
     timer = _user_timers.pop(user_id, None)
     if timer:
         timer.cancel()
 
-
 def _clear_buffers(user_id: int):
     user_dir = get_user_dir(user_id)
     pecah_dir = os.path.join(user_dir, "pecahtxt")
     shutil.rmtree(pecah_dir, ignore_errors=True)
-
 
 def cleanup_inactive_users(inactive_ids: list) -> int:
     for uid in inactive_ids:
@@ -104,7 +108,6 @@ def cleanup_inactive_users(inactive_ids: list) -> int:
         _clear_buffers(uid)
         _user_locks.pop(uid, None)
     return len(inactive_ids)
-
 
 async def _debounce_notify(user_id: int, context, chat_id: int):
     try:
@@ -124,7 +127,12 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                     except Exception:
                         pass
                 
-                text = _get_breadcrumbs(data, 1) + f"<b>{jumlah}</b> file TXT diterima. Silakan pilih tindakan:"
+                text = (
+                    _get_breadcrumbs(data, 1) +
+                    f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
+                    f"Berhasil mengunduh <code>{jumlah}</code> berkas TXT.\n\n"
+                    f"Silakan pilih tindakan di bawah:</blockquote>"
+                )
                 keyboard = InlineKeyboardMarkup([
                     [
                         InlineKeyboardButton("PROSES SEKARANG", callback_data="done", style="success"),
@@ -152,7 +160,6 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
     except Exception as e:
         logger.error("Debounce notify error pecahtxt: %s", e)
 
-
 def _reset_timer(user_id, context, chat_id):
     old = _user_timers.get(user_id)
     if old:
@@ -160,7 +167,6 @@ def _reset_timer(user_id, context, chat_id):
     _user_timers[user_id] = asyncio.ensure_future(
         _debounce_notify(user_id, context, chat_id)
     )
-
 
 async def cmd_pecahtxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_member(update, context):
@@ -171,12 +177,13 @@ async def cmd_pecahtxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from handlers.start import transition_to_handler
     _cancel_timer(user_id)
     _clear_buffers(user_id)
-    db.set_session(user_id, S0, {"count": 0, "total_size": 0})
+    init_data = {"count": 0, "total_size": 0}
+    db.set_session(user_id, S0, init_data)
     msg = await transition_to_handler(
         context.bot,
         user_id,
         update.effective_chat.id,
-        _get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> sekarang.",
+        _waiting_text(init_data),
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
@@ -184,7 +191,6 @@ async def cmd_pecahtxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sess = db.get_session(user_id)
         sess["data"]["status_msg_id"] = msg.message_id
         db.set_session(user_id, S0, sess["data"])
-
 
 async def handle_pecahtxt_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -194,8 +200,33 @@ async def handle_pecahtxt_file(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     doc = update.message.document
-    if not doc or not doc.file_name or not doc.file_name.lower().endswith(".txt"):
-        await update.message.reply_text("Kirim file dengan ekstensi .txt.")
+    ext = os.path.splitext(doc.file_name)[1].lower() if doc and doc.file_name else ""
+    if not doc or not doc.file_name or ext != ".txt":
+        # Format salah — edit status in-place, JANGAN hapus file user
+        try:
+            status_msg_id = sess["data"].get("status_msg_id")
+            if status_msg_id:
+                await context.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=status_msg_id,
+                    text=(
+                        _get_breadcrumbs(sess["data"], 1) +
+                        f"<blockquote>⚠️ <b>[ FORMAT SALAH ]</b>\n"
+                        f"<code>{doc.file_name}</code> bukan berkas TXT (<code>.txt</code>).</blockquote>"
+                    ),
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+                )
+                await asyncio.sleep(10)
+                await context.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=status_msg_id,
+                    text=_waiting_text(sess["data"]),
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+                )
+        except Exception:
+            pass
         return
 
     msg_id = update.message.message_id
@@ -219,7 +250,6 @@ async def handle_pecahtxt_file(update: Update, context: ContextTypes.DEFAULT_TYP
 
             data = sess["data"]
             if data["count"] >= MAX_FILES:
-                await update.message.reply_text(f"Batas <b>{MAX_FILES}</b> file. Silakan ketik selesai atau klik PROSES SEKARANG.")
                 try:
                     os.remove(out_path)
                 except Exception:
@@ -227,7 +257,6 @@ async def handle_pecahtxt_file(update: Update, context: ContextTypes.DEFAULT_TYP
                 return
 
             if (data["total_size"] + doc.file_size) / (1024 * 1024) > MAX_SIZE_MB:
-                await update.message.reply_text(f"Batas <b>{MAX_SIZE_MB}MB</b>. Silakan ketik selesai atau klik PROSES SEKARANG.")
                 try:
                     os.remove(out_path)
                 except Exception:
@@ -247,8 +276,6 @@ async def handle_pecahtxt_file(update: Update, context: ContextTypes.DEFAULT_TYP
                 os.remove(out_path)
             except Exception:
                 pass
-        raise
-
 
 async def handle_pecahtxt_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -272,14 +299,31 @@ async def handle_pecahtxt_done(update: Update, context: ContextTypes.DEFAULT_TYP
     
     status_msg_id = data.get("status_msg_id")
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
-    await context.bot.edit_message_text(
-        chat_id=update.effective_chat.id,
-        message_id=status_msg_id,
-        text=_get_breadcrumbs(data, 2) + f"<b>{data['count']}</b> file TXT terdeteksi. Berapa nomor per file? Contoh: <b>100</b>",
-        parse_mode="HTML",
-        reply_markup=keyboard
-    )
+    
+    # Edit the message in-place
+    if update.callback_query:
+        try:
+            await update.callback_query.message.edit_text(
+                text=_get_breadcrumbs(data, 2) + f"<blockquote><b>[ LANGKAH 2: JUMLAH NOMOR PER FILE ]</b>\nTerdeteksi: <code>{data.get('count', 0)}</code> file TXT.\n\nKetik jumlah nomor per file (contoh: <code>100</code>):</blockquote>",
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+            data["status_msg_id"] = update.callback_query.message.message_id
+        except Exception:
+            pass
+    elif status_msg_id:
+        try:
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text=_get_breadcrumbs(data, 2) + f"<blockquote><b>[ LANGKAH 2: JUMLAH NOMOR PER FILE ]</b>\nTerdeteksi: <code>{data.get('count', 0)}</code> file TXT.\n\nKetik jumlah nomor per file (contoh: <code>100</code>):</blockquote>",
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+        except Exception:
+            pass
 
+    db.set_session(user_id, S1, data)
 
 async def handle_pecahtxt_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -288,7 +332,6 @@ async def handle_pecahtxt_per_file(update: Update, context: ContextTypes.DEFAULT
         return
 
     text = update.message.text.strip()
-    
     try:
         await update.message.delete()
     except Exception:
@@ -298,24 +341,26 @@ async def handle_pecahtxt_per_file(update: Update, context: ContextTypes.DEFAULT
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
 
     if not text.isdigit():
-        await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=status_msg_id,
-            text=_get_breadcrumbs(sess["data"], 2) + "⚠️ Harap masukkan angka saja.\n\nBerapa nomor per file? Contoh: <b>100</b>",
-            parse_mode="HTML",
-            reply_markup=keyboard
-        )
+        if status_msg_id:
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text=_get_breadcrumbs(sess["data"], 2) + "<blockquote>⚠️ <b>Harap masukkan angka saja.</b>\n\nBerapa nomor per file? Contoh: <b>100</b></blockquote>",
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
         return
 
     per_file = int(text)
     if per_file < 1 or per_file > MAX_CONTACTS_PER_FILE:
-        await context.bot.edit_message_text(
-            chat_id=update.effective_chat.id,
-            message_id=status_msg_id,
-            text=_get_breadcrumbs(sess["data"], 2) + f"⚠️ Harap masukkan angka antara 1 sampai {MAX_CONTACTS_PER_FILE:,}.\n\nBerapa nomor per file? Contoh: <b>100</b>",
-            parse_mode="HTML",
-            reply_markup=keyboard
-        )
+        if status_msg_id:
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text=_get_breadcrumbs(sess["data"], 2) + f"<blockquote>⚠️ <b>Harap masukkan angka antara 1 sampai {MAX_CONTACTS_PER_FILE:,}.</b>\n\nBerapa nomor per file? Contoh: <b>100</b></blockquote>",
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
         return
 
     data = sess["data"]
@@ -330,14 +375,14 @@ async def handle_pecahtxt_per_file(update: Update, context: ContextTypes.DEFAULT
         [InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]
     ])
     
-    await context.bot.edit_message_text(
-        chat_id=update.effective_chat.id,
-        message_id=status_msg_id,
-        text=_get_breadcrumbs(data, 3) + "Pilih format pengiriman file TXT:",
-        parse_mode="HTML",
-        reply_markup=deliv_keyboard
-    )
-
+    if status_msg_id:
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=status_msg_id,
+            text=_get_breadcrumbs(data, 3) + "<blockquote><b>[ LANGKAH 3: FORMAT PENGIRIMAN ]</b>\nPilih format pengiriman file TXT:</blockquote>",
+            parse_mode="HTML",
+            reply_markup=deliv_keyboard
+        )
 
 async def handle_pecahtxt_delivery_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -355,13 +400,11 @@ async def handle_pecahtxt_delivery_callback(update: Update, context: ContextType
     db.set_session(user_id, S3, data)
     await handle_pecahtxt_process(update, context)
 
-
 async def handle_pecahtxt_delivery_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await update.message.delete()
     except Exception:
         pass
-
 
 async def handle_pecahtxt_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -381,11 +424,12 @@ async def handle_pecahtxt_process(update: Update, context: ContextTypes.DEFAULT_
     per_file = data["per_file"]
     status_msg_id = data.get("status_msg_id")
 
+    process_text = "<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memecah berkas TXT...</blockquote>"
     try:
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text="⏳ Memproses...",
+            text=process_text,
             parse_mode="HTML"
         )
     except Exception:
@@ -422,29 +466,31 @@ async def handle_pecahtxt_process(update: Update, context: ContextTypes.DEFAULT_
         total_parts = len(output_files)
 
         if total_parts == 0:
-            try:
-                await context.bot.edit_message_text(
-                    chat_id=update.effective_chat.id,
-                    message_id=status_msg_id,
-                    text="Gagal. Tidak ada nomor yang ditemukan.",
-                    parse_mode="HTML"
-                )
-            except Exception:
-                pass
+            if status_msg_id:
+                try:
+                    await context.bot.edit_message_text(
+                        chat_id=update.effective_chat.id,
+                        message_id=status_msg_id,
+                        text="<blockquote>⚠️ <b>Gagal. Tidak ada nomor yang ditemukan.</b></blockquote>",
+                        parse_mode="HTML"
+                    )
+                except Exception:
+                    pass
             return
 
         delivery_mode = data.get("delivery_mode", "single")
 
         if delivery_mode == "zip":
-            try:
-                await context.bot.edit_message_text(
-                    chat_id=update.effective_chat.id,
-                    message_id=status_msg_id,
-                    text="Mengompresi file ke ZIP...",
-                    parse_mode="HTML"
-                )
-            except Exception:
-                pass
+            if status_msg_id:
+                try:
+                    await context.bot.edit_message_text(
+                        chat_id=update.effective_chat.id,
+                        message_id=status_msg_id,
+                        text="<blockquote><b>[ SYSTEM: COMPRESSING ]</b>\nMengompresi file ke format ZIP...</blockquote>",
+                        parse_mode="HTML"
+                    )
+                except Exception:
+                    pass
 
             zip_buffer = io.BytesIO()
             with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
@@ -455,15 +501,16 @@ async def handle_pecahtxt_process(update: Update, context: ContextTypes.DEFAULT_
             zip_buffer.seek(0)
             zip_filename = "pecahan_txt.zip"
 
-            try:
-                await context.bot.edit_message_text(
-                    chat_id=update.effective_chat.id,
-                    message_id=status_msg_id,
-                    text="Mengirim file ZIP...",
-                    parse_mode="HTML"
-                )
-            except Exception:
-                pass
+            if status_msg_id:
+                try:
+                    await context.bot.edit_message_text(
+                        chat_id=update.effective_chat.id,
+                        message_id=status_msg_id,
+                        text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file ZIP...</blockquote>",
+                        parse_mode="HTML"
+                    )
+                except Exception:
+                    pass
 
             for attempt in range(SEND_MAX_RETRIES):
                 try:
@@ -484,10 +531,11 @@ async def handle_pecahtxt_process(update: Update, context: ContextTypes.DEFAULT_
                     else:
                         await asyncio.sleep(SEND_RETRY_DELAY)
 
-            try:
-                await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
-            except Exception:
-                pass
+            if status_msg_id:
+                try:
+                    await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
+                except Exception:
+                    pass
 
             from handlers.start import clear_welcome_messages
             clear_welcome_messages(user_id)
@@ -520,16 +568,16 @@ async def handle_pecahtxt_process(update: Update, context: ContextTypes.DEFAULT_
             register_welcome_messages(user_id, [final_msg.message_id])
 
         else:
-            # Mode "single" menggunakan sequential sending
-            try:
-                await context.bot.edit_message_text(
-                    chat_id=update.effective_chat.id,
-                    message_id=status_msg_id,
-                    text="<b>Mengirim file TXT...</b>",
-                    parse_mode="HTML"
-                )
-            except Exception:
-                pass
+            if status_msg_id:
+                try:
+                    await context.bot.edit_message_text(
+                        chat_id=update.effective_chat.id,
+                        message_id=status_msg_id,
+                        text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file TXT satu per satu...</blockquote>",
+                        parse_mode="HTML"
+                    )
+                except Exception:
+                    pass
 
             sent_count = 0
             from telegram.error import RetryAfter
@@ -572,18 +620,17 @@ async def handle_pecahtxt_process(update: Update, context: ContextTypes.DEFAULT_
                         else:
                             await asyncio.sleep(SEND_RETRY_DELAY)
 
-
-
                 if sent_count < total_parts:
                     if sent_count % SEND_BATCH_SIZE == 0:
                         await asyncio.sleep(SEND_BATCH_DELAY)
                     else:
                         await asyncio.sleep(SEND_FILE_DELAY)
 
-            try:
-                await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
-            except Exception:
-                pass
+            if status_msg_id:
+                try:
+                    await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
+                except Exception:
+                    pass
 
             from handlers.start import clear_welcome_messages
             clear_welcome_messages(user_id)
@@ -617,20 +664,20 @@ async def handle_pecahtxt_process(update: Update, context: ContextTypes.DEFAULT_
 
     except Exception as e:
         logger.error("PecahTXT done error: %s", e)
-        try:
-            await context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
-                message_id=status_msg_id,
-                text="Terjadi kesalahan. Coba kirim ulang.",
-                parse_mode="HTML"
-            )
-        except Exception:
-            pass
+        if status_msg_id:
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_msg_id,
+                    text="<blockquote>⚠️ <b>Terjadi kesalahan. Coba kirim ulang.</b></blockquote>",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
     finally:
         unregister_active_task(user_id)
         db.clear_session(user_id)
         _clear_buffers(user_id)
-
 
 async def handle_show_pecahtxt_help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -639,21 +686,31 @@ async def handle_show_pecahtxt_help_callback(update: Update, context: ContextTyp
     asyncio.create_task(adb.increment_usage(user_id))
     _cancel_timer(user_id)
     _clear_buffers(user_id)
-    db.set_session(user_id, S0, {"count": 0, "total_size": 0})
+    init_data = {"count": 0, "total_size": 0}
+    db.set_session(user_id, S0, init_data)
+    text = _waiting_text(init_data)
+    markup = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
 
     try:
         await query.message.edit_text(
-            text=_get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> sekarang.",
-            parse_mode="HTML"
+            text=text,
+            parse_mode="HTML",
+            reply_markup=markup
         )
+        sess = db.get_session(user_id)
+        sess["data"]["status_msg_id"] = query.message.message_id
+        db.set_session(user_id, S0, sess["data"])
     except Exception:
         try:
             await query.message.delete()
         except Exception:
             pass
-        await context.bot.send_message(
+        msg = await context.bot.send_message(
             chat_id=query.message.chat_id,
-            text=_get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> sekarang.",
-            reply_markup=ReplyKeyboardRemove(),
+            text=text,
+            reply_markup=markup,
             parse_mode="HTML"
         )
+        sess = db.get_session(user_id)
+        sess["data"]["status_msg_id"] = msg.message_id
+        db.set_session(user_id, S0, sess["data"])

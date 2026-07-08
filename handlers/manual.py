@@ -29,10 +29,8 @@ S_WAIT_FILENAME = "MANUAL_WAIT_FILENAME"
 _user_locks: dict = {}
 _user_timers: dict = {}
 
-
 def get_user_lock(user_id: int) -> asyncio.Lock:
     return _user_locks.setdefault(user_id, asyncio.Lock())
-
 
 def cleanup_inactive_users(inactive_ids: list) -> int:
     cleaned = 0
@@ -44,10 +42,7 @@ def cleanup_inactive_users(inactive_ids: list) -> int:
         cleaned += 1
     return cleaned
 
-
 def extract_numbers_from_text(text: str) -> list[str]:
-    """Pecah teks berdasarkan baris, koma, titik koma, pipa, atau tab.
-    Secara cerdas menghapus awalan nomor urut / bullets agar nomor HP tidak rusak."""
     if not text:
         return []
         
@@ -60,12 +55,10 @@ def extract_numbers_from_text(text: str) -> list[str]:
         if not seg:
             continue
         
-        # Bersihkan awalan penomoran seperti "1. ", "2) ", "- ", "* ", "[1] ", "No. 1: "
         seg = re.sub(r'^(?:\d+[\.\)\:\s\-]+|[\-\*\+\•]\s*|no\.\s*\d+\s*[\.\:\-]*\s*)', '', seg, flags=re.IGNORECASE).strip()
         if not seg:
             continue
         
-        # Ekstrak nomor
         has_plus = seg.startswith("+")
         digits = re.sub(r'\D', '', seg)
         if not digits:
@@ -73,14 +66,12 @@ def extract_numbers_from_text(text: str) -> list[str]:
         
         cleaned = ("+" if has_plus else "") + digits
         
-        # Batasan panjang nomor telepon standar internasional (7 sampai 17 karakter)
         if 7 <= len(cleaned) <= 17:
             if cleaned not in seen:
                 seen.add(cleaned)
                 clean_numbers.append(cleaned)
                 
     return clean_numbers
-
 
 def _get_breadcrumbs(data: dict, step: int) -> str:
     fmt = data.get("format", "")
@@ -90,53 +81,60 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
 
     parts = []
     
-    # Step 1: Input text / numbers count
     if step == 1:
-        parts.append(f"<b>» NOMOR: {numbers_count} «</b>" if numbers_count else "<b>» NOMOR «</b>")
+        parts.append(f"<b>[NOMOR: {numbers_count}]</b>" if numbers_count else "<b>[INPUT NOMOR]</b>")
     else:
-        parts.append(f"Nomor: {numbers_count}" if numbers_count else "Nomor ○")
+        parts.append(f"Nomor: <code>{numbers_count}</code>" if numbers_count else "Nomor: ➖")
         
-    # Step 2: Format choice
     if step == 2:
-        parts.append(f"<b>» FORMAT: {fmt.upper()} «</b>" if fmt else "<b>» FORMAT «</b>")
+        parts.append(f"<b>[FORMAT: {fmt.upper()}]</b>" if fmt else "<b>[FORMAT OUTPUT]</b>")
     elif step > 2 and fmt:
-        parts.append(f"Format: {fmt.upper()}")
+        parts.append(f"Format: <code>{fmt.upper()}</code>")
     else:
-        parts.append("Format ○")
+        parts.append("Format: ➖")
         
-    # Step 3: Contact Name (VCF only)
     if fmt == "vcf":
         if step == 3:
-            parts.append(f"<b>» NAMA: {contact_name.upper()} «</b>" if contact_name else "<b>» NAMA «</b>")
+            parts.append(f"<b>[NAMA: {contact_name.upper()}]</b>" if contact_name else "<b>[NAMA KONTAK]</b>")
         elif step > 3 and contact_name:
-            parts.append(f"Nama: {contact_name}")
+            parts.append(f"Nama: <code>{contact_name}</code>")
         else:
-            parts.append("Nama ○")
+            parts.append("Nama: ➖")
             
-    # Step 4: File Name (Step 3 for TXT/Excel, Step 4 for VCF)
     actual_filename_step = 4 if fmt == "vcf" else 3
     if step == actual_filename_step:
-        parts.append(f"<b>» FILE: {file_name.upper()} «</b>" if file_name else "<b>» FILE «</b>")
+        parts.append(f"<b>[FILE: {file_name.upper()}]</b>" if file_name else "<b>[NAMA FILE]</b>")
     elif step > actual_filename_step and file_name:
-        parts.append(f"File: {file_name}")
+        parts.append(f"File: <code>{file_name}</code>")
     else:
-        parts.append("File ○")
+        parts.append("File: ➖")
 
     breadcrumbs = " ➔ ".join(parts)
+    
+    console_title = (
+        "[ MANUAL VCF CONSOLE ]" if fmt == "vcf" else
+        "[ MANUAL TXT CONSOLE ]" if fmt == "txt" else
+        "[ MANUAL EXCEL CONSOLE ]" if fmt == "excel" else
+        "[ MANUAL CONSOLE ]"
+    )
     return (
-        "<b>[ MANUAL VCF CV ]</b>\n" if fmt == "vcf" else
-        "<b>[ MANUAL TXT CV ]</b>\n" if fmt == "txt" else
-        "<b>[ MANUAL EXCEL CV ]</b>\n" if fmt == "excel" else
-        "<b>[ MANUAL CV ]</b>\n"
-    ) + (
+        f"<b>{console_title}</b>\n"
         "────────────────────────────\n"
-        f"{breadcrumbs}\n"
+        f"<blockquote>{breadcrumbs}</blockquote>\n"
         "────────────────────────────\n\n"
     )
 
+def _waiting_text(data: dict) -> str:
+    return (
+        _get_breadcrumbs(data, 1) +
+        f"<blockquote><b>[ STATUS: WAITING FOR TEXT ]</b>\n"
+        f"Silakan ketik atau tempel daftar nomor HP Anda di chat sekarang.\n\n"
+        f"<b>Format:</b>\n"
+        f"\u2022 Satu nomor per baris, ATAU\n"
+        f"\u2022 Dipisahkan dengan koma/spasi/tab</blockquote>"
+    )
 
 async def cmd_manual(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler Command /manual"""
     if not await require_member(update, context):
         return
     user_id = update.effective_user.id
@@ -144,15 +142,14 @@ async def cmd_manual(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     from handlers.start import transition_to_handler
     
-    db.set_session(user_id, S_WAIT_TEXT, {"numbers": []})
-    
-    text = _get_breadcrumbs({"numbers": []}, 1) + "<b>[ ➔ ] Menunggu teks...</b>\nKirim daftar nomor HP secara manual sekarang.\n(Satu nomor per baris atau dipisahkan dengan spasi/koma)"
+    init_data = {"numbers": []}
+    db.set_session(user_id, S_WAIT_TEXT, init_data)
     
     msg = await transition_to_handler(
         context.bot,
         user_id,
         update.effective_chat.id,
-        text,
+        _waiting_text(init_data),
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
@@ -161,9 +158,7 @@ async def cmd_manual(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sess["data"]["status_msg_id"] = msg.message_id
         db.set_session(user_id, S_WAIT_TEXT, sess["data"])
 
-
 async def handle_manual_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler ketika user mengirim teks berisi daftar nomor HP"""
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
     if not sess or sess.get("state") != S_WAIT_TEXT:
@@ -178,15 +173,28 @@ async def handle_manual_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
     data = sess["data"]
     status_msg_id = data.get("status_msg_id")
 
-    if not text:
+    if not text or not text.strip():
+        # Input kosong — in-place warning
         try:
-            await context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
-                message_id=status_msg_id,
-                text=_get_breadcrumbs(data, 1) + "Kirim daftar nomor HP dalam bentuk teks.",
-                parse_mode="HTML",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
-            )
+            if status_msg_id:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_msg_id,
+                    text=(
+                        _get_breadcrumbs(data, 1) +
+                        "<blockquote>⚠️ <b>[ KOSONG ]</b>\nTeks yang dikirim kosong. Silakan kirimkan kembali daftar nomor HP Anda.</blockquote>"
+                    ),
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+                )
+                await asyncio.sleep(10)
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_msg_id,
+                    text=_waiting_text(data),
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+                )
         except Exception:
             pass
         return
@@ -194,14 +202,27 @@ async def handle_manual_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
     clean_numbers = extract_numbers_from_text(text)
 
     if not clean_numbers:
+        # Tidak ada nomor valid — in-place warning
         try:
-            await context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
-                message_id=status_msg_id,
-                text=_get_breadcrumbs(data, 1) + "Tidak ditemukan nomor HP yang valid. Silakan kirimkan kembali daftar nomor HP.",
-                parse_mode="HTML",
-                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
-            )
+            if status_msg_id:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_msg_id,
+                    text=(
+                        _get_breadcrumbs(data, 1) +
+                        "<blockquote>⚠️ <b>[ TIDAK ADA NOMOR VALID ]</b>\nTidak ditemukan nomor HP yang valid pada teks tersebut. Silakan coba lagi.</blockquote>"
+                    ),
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+                )
+                await asyncio.sleep(10)
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_msg_id,
+                    text=_waiting_text(data),
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+                )
         except Exception:
             pass
         return
@@ -222,16 +243,14 @@ async def handle_manual_text(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text=_get_breadcrumbs(data, 2) + f"Ditemukan <b>{len(clean_numbers)}</b> nomor HP unik.\n\nPilih format output:",
+            text=_get_breadcrumbs(data, 2) + f"<blockquote><b>[ LANGKAH 2: PILIH FORMAT OUTPUT ]</b>\nDitemukan: <code>{len(clean_numbers)}</code> nomor HP unik.\n\nPilih format output:</blockquote>",
             parse_mode="HTML",
             reply_markup=keyboard
         )
     except Exception:
         pass
 
-
 async def handle_manual_format_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler ketika user memilih format output"""
     query = update.callback_query
     await query.answer()
 
@@ -240,7 +259,7 @@ async def handle_manual_format_callback(update: Update, context: ContextTypes.DE
     if not sess or sess.get("state") != S_WAIT_FORMAT:
         return
 
-    fmt = query.data.split("_")[-1] # txt, vcf, excel
+    fmt = query.data.split("_")[-1]
     data = sess["data"]
     data["format"] = fmt
     status_msg_id = data.get("status_msg_id")
@@ -251,7 +270,7 @@ async def handle_manual_format_callback(update: Update, context: ContextTypes.DE
         db.set_session(user_id, S_WAIT_FILENAME, data)
         try:
             await query.edit_message_text(
-                text=_get_breadcrumbs(data, 3) + f"Masukkan nama file untuk hasil {fmt.upper()}:",
+                text=_get_breadcrumbs(data, 3) + f"<blockquote><b>[ LANGKAH 3: INPUT NAMA FILE ]</b>\nMasukkan nama file hasil {fmt.upper()} (contoh: <code>Hasil</code>):</blockquote>",
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -261,16 +280,14 @@ async def handle_manual_format_callback(update: Update, context: ContextTypes.DE
         db.set_session(user_id, S_WAIT_CONTACTNAME, data)
         try:
             await query.edit_message_text(
-                text=_get_breadcrumbs(data, 3) + "Masukkan nama kontak untuk hasil VCF:",
+                text=_get_breadcrumbs(data, 3) + f"<blockquote><b>[ LANGKAH 3: INPUT NAMA KONTAK ]</b>\nMasukkan nama kontak untuk hasil VCF (contoh: <code>FEE</code>):</blockquote>",
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
         except Exception:
             pass
 
-
 async def handle_manual_contact_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler VCF: User memasukkan nama kontak"""
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
     if not sess or sess.get("state") != S_WAIT_CONTACTNAME:
@@ -291,7 +308,7 @@ async def handle_manual_contact_name(update: Update, context: ContextTypes.DEFAU
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=_get_breadcrumbs(data, 3) + "Masukkan nama kontak yang valid.",
+                text=_get_breadcrumbs(data, 3) + "<blockquote>⚠️ <b>Masukkan nama kontak yang valid.</b></blockquote>",
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -306,16 +323,14 @@ async def handle_manual_contact_name(update: Update, context: ContextTypes.DEFAU
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text=_get_breadcrumbs(data, 4) + "Masukkan nama file untuk hasil VCF:",
+            text=_get_breadcrumbs(data, 4) + "<blockquote><b>[ LANGKAH 4: INPUT NAMA FILE ]</b>\nMasukkan nama file untuk hasil VCF (contoh: <code>FEE_Manual</code>):</blockquote>",
             parse_mode="HTML",
             reply_markup=keyboard
         )
     except Exception:
         pass
 
-
 async def handle_manual_file_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handler TXT/EXCEL/VCF: User memasukkan nama file"""
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
     if not sess or sess.get("state") != S_WAIT_FILENAME:
@@ -336,7 +351,7 @@ async def handle_manual_file_name(update: Update, context: ContextTypes.DEFAULT_
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=_get_breadcrumbs(data, 4 if data.get("format") == "vcf" else 3) + "Masukkan nama file yang valid.",
+                text=_get_breadcrumbs(data, 4 if data.get("format") == "vcf" else 3) + "<blockquote>⚠️ <b>Masukkan nama file yang valid.</b></blockquote>",
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -348,20 +363,19 @@ async def handle_manual_file_name(update: Update, context: ContextTypes.DEFAULT_
     db.clear_session(user_id)
     await handle_manual_process(update, context, data)
 
-
 async def handle_manual_process(update: Update, context: ContextTypes.DEFAULT_TYPE, data: dict):
-    """Proses pembuatan dan pengiriman file"""
     user_id = update.effective_user.id
     fmt = data.get("format")
     numbers = data.get("numbers", [])
     file_name = data.get("file_name", "kontak")
     status_msg_id = data.get("status_msg_id")
 
+    process_text = "<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang mengonversi dan membuat file...</blockquote>"
     try:
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text="<b>Memproses...</b>",
+            text=process_text,
             parse_mode="HTML"
         )
     except Exception:
@@ -371,7 +385,6 @@ async def handle_manual_process(update: Update, context: ContextTypes.DEFAULT_TY
         loop = asyncio.get_running_loop()
 
         if fmt == "txt":
-            # Generate TXT
             def do_txt():
                 content = ("\n".join(numbers) + "\n").encode("utf-8")
                 return content
@@ -380,6 +393,17 @@ async def handle_manual_process(update: Update, context: ContextTypes.DEFAULT_TY
             buf = io.BytesIO(content)
             buf.name = f"{file_name}.txt"
 
+            # Kirim status mengirim
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_msg_id,
+                    text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim berkas TXT hasil...</blockquote>",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
+
             await context.bot.send_document(
                 chat_id=update.effective_chat.id,
                 document=buf,
@@ -387,13 +411,11 @@ async def handle_manual_process(update: Update, context: ContextTypes.DEFAULT_TY
             )
 
         elif fmt == "excel":
-            # Generate Excel
             def do_excel():
                 wb = openpyxl.Workbook()
                 ws = wb.active
                 ws.title = "Daftar Kontak"
 
-                # Style Header
                 header_font = Font(name="Arial", size=11, bold=True, color="FFFFFF")
                 header_fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
                 header_align = Alignment(horizontal="center", vertical="center")
@@ -407,7 +429,6 @@ async def handle_manual_process(update: Update, context: ContextTypes.DEFAULT_TY
                     cell.fill = header_fill
                     cell.alignment = header_align
 
-                # Isi data
                 row_align_center = Alignment(horizontal="center", vertical="center")
                 row_align_left = Alignment(horizontal="left", vertical="center")
 
@@ -417,7 +438,6 @@ async def handle_manual_process(update: Update, context: ContextTypes.DEFAULT_TY
                     ws.cell(row=idx+1, column=2).alignment = row_align_left
                     ws.cell(row=idx+1, column=3).alignment = row_align_center
 
-                # Atur lebar kolom otomatis
                 for col in ws.columns:
                     max_len = max(len(str(cell.value or '')) for cell in col)
                     col_letter = openpyxl.utils.get_column_letter(col[0].column)
@@ -431,6 +451,16 @@ async def handle_manual_process(update: Update, context: ContextTypes.DEFAULT_TY
             content = await loop.run_in_executor(None, do_excel)
             buf = io.BytesIO(content)
             buf.name = f"{file_name}.xlsx"
+
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_msg_id,
+                    text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim berkas EXCEL hasil...</blockquote>",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
 
             await context.bot.send_document(
                 chat_id=update.effective_chat.id,
@@ -454,6 +484,16 @@ async def handle_manual_process(update: Update, context: ContextTypes.DEFAULT_TY
             buf = io.BytesIO(content)
             buf.name = f"{file_name}.vcf"
 
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_msg_id,
+                    text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim berkas VCF hasil...</blockquote>",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
+
             await context.bot.send_document(
                 chat_id=update.effective_chat.id,
                 document=buf,
@@ -465,7 +505,6 @@ async def handle_manual_process(update: Update, context: ContextTypes.DEFAULT_TY
         except Exception:
             pass
 
-        # Keyboard selesai
         keyboard = InlineKeyboardMarkup([
             [
                 InlineKeyboardButton("PROSES MANUAL LAIN", callback_data="show_manual_help", style="success"),
@@ -505,33 +544,33 @@ async def handle_manual_process(update: Update, context: ContextTypes.DEFAULT_TY
 
     except Exception as e:
         logger.error("Error di proses manual: %s", e, exc_info=True)
-        try:
-            await context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
-                message_id=status_msg_id,
-                text="Terjadi kesalahan saat memproses data. Coba lagi.",
-                parse_mode="HTML"
-            )
-        except Exception:
-            pass
-
+        if status_msg_id:
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_msg_id,
+                    text="<blockquote>⚠️ <b>Terjadi kesalahan saat memproses data.</b></blockquote>",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
 
 async def handle_show_manual_help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Callback untuk tombol PROSES MANUAL LAIN"""
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
     asyncio.create_task(adb.increment_usage(user_id))
     
-    db.set_session(user_id, S_WAIT_TEXT, {"numbers": []})
-
-    text = _get_breadcrumbs({"numbers": []}, 1) + "<b>[ ➔ ] Menunggu teks...</b>\nKirim daftar nomor HP secara manual sekarang.\n(Satu nomor per baris atau dipisahkan dengan spasi/koma)"
+    init_data = {"numbers": []}
+    db.set_session(user_id, S_WAIT_TEXT, init_data)
+    text = _waiting_text(init_data)
+    markup = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
 
     try:
         await query.message.edit_text(
             text=text,
             parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+            reply_markup=markup
         )
         sess = db.get_session(user_id)
         sess["data"]["status_msg_id"] = query.message.message_id
@@ -545,7 +584,7 @@ async def handle_show_manual_help_callback(update: Update, context: ContextTypes
             chat_id=query.message.chat_id,
             text=text,
             parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+            reply_markup=markup
         )
         sess = db.get_session(user_id)
         sess["data"]["status_msg_id"] = msg.message_id
