@@ -72,6 +72,12 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
             register_welcome_messages(user_id, [edit_msg_id])
             return msg
         except Exception as e:
+            if "Message is not modified" in str(e):
+                class MockMessage:
+                    def __init__(self, msg_id):
+                        self.message_id = msg_id
+                register_welcome_messages(user_id, [edit_msg_id])
+                return MockMessage(edit_msg_id)
             import logging
             logging.getLogger(__name__).warning("Gagal mengedit pesan welcome: %s", e)
 
@@ -301,12 +307,15 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
             disable_web_page_preview=True,
         )
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).warning("Gagal edit_message_text di back_to_start, fallback ke send: %s", e)
-        try:
-            await query.message.delete()
-        except Exception:
-            pass
+        if "Message is not modified" in str(e):
+            edited_msg = query.message
+        else:
+            import logging
+            logging.getLogger(__name__).warning("Gagal edit_message_text di back_to_start, fallback ke send: %s", e)
+            try:
+                await query.message.delete()
+            except Exception:
+                pass
 
     welcome_msg_id = edited_msg.message_id if edited_msg else None
 
