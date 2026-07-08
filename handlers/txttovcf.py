@@ -51,40 +51,35 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     
     parts = []
     
+    # Step 1: Berkas
     if step == 1:
-        parts.append(f"<b>» BERKAS: {count} FILE «</b>" if count else "<b>» BERKAS «</b>")
+        parts.append(f"<tg-emoji emoji-id=\"6003735582495216112\">⚡️</tg-emoji> <b>BERKAS: {count} FILE</b>" if count else f"<tg-emoji emoji-id=\"6003735582495216112\">⚡️</tg-emoji> <b>BERKAS</b>")
     else:
-        parts.append(f"Berkas: {count} file" if count else "Berkas ○")
+        parts.append(f"<tg-emoji emoji-id=\"5253742260054409879\">📂</tg-emoji> <code>{count}</code> File" if count else f"<tg-emoji emoji-id=\"5253742260054409879\">📂</tg-emoji> ➖")
     
+    # Step 2: Nama
     if step == 2:
-        if contact_name:
-            parts.append(f"<b>» NAMA: {contact_name.upper()} «</b>")
-        else:
-            parts.append("<b>» NAMA «</b>")
+        parts.append(f"<tg-emoji emoji-id=\"6003735582495216112\">⚡️</tg-emoji> <b>NAMA: {contact_name.upper()}</b>" if contact_name else f"<tg-emoji emoji-id=\"6003735582495216112\">⚡️</tg-emoji> <b>NAMA</b>")
     elif step > 2 and contact_name:
-        parts.append(f"Nama: {contact_name}")
+        parts.append(f"<tg-emoji emoji-id=\"5452069934089641166\">👤</tg-emoji> <code>{contact_name}</code>")
     else:
-        parts.append("Nama ○")
+        parts.append(f"<tg-emoji emoji-id=\"5452069934089641166\">👤</tg-emoji> ➖")
         
+    # Step 3: Jumlah
     if step == 3:
-        if per_file:
-            parts.append(f"<b>» JUMLAH: {per_file} «</b>")
-        else:
-            parts.append("<b>» JUMLAH «</b>")
+        parts.append(f"<tg-emoji emoji-id=\"6003735582495216112\">⚡️</tg-emoji> <b>JUMLAH: {per_file}</b>" if per_file else f"<tg-emoji emoji-id=\"6003735582495216112\">⚡️</tg-emoji> <b>JUMLAH</b>")
     elif step > 3 and per_file:
-        parts.append(f"Jumlah: {per_file}")
+        parts.append(f"<tg-emoji emoji-id=\"5244837092042750681\">🔢</tg-emoji> <code>{per_file}</code>")
     else:
-        parts.append("Jumlah ○")
+        parts.append(f"<tg-emoji emoji-id=\"5244837092042750681\">🔢</tg-emoji> ➖")
 
+    # Step 4: File
     if step == 4:
-        if file_name:
-            parts.append(f"<b>» FILE: {file_name.upper()} «</b>")
-        else:
-            parts.append("<b>» FILE «</b>")
+        parts.append(f"<tg-emoji emoji-id=\"6003735582495216112\">⚡️</tg-emoji> <b>FILE: {file_name.upper()}</b>" if file_name else f"<tg-emoji emoji-id=\"6003735582495216112\">⚡️</tg-emoji> <b>FILE</b>")
     elif step > 4 and file_name:
-        parts.append(f"File: {file_name}")
+        parts.append(f"<tg-emoji emoji-id=\"5260587686304956325\">📁</tg-emoji> <code>{file_name}</code>")
     else:
-        parts.append("File ○")
+        parts.append(f"<tg-emoji emoji-id=\"5260587686304956325\">📁</tg-emoji> ➖")
         
     num_style = data.get("file_num_style", "")
     style_suffix = ""
@@ -93,21 +88,19 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     elif num_style == "back":
         style_suffix = " (AKHIR)"
         
+    # Step 5: Urutan
     if step == 5:
-        if awalan:
-            parts.append(f"<b>» URUTAN: {awalan}{style_suffix} «</b>")
-        else:
-            parts.append("<b>» URUTAN «</b>")
+        parts.append(f"<tg-emoji emoji-id=\"6003735582495216112\">⚡️</tg-emoji> <b>URUTAN: {awalan}{style_suffix}</b>" if awalan else f"<tg-emoji emoji-id=\"6003735582495216112\">⚡️</tg-emoji> <b>URUTAN</b>")
     elif step > 5 and awalan:
-        parts.append(f"Urutan: {awalan}{style_suffix}")
+        parts.append(f"<tg-emoji emoji-id=\"6158892349805040268\">🏷️</tg-emoji> <code>{awalan}{style_suffix}</code>")
     else:
-        parts.append("Urutan ○")
+        parts.append(f"<tg-emoji emoji-id=\"6158892349805040268\">🏷️</tg-emoji> ➖")
         
     breadcrumbs = " ➔ ".join(parts)
     return (
-        "<b>[ TXT ➔ VCF CV ]</b>\n"
+        "<tg-emoji emoji-id=\"5260587686304956325\">🌐</tg-emoji> <b>TXT ➔ VCF WIZARD</b>\n"
         "────────────────────────────\n"
-        f"{breadcrumbs}\n"
+        f"<blockquote>{breadcrumbs}</blockquote>\n"
         "────────────────────────────\n\n"
     )
 
@@ -140,7 +133,11 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 data = sess["data"]
                 jumlah = data["count"]
                 
-                text = _get_breadcrumbs(data, 1) + f"<b>{jumlah}</b> file TXT diterima. Silakan pilih tindakan:"
+                text = (
+                    _get_breadcrumbs(data, 1) +
+                    f"<blockquote><tg-emoji emoji-id=\"5253742260054409879\">📥</tg-emoji> <b><code>{jumlah}</code> berkas TXT diterima.</b>\n"
+                    f"Silakan pilih tindakan di bawah:</blockquote>"
+                )
                 keyboard = InlineKeyboardMarkup([
                     [
                         InlineKeyboardButton("PROSES SEKARANG", callback_data="done", style="success"),
@@ -209,7 +206,10 @@ async def cmd_txttovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        _get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> sekarang.",
+        _get_breadcrumbs({"count": 0}, 1) + (
+            "<blockquote><tg-emoji emoji-id=\"6003735582495216112\">📡</tg-emoji> <b>Menunggu berkas...</b>\n"
+            "Kirim file <code>.txt</code> sekarang.</blockquote>"
+        ),
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
@@ -248,7 +248,11 @@ async def handle_ttv_contact_name(update: Update, context: ContextTypes.DEFAULT_
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text=_get_breadcrumbs(data, 2) + f"Pilih format penamaan untuk kontak <b>{data['contact_name']}</b>:",
+        text=(
+            _get_breadcrumbs(data, 2) +
+            f"<blockquote><tg-emoji emoji-id=\"5452069934089641166\">👤</tg-emoji> <b>Format Penamaan Kontak</b>\n"
+            f"Pilih style penamaan untuk <code>{data['contact_name']}</code>:</blockquote>"
+        ),
         parse_mode="HTML",
         reply_markup=keyboard
     )
@@ -271,7 +275,11 @@ async def handle_ttv_style_callback(update: Update, context: ContextTypes.DEFAUL
     
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
     await query.edit_message_text(
-        text=_get_breadcrumbs(data, 3) + "Berapa kontak per file? Contoh: <b>100</b>",
+        text=(
+            _get_breadcrumbs(data, 3) +
+            "<blockquote><tg-emoji emoji-id=\"5244837092042750681\">🔢</tg-emoji> <b>Kontak per Berkas?</b>\n"
+            "Ketik jumlah kontak per file (contoh: <code>100</code>):</blockquote>"
+        ),
         parse_mode="HTML",
         reply_markup=keyboard
     )
@@ -299,7 +307,11 @@ async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text=_get_breadcrumbs(sess["data"], 3) + "⚠️ Harap masukkan angka saja.\n\nBerapa kontak per file? Contoh: <b>100</b>",
+            text=(
+                _get_breadcrumbs(sess["data"], 3) +
+                "<blockquote><tg-emoji emoji-id=\"5244837092042750681\">🔢</tg-emoji> <b>Harap masukkan angka saja.</b>\n\n"
+                "Berapa kontak per file? (contoh: <code>100</code>):</blockquote>"
+            ),
             parse_mode="HTML",
             reply_markup=keyboard
         )
@@ -310,7 +322,11 @@ async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text=_get_breadcrumbs(sess["data"], 3) + f"⚠️ Harap masukkan angka antara 1 sampai {MAX_CONTACTS_PER_FILE:,}.\n\nBerapa kontak per file? Contoh: <b>100</b>",
+            text=(
+                _get_breadcrumbs(sess["data"], 3) +
+                f"<blockquote><tg-emoji emoji-id=\"5244837092042750681\">🔢</tg-emoji> <b>Batas: 1 - {MAX_CONTACTS_PER_FILE:,}</b>\n\n"
+                "Berapa kontak per file? (contoh: <code>100</code>):</blockquote>"
+            ),
             parse_mode="HTML",
             reply_markup=keyboard
         )
@@ -323,7 +339,11 @@ async def handle_ttv_per_file(update: Update, context: ContextTypes.DEFAULT_TYPE
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text=_get_breadcrumbs(data, 4) + "Nama file? Contoh: <b>HKTV</b>",
+        text=(
+            _get_breadcrumbs(data, 4) +
+            "<blockquote><tg-emoji emoji-id=\"5260587686304956325\">📁</tg-emoji> <b>Nama File Output?</b>\n"
+            "Ketik nama berkas VCF (contoh: <code>HKTV</code>):</blockquote>"
+        ),
         parse_mode="HTML",
         reply_markup=keyboard
     )
@@ -351,7 +371,11 @@ async def handle_ttv_file_name(update: Update, context: ContextTypes.DEFAULT_TYP
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text=_get_breadcrumbs(data, 5) + "Nomor urut awal? Contoh: <b>1</b>",
+        text=(
+            _get_breadcrumbs(data, 5) +
+            "<blockquote><tg-emoji emoji-id=\"6158892349805040268\">🏷️</tg-emoji> <b>Nomor Urut Awal?</b>\n"
+            "Ketik angka mulai urutan (contoh: <code>1</code>):</blockquote>"
+        ),
         parse_mode="HTML",
         reply_markup=keyboard
     )
@@ -378,7 +402,11 @@ async def handle_ttv_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text=_get_breadcrumbs(sess["data"], 5) + "⚠️ Harap masukkan angka valid (minimal 1).\n\nNomor urut awal? Contoh: <b>1</b>",
+            text=(
+                _get_breadcrumbs(sess["data"], 5) +
+                "<blockquote><tg-emoji emoji-id=\"6158892349805040268\">🏷️</tg-emoji> <b>Masukkan angka minimal 1.</b>\n\n"
+                "Nomor urut awal? (contoh: <code>1</code>):</blockquote>"
+            ),
             parse_mode="HTML",
             reply_markup=keyboard
         )
@@ -401,7 +429,11 @@ async def handle_ttv_awalan(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text=_get_breadcrumbs(data, 5) + "Pilih format penomoran nama file:",
+        text=(
+            _get_breadcrumbs(data, 5) +
+            "<blockquote><tg-emoji emoji-id=\"6003735582495216112\">⚙️</tg-emoji> <b>Format Penomoran File</b>\n"
+            "Pilih format letak nomor urut:</blockquote>"
+        ),
         parse_mode="HTML",
         reply_markup=style_keyboard
     )
@@ -430,7 +462,11 @@ async def handle_ttv_numstyle_callback(update: Update, context: ContextTypes.DEF
     ])
     
     await query.edit_message_text(
-        text=_get_breadcrumbs(data, 6) + "Pilih format pengiriman file VCF:",
+        text=(
+            _get_breadcrumbs(data, 6) +
+            "<blockquote><tg-emoji emoji-id=\"5253742260054409879\">📦</tg-emoji> <b>Opsi Pengiriman</b>\n"
+            "Pilih format pengiriman berkas VCF:</blockquote>"
+        ),
         parse_mode="HTML",
         reply_markup=deliv_keyboard
     )
@@ -581,7 +617,12 @@ async def handle_ttv_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text=_get_breadcrumbs(data, 2) + f"<b>{data.get('total_contacts', 0)}</b> kontak terdeteksi. Nama kontak? Contoh: <b>FEE</b>",
+            text=(
+                _get_breadcrumbs(data, 2) +
+                f"<blockquote><tg-emoji emoji-id=\"5452069934089641166\">👤</tg-emoji> <b>Nama Kontak?</b>\n"
+                f"Terdeteksi: <code>{data.get('total_contacts', 0)}</code> kontak.\n\n"
+                f"Ketik nama kontak (contoh: <code>FEE</code>):</blockquote>"
+            ),
             parse_mode="HTML",
             reply_markup=keyboard
         )
@@ -618,7 +659,7 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await context.bot.edit_message_text(
         chat_id=update.effective_chat.id,
         message_id=status_msg_id,
-        text="Memproses...",
+        text="<blockquote><tg-emoji emoji-id=\"6003735582495216112\">⏳</tg-emoji> <b>Sedang memproses dan menyusun data...</b></blockquote>",
         parse_mode="HTML"
     )
 
@@ -711,7 +752,7 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text="Mengompresi file ke ZIP...",
+                text="<blockquote><tg-emoji emoji-id=\"5253742260054409879\">📦</tg-emoji> <b>Mengompresi file ke berkas ZIP...</b></blockquote>",
                 parse_mode="HTML"
             )
             
@@ -726,7 +767,7 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text="Mengirim file ZIP...",
+                text="<blockquote><tg-emoji emoji-id=\"6003735582495216112\">🚀</tg-emoji> <b>Mengirim berkas ZIP...</b></blockquote>",
                 parse_mode="HTML"
             )
 
@@ -796,7 +837,7 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="<b>Mengirim file VCF...</b>",
+                    text=f"<blockquote><tg-emoji emoji-id=\"6003735582495216112\">🚀</tg-emoji> <b>Mengirim berkas VCF: <code>0</code> / <code>{total_files}</code></b></blockquote>",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -821,6 +862,17 @@ async def handle_ttv_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
                             connect_timeout=FILE_CONNECT_TIMEOUT,
                         )
                         sent_count += 1
+                        
+                        try:
+                            await context.bot.edit_message_text(
+                                chat_id=update.effective_chat.id,
+                                message_id=status_msg_id,
+                                text=f"<blockquote><tg-emoji emoji-id=\"6003735582495216112\">🚀</tg-emoji> <b>Mengirim berkas VCF: <code>{sent_count}</code> / <code>{total_files}</code></b></blockquote>",
+                                parse_mode="HTML"
+                            )
+                        except Exception:
+                            pass
+                            
                         break
                     except RetryAfter as e:
                         wait_secs = max(int(e.retry_after), 2) + 1
@@ -899,7 +951,10 @@ async def handle_show_txttovcf_help_callback(update: Update, context: ContextTyp
     _clear_buffers(user_id)
     db.set_session(user_id, S0, {"count": 0, "total_size": 0, "total_contacts": 0})
 
-    text = _get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> sekarang."
+    text = _get_breadcrumbs({"count": 0}, 1) + (
+        "<blockquote><tg-emoji emoji-id=\"6003735582495216112\">📡</tg-emoji> <b>Menunggu berkas...</b>\n"
+        "Kirim file <code>.txt</code> sekarang.</blockquote>"
+    )
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
 
     try:
