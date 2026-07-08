@@ -7,30 +7,30 @@ from database import db
 from database.db_async import adb
 
 def _get_referral_text(pts: dict, count: int, link: str) -> str:
-    header_text = "          <b>« Referral CV »</b>\n\n"
-    
-    body = (
+    header_text = "<b>[ REFERRAL PROGRAM CV ]</b>\n"
+    header_text += "────────────────────────────\n"
+    header_text += (
         "Undang teman & dapatkan VIP Gratis instan!\n"
         "• 1 Teman = <b>1 Poin</b> (Maksimal 50 Poin per akun).\n\n"
     )
     
     if pts["total_referral_points_earned"] < 50:
-        body += (
+        header_text += (
             "<b>Link Referral (Klik untuk Salin):</b>\n"
             f"<code>{link}</code>\n\n"
         )
     else:
-        body += (
+        header_text += (
             "<b>Link Referral Kamu:</b>\n"
             "<i>Mencapai batas maks 50 Poin.</i>\n\n"
         )
         
-    body += (
-        "<b>Statistik Kamu:</b>\n"
-        f"• Saldo Poin: <b>{pts['referral_points']} Poin</b>\n"
-        f"• Akumulasi: <b>{pts['total_referral_points_earned']}/50 Poin</b>\n"
-        f"• Total Teman: <b>{count} orang</b>\n\n"
-        "<b>Toko Penukaran VIP:</b>\n"
+    body = (
+        "<b>[ STATISTIK POIN ]</b>\n"
+        f"<blockquote>• Saldo Poin : <code>{pts['referral_points']} Poin</code>\n"
+        f"• Akumulasi  : <code>{pts['total_referral_points_earned']}/50 Poin</code>\n"
+        f"• Total Teman: <code>{count} orang</code></blockquote>\n"
+        "<b>[ TOKO PENUKARAN VIP ]</b>\n"
         "Pilih paket VIP di bawah untuk menukarkan poin Anda:"
     )
     return header_text + body

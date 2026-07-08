@@ -58,17 +58,17 @@ async def cmd_akun(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     import html
     name = html.escape(user.first_name or "User")
-    header_text = f"          <b>« Profile: {name} »</b>\n\n"
+    header_text = "<b>[ PROFILE USER CONSOLE ]</b>\n"
+    header_text += "────────────────────────────\n"
 
     lines = [
-        f"• Nama     : {user.full_name or user.first_name or '-'}",
-        f"• Username : @{user.username}" if user.username else "• Username : -",
-        f"• ID User  : {user.id}",
-        f"• Bergabung: {joined}",
-        "",
-        "<b>STATUS & PEMAKAIAN</b>",
-        f"• Status   : {role_str}",
-        f"• Pemakaian: {usage}x konversi",
+        f"<blockquote>• Nama     : <b>{user.full_name or user.first_name or '-'}</b>",
+        f"• Username : <b>@{user.username}</b>" if user.username else "• Username : <b>-</b>",
+        f"• ID User  : <code>{user.id}</code>",
+        f"• Bergabung: <b>{joined}</b></blockquote>\n",
+        "<b>[ STATUS & PENGGUNAAN ]</b>\n",
+        f"<blockquote>• Status   : <b>{role_str}</b>",
+        f"• Pemakaian: <code>{usage}</code> konversi</blockquote>",
     ]
 
     rows = []
