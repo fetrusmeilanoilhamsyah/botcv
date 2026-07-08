@@ -173,6 +173,9 @@ async def send_fresh_start_menu(bot, user_id: int, chat_id: int, first_name: str
     return msg1
 
 
+_new_user_menu_msg_id: dict = {}  # snapshot msg_id untuk notif VIP user baru
+
+
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     first_name = user.first_name or "Kawan"
@@ -185,10 +188,13 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
 
     # Kirim fresh start menu secara bersih!
-    await send_fresh_start_menu(context.bot, user.id, update.effective_chat.id, first_name)
+    sent_msg = await send_fresh_start_menu(context.bot, user.id, update.effective_chat.id, first_name)
+    # Snapshot msg_id SEKARANG (sebelum background task bisa pop _welcome_messages)
+    new_menu_msg_id = sent_msg.message_id if sent_msg else None
 
     # ── Semua DB + cleanup di background ──────────────────────────────────────
     async def _bg():
+        import logging as _log
         try:
             is_new = (await adb.get_user(user.id)) is None
             await adb.upsert_user(user.id, user.username or "", user.full_name or "")
@@ -197,10 +203,9 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             if is_new:
                 # Berikan VIP 7 hari gratis otomatis ke pengguna baru
                 await adb.set_member_vip(user.id, 7, user.full_name or "New User")
-                # Edit welcome message yang sudah ada — TIDAK kirim pesan baru agar tidak menumpuk
-                from handlers.start import _welcome_messages
-                msg_ids = _welcome_messages.get(user.id, [])
-                if msg_ids:
+                _log.getLogger(__name__).info("[start] VIP 7 hari diberikan ke user baru %s", user.id)
+                # Edit welcome message menggunakan snapshot msg_id (anti race-condition)
+                if new_menu_msg_id:
                     try:
                         welcome_text = build_menu_text(first_name, user.id)
                         vip_note = (
@@ -220,14 +225,14 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         ])
                         await context.bot.edit_message_text(
                             chat_id=user.id,
-                            message_id=msg_ids[0],
+                            message_id=new_menu_msg_id,
                             text=welcome_text + vip_note,
                             parse_mode="HTML",
                             reply_markup=keyboard,
                             disable_web_page_preview=True,
                         )
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        _log.getLogger(__name__).warning("[start] Gagal edit notif VIP user baru %s: %s", user.id, e)
 
             if is_new and context.args:
                 arg = context.args[0]
