@@ -40,15 +40,42 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
     # Ambil pesan welcome yang sedang aktif
     msg_ids = _welcome_messages.pop(user_id, [])
     if msg_ids:
-        # Hapus pesan welcome lama agar tidak menumpuk
-        async def safe_delete(msg_id):
-            try:
-                await bot.delete_message(chat_id=chat_id, message_id=msg_id)
-            except Exception:
-                pass
-        await asyncio.gather(*(safe_delete(msg_id) for msg_id in msg_ids))
+        # Pesan pertama (msg_ids[0]) adalah pesan bot yang panjang (menu utama).
+        # Kita EDIT pesan panjang ini langsung menjadi prompt baru agar tidak menumpuk!
+        edit_msg_id = msg_ids[0]
+        
+        # Pesan-pesan lain di bawahnya kita hapus semuanya
+        delete_ids = msg_ids[1:]
+        if delete_ids:
+            async def safe_delete(msg_id):
+                try:
+                    await bot.delete_message(chat_id=chat_id, message_id=msg_id)
+                except Exception:
+                    pass
+            await asyncio.gather(*(safe_delete(msg_id) for msg_id in delete_ids))
 
-    # Kirim pesan baru fresh (bukan edit, agar blockquotes ter-render sempurna tanpa bug Telegram)
+        try:
+            # Edit pesan welcome panjang secara langsung (lewati ReplyKeyboardRemove karena Telegram
+            # tidak mengizinkan pengubahan reply_markup menjadi ReplyKeyboardRemove secara edit)
+            from telegram import ReplyKeyboardRemove
+            actual_markup = reply_markup if not isinstance(reply_markup, ReplyKeyboardRemove) else None
+            
+            msg = await bot.edit_message_text(
+                chat_id=chat_id,
+                message_id=edit_msg_id,
+                text=text,
+                parse_mode="HTML",
+                reply_markup=actual_markup,
+                disable_web_page_preview=True
+            )
+            # Daftarkan kembali pesan yang diedit ini sebagai welcome message aktif
+            register_welcome_messages(user_id, [edit_msg_id])
+            return msg
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Gagal mengedit pesan welcome: %s", e)
+
+    # Fallback: Kirim pesan baru jika edit gagal / tidak ada welcome messages
     msg = await bot.send_message(
         chat_id=chat_id,
         text=text,
@@ -56,7 +83,7 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
         reply_markup=reply_markup,
         disable_web_page_preview=True
     )
-    # Daftarkan pesan baru agar next call bisa hapus
+    # Daftarkan pesan baru agar next call bisa edit, bukan kirim lagi (anti-menumpuk)
     register_welcome_messages(user_id, [msg.message_id])
     return msg
 
@@ -155,7 +182,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Kirim fresh start menu secara bersih!
     await send_fresh_start_menu(context.bot, user.id, update.effective_chat.id, first_name)
 
-    # ── Semua DB + cleanup di background ──────────
+    # ── Semua DB + cleanup di background ──────────────────────────────────────
     async def _bg():
         try:
             is_new = (await adb.get_user(user.id)) is None
@@ -270,20 +297,35 @@ async def handle_back_to_start(update: Update, context: ContextTypes.DEFAULT_TYP
         ]
     ])
 
-    # Hapus pesan callback/wizard yang sedang aktif agar transisi bersih tanpa bug rendering
+    # Coba edit pesan callback in-place agar transisi super smooth!
+    edited_msg = None
     try:
-        await query.message.delete()
-    except Exception:
-        pass
+        edited_msg = await query.edit_message_text(
+            text=menu_text,
+            parse_mode="HTML",
+            reply_markup=keyboard,
+            disable_web_page_preview=True,
+        )
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Gagal edit_message_text di back_to_start, fallback ke send: %s", e)
+        try:
+            await query.message.delete()
+        except Exception:
+            pass
 
-    msg1 = await context.bot.send_message(
-        chat_id=chat_id,
-        text=menu_text,
-        parse_mode="HTML",
-        reply_markup=keyboard,
-        disable_web_page_preview=True,
-    )
-    welcome_msg_id = msg1.message_id
+    welcome_msg_id = edited_msg.message_id if edited_msg else None
+
+    if not welcome_msg_id:
+        # Fallback: Kirim ulang msg1
+        msg1 = await context.bot.send_message(
+            chat_id=chat_id,
+            text=menu_text,
+            parse_mode="HTML",
+            reply_markup=keyboard,
+            disable_web_page_preview=True,
+        )
+        welcome_msg_id = msg1.message_id
 
     _welcome_messages.pop(user.id, None)
     register_welcome_messages(user.id, [welcome_msg_id])
