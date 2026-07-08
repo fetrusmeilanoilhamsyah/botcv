@@ -118,34 +118,30 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                         InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")
                     ]
                 ])
+
+                # Hapus status message lama di atas
                 status_msg_id = data.get("status_msg_id")
-                edited = False
                 if status_msg_id:
                     try:
-                        await context.bot.edit_message_text(
-                            chat_id=chat_id,
-                            message_id=status_msg_id,
-                            text=text,
-                            reply_markup=keyboard,
-                            parse_mode="HTML"
-                        )
-                        edited = True
+                        await context.bot.delete_message(chat_id=chat_id, message_id=status_msg_id)
                     except Exception:
                         pass
-                if not edited:
-                    msg = await context.bot.send_message(
-                        chat_id=chat_id,
-                        text=text,
-                        reply_markup=keyboard,
-                        parse_mode="HTML"
-                    )
-                    data["status_msg_id"] = msg.message_id
-                    db.set_session(user_id, sess["state"], data)
+
+                # Kirim pesan baru di paling bawah, di bawah file yang diunggah user
+                msg = await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=text,
+                    reply_markup=keyboard,
+                    parse_mode="HTML"
+                )
+                data["status_msg_id"] = msg.message_id
+                db.set_session(user_id, sess["state"], data)
     except asyncio.CancelledError:
         pass
     except Exception as e:
         import logging
         logging.getLogger(__name__).error("Debounce notify error in vcfsimple: %s", e)
+
 
 def _reset_timer(user_id, context, chat_id):
     old = _user_timers.get(user_id)
