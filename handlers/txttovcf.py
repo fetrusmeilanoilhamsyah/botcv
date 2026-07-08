@@ -212,8 +212,8 @@ async def cmd_txttovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
             "Silakan kirim satu atau beberapa file <code>.txt</code> sekarang.\n\n"
             "<b>Batas Sesi:</b>\n"
-            "• Maksimum upload: <code>20 file</code>\n"
-            "• Maksimum ukuran: <code>50 MB</code> per file</blockquote>"
+            f"• Maksimum upload: <code>{MAX_FILES} file</code>\n"
+            f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
         ),
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
@@ -962,8 +962,8 @@ async def handle_show_txttovcf_help_callback(update: Update, context: ContextTyp
         "<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
         "Silakan kirim satu atau beberapa file <code>.txt</code> sekarang.\n\n"
         "<b>Batas Sesi:</b>\n"
-        "• Maksimum upload: <code>20 file</code>\n"
-        "• Maksimum ukuran: <code>50 MB</code> per file</blockquote>"
+        f"• Maksimum upload: <code>{MAX_FILES} file</code>\n"
+        f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
     )
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
 
