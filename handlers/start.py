@@ -55,7 +55,7 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
         if msg_ids:
             edit_msg_id = msg_ids[0]
 
-            # Pesan-pesan lain di bawahnya kita hapus semuanya
+            # Pesan-pesan lain di bawahnya kita hapus semuanya di background agar tidak memblokir edit pesan utama
             delete_ids = msg_ids[1:]
             if delete_ids:
                 _welcome_messages[user_id] = [edit_msg_id]
@@ -64,7 +64,10 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
                         await bot.delete_message(chat_id=chat_id, message_id=msg_id)
                     except Exception:
                         pass
-                await asyncio.gather(*(safe_delete(msg_id) for msg_id in delete_ids))
+                
+                async def _delete_old_msgs_bg():
+                    await asyncio.gather(*(safe_delete(msg_id) for msg_id in delete_ids))
+                asyncio.create_task(_delete_old_msgs_bg())
 
             try:
                 from telegram import ReplyKeyboardRemove
