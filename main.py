@@ -82,10 +82,20 @@ from handlers.pecahtxt import (
     S0 as PECAHTXT_S0, S1 as PECAHTXT_S1, S2 as PECAHTXT_S2, S3 as PECAHTXT_S3,
 )
 from handlers.rename import (
-    cmd_rename, handle_rename_name, handle_rename_file,
+    cmd_rename, handle_rename_file,
     handle_show_rename_help_callback,
-    STATE_NAME as RENAME_S1, STATE_FILE as RENAME_S2,
     handle_rename_done,
+    handle_rename_contact_name,
+    handle_rename_file_name,
+    handle_rename_start_num,
+    handle_rename_numstyle_callback,
+    handle_rename_delivery_callback,
+    S0 as RENAME_S0,
+    S1 as RENAME_S1,
+    S2 as RENAME_S2,
+    S3 as RENAME_S3,
+    S4 as RENAME_S4,
+    S5 as RENAME_S5,
 )
 from handlers.duplikat import (
     cmd_duplikat, handle_duplikat_file, handle_show_duplikat_help_callback,
@@ -326,7 +336,9 @@ async def text_router(update: Update, context):
         PECAH_S2:         handle_pecahvcf_delivery_text,
         PECAHTXT_S1:      handle_pecahtxt_per_file,
         PECAHTXT_S2:      handle_pecahtxt_delivery_text,
-        RENAME_S1:        handle_rename_name,
+        RENAME_S1:        handle_rename_contact_name,
+        RENAME_S2:        handle_rename_file_name,
+        RENAME_S3:        handle_rename_start_num,
         S1:               handle_ttv_contact_name,
         S2:               handle_ttv_per_file,
         S3:               handle_ttv_file_name,
@@ -369,7 +381,7 @@ async def file_router(update: Update, context):
         VCF2TXT_STATE:  (handle_vcftotxt_file,    "file VCF berupa DOKUMEN"),
         PECAH_S0:       (handle_pecahvcf_file,    "file VCF berupa DOKUMEN"),
         PECAHTXT_S0:    (handle_pecahtxt_file,    "file TXT berupa DOKUMEN"),
-        RENAME_S2:      (handle_rename_file,      "file VCF berupa DOKUMEN"),
+        RENAME_S0:      (handle_rename_file,      "file VCF berupa DOKUMEN"),
         S0:             (handle_ttv_file,         "file TXT berupa DOKUMEN"),
         S5:             (handle_ttv_file,         "file TXT berupa DOKUMEN"),
         VS_WAIT_FILE:   (handle_vs_file,          "file TXT berupa DOKUMEN"),
@@ -427,7 +439,7 @@ async def done_router(update: Update, context):
         XTV_S0:         handle_xtv_done,
         COUNT_STATE:    handle_count_done,
         XLSX2TXT_STATE: handle_xlsxtotxt_done,
-        RENAME_S2:      handle_rename_done,
+        RENAME_S0:      handle_rename_done,
         CLEANUP_STATE:  handle_cleanup_done,
         DUPLICAT_STATE: handle_duplikat_done,
         ADDNUM_S1:      handle_addnum_done,
@@ -886,6 +898,8 @@ def main():
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_pecahtxt_delivery_callback), pattern="^pecahtxt_deliv_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_pecahvcf_delivery_callback), pattern="^pecahvcf_deliv_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_duplikat_help_callback), pattern="^show_duplikat_help$"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_rename_numstyle_callback), pattern="^rename_numstyle_"))
+    app.add_handler(CallbackQueryHandler(rate_limiter(handle_rename_delivery_callback), pattern="^rename_deliv_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_count_help_callback), pattern="^show_count_help$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_txttovcf_help_callback), pattern="^show_txttovcf_help$"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_show_vcfsimple_help_callback), pattern="^show_vcfsimple_help$"))

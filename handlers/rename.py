@@ -4,31 +4,41 @@ Single-Message Morphing Wizard. Tanya file dulu, edit disatu pesan, hapus chat i
 """
 import os
 import io
+import shutil
 import asyncio
 import logging
-import shutil
-from telegram import ReplyKeyboardRemove, Update, InlineKeyboardButton, InlineKeyboardMarkup
+import zipfile
+from telegram import Update, ReplyKeyboardRemove, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.error import RetryAfter
 from telegram.ext import ContextTypes
 from database import db
 from database.db_async import adb
 from middleware.auth import require_member
 from middleware.session import get_user_dir
 from core.vcf_parser import parse_vcf_file, contacts_to_vcf
+from core.utils import sanitize_filename
+from config import (
+    MAX_FILES_PER_SESSION as MAX_FILES,
+    MAX_UPLOAD_SIZE_MB as MAX_SIZE_MB,
+    SEND_MAX_RETRIES,
+    SEND_RETRY_DELAY,
+    FILE_READ_TIMEOUT,
+    FILE_WRITE_TIMEOUT,
+    FILE_CONNECT_TIMEOUT,
+    SEND_BATCH_SIZE,
+    SEND_BATCH_DELAY,
+    SEND_FILE_DELAY,
+)
 
 logger = logging.getLogger(__name__)
 
-STATE_FILE = "RENAME_WAIT_FILE"
-STATE_NAME = "RENAME_WAIT_NAME"
-S2 = "RENAME_PROCESSING"
-
-MAX_FILES = 100
-MAX_SIZE_MB = 50
-
-_user_locks: dict = {}
-_user_timers: dict = {}
-
-def _get_lock(user_id: int) -> asyncio.Lock:
-    return _user_locks.setdefault(user_id, asyncio.Lock())
+S0 = "RENAME_WAIT_FILE"
+S1 = "RENAME_WAIT_CONTACT_NAME"
+S2 = "RENAME_WAIT_FILE_NAME"
+S3 = "RENAME_WAIT_START_NUM"
+S4 = "RENAME_WAIT_NUM_STYLE"
+S5 = "RENAME_WAIT_DELIVERY"
+S6 = "RENAME_PROCESSING"
 
 def _fit(val, max_len=22) -> str:
     s = str(val)
@@ -38,7 +48,9 @@ def _fit(val, max_len=22) -> str:
 
 def _get_breadcrumbs(data: dict, step: int) -> str:
     count = data.get("count", 0)
-    base_name = data.get("base_name", "")
+    contact_name = data.get("contact_name", "")
+    file_name = data.get("file_name", "")
+    start_num = data.get("start_num", "")
     
     parts = []
     if step == 1:
@@ -47,11 +59,25 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
         parts.append(f"Berkas: <code>{count}</code>" if count else "Berkas: ➖")
         
     if step == 2:
-        parts.append(f"<b>[NAMA: {base_name.upper()}]</b>" if base_name else "<b>[NAMA KONTAK]</b>")
-    elif step > 2 and base_name:
-        parts.append(f"Nama: <code>{base_name}</code>")
+        parts.append(f"<b>[KONTAK: {contact_name.upper()}]</b>" if contact_name else "<b>[NAMA KONTAK]</b>")
+    elif step > 2 and contact_name:
+        parts.append(f"Kontak: <code>{contact_name}</code>")
     else:
-        parts.append("Nama: ➖")
+        parts.append("Kontak: ➖")
+        
+    if step == 3:
+        parts.append(f"<b>[FILE: {file_name.upper()}]</b>" if file_name else "<b>[NAMA FILE]</b>")
+    elif step > 3 and file_name:
+        parts.append(f"File: <code>{file_name}</code>")
+    else:
+        parts.append("File: ➖")
+        
+    if step == 4:
+        parts.append(f"<b>[URUTAN: {start_num}]</b>" if start_num else "<b>[NOMOR AWAL]</b>")
+    elif step > 4 and start_num:
+        parts.append(f"Urutan: <code>{start_num}</code>")
+    else:
+        parts.append("Urutan: ➖")
         
     breadcrumbs = " ➔ ".join(parts)
     return (
@@ -71,6 +97,12 @@ def _waiting_text(data: dict) -> str:
         f"\u2022 Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
     )
 
+_user_locks: dict = {}
+_user_timers: dict = {}
+
+def _get_lock(user_id: int) -> asyncio.Lock:
+    return _user_locks.setdefault(user_id, asyncio.Lock())
+
 def cleanup_inactive_users(inactive_ids: list) -> int:
     cleaned = 0
     for uid in inactive_ids:
@@ -86,7 +118,7 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
         await asyncio.sleep(1)
         if _user_timers.get(user_id) is asyncio.current_task():
             sess = db.get_session(user_id)
-            if sess and sess.get("state") == STATE_FILE:
+            if sess and sess.get("state") == S0:
                 data = sess["data"]
                 jumlah = data["count"]
                 
@@ -117,7 +149,7 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                     parse_mode="HTML"
                 )
                 data["status_msg_id"] = msg.message_id
-                db.set_session(user_id, STATE_FILE, data)
+                db.set_session(user_id, S0, data)
     except asyncio.CancelledError:
         pass
     except Exception as e:
@@ -152,7 +184,7 @@ async def cmd_rename(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _clear_buffers(user_id)
     
     init_data = {"count": 0, "total_size": 0}
-    db.set_session(user_id, STATE_FILE, init_data)
+    db.set_session(user_id, S0, init_data)
     
     msg = await transition_to_handler(
         context.bot,
@@ -166,13 +198,13 @@ async def cmd_rename(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if msg:
         sess = db.get_session(user_id)
         sess["data"]["status_msg_id"] = msg.message_id
-        db.set_session(user_id, STATE_FILE, sess["data"])
+        db.set_session(user_id, S0, sess["data"])
 
 async def handle_rename_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     sess = db.get_session(user_id)
-    if not sess or sess["state"] != STATE_FILE:
+    if not sess or sess["state"] != S0:
         return
 
     doc = update.message.document
@@ -189,7 +221,7 @@ async def handle_rename_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     text=(
                         _get_breadcrumbs(sess["data"], 1) +
                         f"<blockquote>⚠️ <b>[ FORMAT SALAH ]</b>\n"
-                        f"<code>{sent_name}</code> bukan berkas <code>.vcf</code>.</blockquote>"
+                        f"<code>{sent_name}</code> bukan berkas VCF (<code>.vcf</code>).</blockquote>"
                     ),
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
@@ -217,7 +249,7 @@ async def handle_rename_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
         async with _get_lock(user_id):
             sess = db.get_session(user_id)
-            if not sess or sess["state"] != STATE_FILE:
+            if not sess or sess["state"] != S0:
                 try:
                     if os.path.exists(out_path):
                         os.remove(out_path)
@@ -252,7 +284,7 @@ async def handle_rename_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
             data["count"] += 1
             data["total_size"] += doc.file_size
-            db.set_session(user_id, STATE_FILE, data)
+            db.set_session(user_id, S0, data)
 
         _reset_timer(user_id, context, chat_id)
         
@@ -275,7 +307,7 @@ async def handle_show_rename_help_callback(update: Update, context: ContextTypes
     _clear_buffers(user_id)
     
     init_data = {"count": 0, "total_size": 0}
-    db.set_session(user_id, STATE_FILE, init_data)
+    db.set_session(user_id, S0, init_data)
     text = _waiting_text(init_data)
     
     try:
@@ -286,7 +318,7 @@ async def handle_show_rename_help_callback(update: Update, context: ContextTypes
         )
         sess = db.get_session(user_id)
         sess["data"]["status_msg_id"] = query.message.message_id
-        db.set_session(user_id, STATE_FILE, sess["data"])
+        db.set_session(user_id, S0, sess["data"])
     except Exception:
         try:
             await query.message.delete()
@@ -300,26 +332,31 @@ async def handle_show_rename_help_callback(update: Update, context: ContextTypes
         )
         sess = db.get_session(user_id)
         sess["data"]["status_msg_id"] = msg.message_id
-        db.set_session(user_id, STATE_FILE, sess["data"])
+        db.set_session(user_id, S0, sess["data"])
 
 async def handle_rename_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    sess = db.get_session(update.effective_user.id)
-    if not sess or sess["state"] != STATE_FILE:
+    user_id = update.effective_user.id
+    _cancel_timer(user_id)
+    
+    sess = db.get_session(user_id)
+    if not sess or sess["state"] != S0:
         return
     data = sess["data"]
     if data["count"] == 0:
         return
         
-    db.set_session(update.effective_user.id, STATE_NAME, data)
+    db.set_session(user_id, S1, data)
     keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
     
     status_msg_id = data.get("status_msg_id")
+    
+    text = _get_breadcrumbs(data, 2) + "<blockquote><b>[ LANGKAH 2: INPUT NAMA KONTAK BARU ]</b>\nKetik nama kontak baru Anda (Contoh: <code>FEE</code>):</blockquote>"
     
     # Edit the message in-place
     if update.callback_query:
         try:
             await update.callback_query.message.edit_text(
-                text=_get_breadcrumbs(data, 2) + "<blockquote><b>[ LANGKAH 2: INPUT NAMA KONTAK ]</b>\nKetik nama kontak baru Anda (Contoh: <code>FEE</code>):</blockquote>",
+                text=text,
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -331,23 +368,23 @@ async def handle_rename_done(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=_get_breadcrumbs(data, 2) + "<blockquote><b>[ LANGKAH 2: INPUT NAMA KONTAK ]</b>\nKetik nama kontak baru Anda (Contoh: <code>FEE</code>):</blockquote>",
+                text=text,
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
         except Exception:
             pass
             
-    db.set_session(update.effective_user.id, STATE_NAME, data)
+    db.set_session(user_id, S1, data)
 
-async def handle_rename_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_rename_contact_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     sess = db.get_session(user_id)
-    if not sess or sess["state"] != STATE_NAME:
+    if not sess or sess["state"] != S1:
         return
     
     data = sess["data"]
-    data["base_name"] = update.message.text.strip()
+    data["contact_name"] = update.message.text.strip()
     
     try:
         await update.message.delete()
@@ -355,21 +392,141 @@ async def handle_rename_name(update: Update, context: ContextTypes.DEFAULT_TYPE)
         pass
         
     db.set_session(user_id, S2, data)
-    
     status_msg_id = data.get("status_msg_id")
-    process_text = "<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memproses rename file VCF...</blockquote>"
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
     
     if status_msg_id:
         try:
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=process_text,
-                parse_mode="HTML"
+                text=_get_breadcrumbs(data, 3) + "<blockquote><b>[ LANGKAH 3: INPUT NAMA FILE BARU ]</b>\nKetik nama file baru Anda (Contoh: <code>CONTOH</code>):</blockquote>",
+                parse_mode="HTML",
+                reply_markup=keyboard
             )
         except Exception:
             pass
+
+async def handle_rename_file_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    sess = db.get_session(user_id)
+    if not sess or sess["state"] != S2:
+        return
     
+    data = sess["data"]
+    data["file_name"] = sanitize_filename(update.message.text.strip())
+    
+    try:
+        await update.message.delete()
+    except Exception:
+        pass
+        
+    db.set_session(user_id, S3, data)
+    status_msg_id = data.get("status_msg_id")
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+    
+    if status_msg_id:
+        try:
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text=_get_breadcrumbs(data, 4) + "<blockquote><b>[ LANGKAH 4: INPUT NOMOR URUT AWAL ]</b>\nKetik nomor urut file awal (Contoh: <code>1</code>):</blockquote>",
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+        except Exception:
+            pass
+
+async def handle_rename_start_num(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    sess = db.get_session(user_id)
+    if not sess or sess["state"] != S3:
+        return
+    
+    text = update.message.text.strip()
+    try:
+        await update.message.delete()
+    except Exception:
+        pass
+        
+    status_msg_id = sess["data"].get("status_msg_id")
+    keyboard = InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+
+    if not text.isdigit() or int(text) < 1:
+        if status_msg_id:
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=status_msg_id,
+                text=_get_breadcrumbs(sess["data"], 4) + "<blockquote>⚠️ <b>Harap masukkan angka valid (minimal 1).</b>\n\nNomor urut awal? Contoh: <b>1</b></blockquote>",
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+        return
+        
+    data = sess["data"]
+    data["start_num"] = int(text)
+    db.set_session(user_id, S4, data)
+    
+    file_name = data.get("file_name", "CONTOH")
+    style_keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton(f"NOMOR DI AWAL (e.g. 1 {file_name})", callback_data="rename_numstyle_front"),
+            InlineKeyboardButton(f"NOMOR DI AKHIR (e.g. {file_name} 1)", callback_data="rename_numstyle_back")
+        ],
+        [InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]
+    ])
+    
+    if status_msg_id:
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=status_msg_id,
+            text=_get_breadcrumbs(data, 4) + "<blockquote><b>[ LANGKAH 5: PILIH FORMAT PENOMORAN FILE ]</b>\nPilih format penomoran nama file:</blockquote>",
+            parse_mode="HTML",
+            reply_markup=style_keyboard
+        )
+
+async def handle_rename_numstyle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = query.from_user.id
+    sess = db.get_session(user_id)
+    if not sess or sess["state"] != S4:
+        return
+        
+    data = sess["data"]
+    num_style = "front" if query.data == "rename_numstyle_front" else "back"
+    data["file_num_style"] = num_style
+    db.set_session(user_id, S5, data)
+    
+    deliv_keyboard = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("KIRIM SATU PER SATU", callback_data="rename_deliv_single"),
+            InlineKeyboardButton("KIRIM SEBAGAI ZIP", callback_data="rename_deliv_zip")
+        ],
+        [InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]
+    ])
+    
+    await query.edit_message_text(
+        text=_get_breadcrumbs(data, 4) + "<blockquote><b>[ LANGKAH 6: PILIH FORMAT PENGIRIMAN ]</b>\nPilih format pengiriman file VCF:</blockquote>",
+        parse_mode="HTML",
+        reply_markup=deliv_keyboard
+    )
+
+async def handle_rename_delivery_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    
+    user_id = query.from_user.id
+    sess = db.get_session(user_id)
+    if not sess or sess["state"] != S5:
+        return
+        
+    data = sess["data"]
+    mode = "single" if query.data == "rename_deliv_single" else "zip"
+    data["delivery_mode"] = mode
+    
+    db.set_session(user_id, S6, data)
     await handle_rename_process(update, context)
 
 async def handle_rename_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -389,13 +546,30 @@ async def handle_rename_process(update: Update, context: ContextTypes.DEFAULT_TY
         files = [f for f in os.listdir(rename_dir) if f.endswith('.vcf')]
         files.sort(key=lambda x: int(x.split('.')[0]))
 
-    base_name = data["base_name"]
+    contact_name = data["contact_name"]
+    file_name = data["file_name"]
+    start_num = data["start_num"]
+    num_style = data.get("file_num_style", "back")
+    delivery_mode = data.get("delivery_mode", "single")
+
     loop = asyncio.get_running_loop()
+
+    process_text = "<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memproses rename file VCF...</blockquote>"
+    try:
+        await context.bot.edit_message_text(
+            chat_id=update.effective_chat.id,
+            message_id=status_msg_id,
+            text=process_text,
+            parse_mode="HTML"
+        )
+    except Exception:
+        pass
 
     try:
         def do_rename():
             results = []
             contact_counter = 1
+            file_counter = start_num
             
             for f in files:
                 path = os.path.join(rename_dir, f)
@@ -403,16 +577,23 @@ async def handle_rename_process(update: Update, context: ContextTypes.DEFAULT_TY
                     contacts = parse_vcf_file(path)
                     renamed = []
                     for c in contacts:
-                        renamed.append({"name": f"{base_name} {contact_counter}", "tel": c["tel"]})
+                        renamed.append({"name": f"{contact_name} {contact_counter}", "tel": c["tel"]})
                         contact_counter += 1
                     
                     vcf_content = contacts_to_vcf(renamed)
-                    results.append((f, vcf_content.encode("utf-8")))
+                    
+                    if num_style == "front":
+                        label = f"{file_counter} {file_name}"
+                    else:
+                        label = f"{file_name} {file_counter}"
+                        
+                    results.append((label, vcf_content.encode("utf-8")))
+                    file_counter += 1
                 except Exception:
                     pass
-            return results, contact_counter - 1
+            return results, contact_counter - 1, file_counter - start_num
 
-        results, total_contacts = await loop.run_in_executor(None, do_rename)
+        results, total_contacts, total_files = await loop.run_in_executor(None, do_rename)
 
         if not results:
             if status_msg_id:
@@ -426,68 +607,172 @@ async def handle_rename_process(update: Update, context: ContextTypes.DEFAULT_TY
             db.clear_session(user_id)
             return
 
-        # Kirim status mengirim
-        if status_msg_id:
-            await context.bot.edit_message_text(
-                chat_id=update.effective_chat.id,
-                message_id=status_msg_id,
-                text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file VCF hasil...</blockquote>",
-                parse_mode="HTML"
-            )
-
-        # Kirim berkas-berkas hasil rename
-        for f, content in results:
-            buf = io.BytesIO(content)
-            buf.name = f"CLEAN_{f.split('.')[0]}.vcf"
-            await context.bot.send_document(
-                chat_id=update.effective_chat.id,
-                document=buf,
-                filename=buf.name,
-                read_timeout=120,
-                write_timeout=120,
-                connect_timeout=60,
-            )
-
-        # Hapus status message
-        if status_msg_id:
+        if delivery_mode == "zip":
+            # Compress to ZIP
             try:
-                await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_msg_id,
+                    text="<blockquote><b>[ SYSTEM: COMPRESSING ]</b>\nMengompresi file ke format ZIP...</blockquote>",
+                    parse_mode="HTML"
+                )
             except Exception:
                 pass
 
-        from handlers.start import clear_welcome_messages
-        clear_welcome_messages(user_id)
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for label, content in results:
+                    zip_file.writestr(f"{label}.vcf", content)
+            zip_buffer.seek(0)
+            zip_filename = f"{file_name}.zip"
 
-        keyboard = InlineKeyboardMarkup([
-            [
-                InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_rename_help", style="success"),
-                InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
-            ]
-        ])
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_msg_id,
+                    text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file ZIP...</blockquote>",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
 
-        box_text = (
-            f"<pre><b>"
-            f"┌────────────────────────────────────────┐\n"
-            f"│             PROSES SELESAI             │\n"
-            f"├────────────────────────────────────────┤\n"
-            f"│ Total Berkas   : {_fit(f'{len(files)} VCF'):<22} │\n"
-            f"│ Total Kontak   : {_fit(f'{total_contacts:,}'):<22} │\n"
-            f"│ Format Nama    : {_fit(base_name):<22} │\n"
-            f"│ Range Urutan   : {_fit(f'1 - {total_contacts}'):<22} │\n"
-            f"└────────────────────────────────────────┘"
-            f"</b></pre>\n\n"
-            f"<i>Rename selesai! Silakan unduh file di atas.</i>"
-        )
-        
-        final_msg = await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text=box_text,
-            parse_mode="HTML",
-            reply_markup=keyboard
-        )
-        
-        from handlers.start import register_welcome_messages
-        register_welcome_messages(user_id, [final_msg.message_id])
+            for attempt in range(SEND_MAX_RETRIES):
+                try:
+                    zip_buffer.seek(0)
+                    await context.bot.send_document(
+                        chat_id=update.effective_chat.id,
+                        document=zip_buffer,
+                        filename=zip_filename,
+                        read_timeout=FILE_READ_TIMEOUT,
+                        write_timeout=FILE_WRITE_TIMEOUT,
+                        connect_timeout=FILE_CONNECT_TIMEOUT,
+                    )
+                    break
+                except Exception as ex:
+                    logger.error(f"[Rename] Gagal kirim ZIP attempt {attempt+1}: {ex}")
+                    if attempt == SEND_MAX_RETRIES - 1:
+                        raise
+                    else:
+                        await asyncio.sleep(SEND_RETRY_DELAY)
+
+            if status_msg_id:
+                try:
+                    await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
+                except Exception:
+                    pass
+
+            from handlers.start import clear_welcome_messages
+            clear_welcome_messages(user_id)
+            keyboard = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_rename_help", style="success"),
+                    InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
+                ]
+            ])
+            box_text = (
+                f"<pre><b>"
+                f"┌────────────────────────────────────────┐\n"
+                f"│             PROSES SELESAI             │\n"
+                f"├────────────────────────────────────────┤\n"
+                f"│ Total Berkas   : {_fit(f'{len(files)} VCF'):<22} │\n"
+                f"│ Berkas Output  : {_fit(f'{total_files} VCF (ZIP)'):<22} │\n"
+                f"│ Format Kontak  : {_fit(contact_name):<22} │\n"
+                f"│ Format File    : {_fit(f'{file_name}'):<22} │\n"
+                f"│ Total Kontak   : {_fit(f'{total_contacts:,}'):<22} │\n"
+                f"└────────────────────────────────────────┘\n"
+                f"</b></pre>\n\n"
+                f"<i>Silakan unduh file ZIP di atas.</i>"
+            )
+            final_msg = await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=box_text,
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+            from handlers.start import register_welcome_messages
+            register_welcome_messages(user_id, [final_msg.message_id])
+
+        else:
+            if status_msg_id:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=status_msg_id,
+                    text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file VCF hasil...</blockquote>",
+                    parse_mode="HTML"
+                )
+
+            sent_count = 0
+            for label, content in results:
+                buf = io.BytesIO(content)
+                buf.name = f"{label}.vcf"
+                
+                for attempt in range(SEND_MAX_RETRIES):
+                    try:
+                        buf.seek(0)
+                        await context.bot.send_document(
+                            chat_id=update.effective_chat.id,
+                            document=buf,
+                            filename=buf.name,
+                            read_timeout=120,
+                            write_timeout=120,
+                            connect_timeout=60,
+                        )
+                        sent_count += 1
+                        break
+                    except RetryAfter as e:
+                        wait_secs = max(int(e.retry_after), 2) + 1
+                        await asyncio.sleep(wait_secs)
+                    except Exception as ex:
+                        if attempt == SEND_MAX_RETRIES - 1:
+                            sent_count += 1
+                        else:
+                            await asyncio.sleep(SEND_RETRY_DELAY)
+
+                if sent_count < total_files:
+                    if sent_count % SEND_BATCH_SIZE == 0:
+                        await asyncio.sleep(SEND_BATCH_DELAY)
+                    else:
+                        await asyncio.sleep(SEND_FILE_DELAY)
+
+            if status_msg_id:
+                try:
+                    await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=status_msg_id)
+                except Exception:
+                    pass
+
+            from handlers.start import clear_welcome_messages
+            clear_welcome_messages(user_id)
+
+            keyboard = InlineKeyboardMarkup([
+                [
+                    InlineKeyboardButton("PROSES FILE LAIN", callback_data="show_rename_help", style="success"),
+                    InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
+                ]
+            ])
+
+            box_text = (
+                f"<pre><b>"
+                f"┌────────────────────────────────────────┐\n"
+                f"│             PROSES SELESAI             │\n"
+                f"├────────────────────────────────────────┤\n"
+                f"│ Total Berkas   : {_fit(f'{len(files)} VCF'):<22} │\n"
+                f"│ Berkas Output  : {_fit(f'{total_files} VCF'):<22} │\n"
+                f"│ Format Kontak  : {_fit(contact_name):<22} │\n"
+                f"│ Format File    : {_fit(f'{file_name}'):<22} │\n"
+                f"│ Total Kontak   : {_fit(f'{total_contacts:,}'):<22} │\n"
+                f"└────────────────────────────────────────┘"
+                f"</b></pre>\n\n"
+                f"<i>Rename selesai! Silakan unduh file di atas.</i>"
+            )
+            
+            final_msg = await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=box_text,
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
+            from handlers.start import register_welcome_messages
+            register_welcome_messages(user_id, [final_msg.message_id])
 
     except Exception as e:
         logger.error("Rename process failed: %s", e)
