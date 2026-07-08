@@ -66,18 +66,18 @@ def _get_breadcrumbs(data: dict) -> str:
     breadcrumbs = " ➔ ".join(parts)
     return (
         "<b>[ TXT ➔ VCF SIMPLE ]</b>\n"
-                f"{breadcrumbs}\n"
+                f"<blockquote>{breadcrumbs}</blockquote>\n"
         "\n"
     )
 
 def _waiting_text(data: dict) -> str:
     return (
         _get_breadcrumbs(data) +
-        f"<b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+        f"<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
         f"Silakan kirim satu atau beberapa file <code>.txt</code> sekarang.\n\n"
         f"<b>Batas Sesi:</b>\n"
         f"• Maksimum upload: <code>{MAX_FILES} file</code>\n"
-        f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file"
+        f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
     )
 
 _user_locks: dict = {}
@@ -106,10 +106,10 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 jumlah = data["count"]
                 text = (
                     _get_breadcrumbs(data) +
-                    f"<b>[ STATUS: BERKAS DITERIMA ]</b>\n"
+                    f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
                     f"Berhasil mengunduh <code>{jumlah}</code> berkas TXT.\n"
                     f"Total kontak terdeteksi: <code>{data.get('total_contacts', 0)}</code> baris.\n\n"
-                    f"Silakan pilih tindakan di bawah:"
+                    f"Silakan pilih tindakan di bawah:</blockquote>"
                 )
                 keyboard = InlineKeyboardMarkup([
                     [
@@ -210,9 +210,9 @@ async def handle_vs_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     message_id=status_msg_id,
                     text=(
                         _get_breadcrumbs(sess["data"]) +
-                        f"⚠️ <b>[ FORMAT SALAH ]</b>\n"
+                        f"<blockquote>⚠️ <b>[ FORMAT SALAH ]</b>\n"
                         f"<code>{sent_name}</code> bukan berkas <code>.txt</code>.\n\n"
-                        f"Kirim ulang berkas dengan format <code>.txt</code>."
+                        f"Kirim ulang berkas dengan format <code>.txt</code>.</blockquote>"
                     ),
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup([[
@@ -359,7 +359,7 @@ async def handle_vs_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text="<b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memproses dan menyusun data VCF...",
+            text="<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memproses dan menyusun data VCF...</blockquote>",
             parse_mode="HTML"
         )
     except Exception:
@@ -418,7 +418,7 @@ async def handle_vs_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="⚠️ <b>Gagal. Data tidak ditemukan atau berkas kosong.</b>",
+                    text="<blockquote>⚠️ <b>Gagal. Data tidak ditemukan atau berkas kosong.</b></blockquote>",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -432,7 +432,7 @@ async def handle_vs_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=f"<b>[ SYSTEM: SENDING VCF ]</b>\nMengirim berkas VCF: <code>0</code> / <code>{total_files}</code> file terkirim.",
+                text=f"<blockquote><b>[ SYSTEM: SENDING VCF ]</b>\nMengirim berkas VCF: <code>0</code> / <code>{total_files}</code> file terkirim.</blockquote>",
                 parse_mode="HTML"
             )
         except Exception:
@@ -457,7 +457,7 @@ async def handle_vs_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         await context.bot.edit_message_text(
                             chat_id=update.effective_chat.id,
                             message_id=status_msg_id,
-                            text=f"<b>[ SYSTEM: SENDING VCF ]</b>\nMengirim berkas VCF: <code>{sent}</code> / <code>{total_files}</code> file terkirim.",
+                            text=f"<blockquote><b>[ SYSTEM: SENDING VCF ]</b>\nMengirim berkas VCF: <code>{sent}</code> / <code>{total_files}</code> file terkirim.</blockquote>",
                             parse_mode="HTML"
                         )
                     except Exception:

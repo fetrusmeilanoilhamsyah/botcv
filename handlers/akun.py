@@ -59,8 +59,7 @@ async def cmd_akun(update: Update, context: ContextTypes.DEFAULT_TYPE):
     import html
     name = html.escape(user.first_name or "User")
     header_text = "<b>[ PROFILE USER CONSOLE ]</b>\n"
-    header_text += "────────────────────────────\n"
-
+    header_text += 
     lines = [
         f"<blockquote>• Nama     : <b>{user.full_name or user.first_name or '-'}</b>",
         f"• Username : <b>@{user.username}</b>" if user.username else "• Username : <b>-</b>",

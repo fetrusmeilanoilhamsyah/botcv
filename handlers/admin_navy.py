@@ -104,7 +104,7 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
 
     return (
         "<b>[ ADMIN VCF CV CONSOLE ]</b>\n"
-                f"{breadcrumbs}\n"
+                f"<blockquote>{breadcrumbs}</blockquote>\n"
         "\n"
         f"{preview}"
     )
@@ -120,8 +120,8 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     text = (
         _get_breadcrumbs({"admin_numbers": [], "navy_numbers": []}, 1) + 
-        "<b>[ STATUS: WAITING FOR ADMIN NUMBERS ]</b>\n"
-        "Silakan kirim daftar nomor <b>ADMIN</b> sekarang (satu nomor per baris)."
+        "<blockquote><b>[ STATUS: WAITING FOR ADMIN NUMBERS ]</b>\n"
+        "Silakan kirim daftar nomor <b>ADMIN</b> sekarang (satu nomor per baris).</blockquote>"
     )
     
     msg = await transition_to_handler(
@@ -166,7 +166,7 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         message_id=status_msg_id,
                         text=(
                             _get_breadcrumbs(data, 1) + 
-                            "⚠️ <b>Harap kirim minimal 1 nomor ADMIN (satu nomor per baris).</b>"
+                            "<blockquote>⚠️ <b>Harap kirim minimal 1 nomor ADMIN (satu nomor per baris).</b></blockquote>"
                         ),
                         parse_mode="HTML",
                         reply_markup=keyboard
@@ -183,8 +183,8 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     message_id=status_msg_id,
                     text=(
                         _get_breadcrumbs(data, 2) + 
-                        "<b>[ STATUS: WAITING FOR NAVY NUMBERS ]</b>\n"
-                        "Silakan kirim daftar nomor <b>NAVY</b> sekarang (satu nomor per baris)."
+                        "<blockquote><b>[ STATUS: WAITING FOR NAVY NUMBERS ]</b>\n"
+                        "Silakan kirim daftar nomor <b>NAVY</b> sekarang (satu nomor per baris).</blockquote>"
                     ),
                     parse_mode="HTML",
                     reply_markup=keyboard
@@ -201,7 +201,7 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         message_id=status_msg_id,
                         text=(
                             _get_breadcrumbs(data, 2) + 
-                            "⚠️ <b>Harap kirim minimal 1 nomor NAVY (satu nomor per baris).</b>"
+                            "<blockquote>⚠️ <b>Harap kirim minimal 1 nomor NAVY (satu nomor per baris).</b></blockquote>"
                         ),
                         parse_mode="HTML",
                         reply_markup=keyboard
@@ -218,8 +218,8 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     message_id=status_msg_id,
                     text=(
                         _get_breadcrumbs(data, 3) + 
-                        "<b>[ LANGKAH 3: NAMA KONTAK ADMIN ]</b>\n"
-                        "Ketik nama kontak untuk nomor ADMIN (contoh: <code>ADMIN CV</code>):"
+                        "<blockquote><b>[ LANGKAH 3: NAMA KONTAK ADMIN ]</b>\n"
+                        "Ketik nama kontak untuk nomor ADMIN (contoh: <code>ADMIN CV</code>):</blockquote>"
                     ),
                     parse_mode="HTML",
                     reply_markup=keyboard
@@ -237,8 +237,8 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     message_id=status_msg_id,
                     text=(
                         _get_breadcrumbs(data, 4) + 
-                        "<b>[ LANGKAH 4: NAMA KONTAK NAVY ]</b>\n"
-                        "Ketik nama kontak untuk nomor NAVY (contoh: <code>NAVY CV</code>):"
+                        "<blockquote><b>[ LANGKAH 4: NAMA KONTAK NAVY ]</b>\n"
+                        "Ketik nama kontak untuk nomor NAVY (contoh: <code>NAVY CV</code>):</blockquote>"
                     ),
                     parse_mode="HTML",
                     reply_markup=keyboard
@@ -256,8 +256,8 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     message_id=status_msg_id,
                     text=(
                         _get_breadcrumbs(data, 5) + 
-                        "<b>[ LANGKAH 5: NAMA FILE OUTPUT ]</b>\n"
-                        "Ketik nama file hasil VCF (contoh: <code>ADMIN NAVY</code>):"
+                        "<blockquote><b>[ LANGKAH 5: NAMA FILE OUTPUT ]</b>\n"
+                        "Ketik nama file hasil VCF (contoh: <code>ADMIN NAVY</code>):</blockquote>"
                     ),
                     parse_mode="HTML",
                     reply_markup=keyboard
@@ -272,7 +272,7 @@ async def handle_admin_navy(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="<b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memproses dan menyusun berkas VCF...",
+                    text="<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memproses dan menyusun berkas VCF...</blockquote>",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -357,8 +357,8 @@ async def handle_show_admin_help_callback(update: Update, context: ContextTypes.
 
     text = (
         _get_breadcrumbs({"admin_numbers": [], "navy_numbers": []}, 1) + 
-        "<b>[ STATUS: WAITING FOR ADMIN NUMBERS ]</b>\n"
-        "Silakan kirim daftar nomor <b>ADMIN</b> sekarang (satu nomor per baris)."
+        "<blockquote><b>[ STATUS: WAITING FOR ADMIN NUMBERS ]</b>\n"
+        "Silakan kirim daftar nomor <b>ADMIN</b> sekarang (satu nomor per baris).</blockquote>"
     )
     
     try:

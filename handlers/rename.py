@@ -82,18 +82,18 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     breadcrumbs = " ➔ ".join(parts)
     return (
         "<b>[ VCF RENAME CONSOLE ]</b>\n"
-                f"{breadcrumbs}\n"
+                f"<blockquote>{breadcrumbs}</blockquote>\n"
         "\n"
     )
 
 def _waiting_text(data: dict) -> str:
     return (
         _get_breadcrumbs(data, 1) +
-        f"<b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+        f"<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
         f"Silakan kirim satu atau beberapa file <code>.vcf</code> sekarang.\n\n"
         f"<b>Batas Sesi:</b>\n"
         f"\u2022 Maksimum upload: <code>{MAX_FILES} file</code>\n"
-        f"\u2022 Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file"
+        f"\u2022 Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
     )
 
 _user_locks: dict = {}
@@ -123,9 +123,9 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 
                 text = (
                     _get_breadcrumbs(data, 1) +
-                    f"<b>[ STATUS: BERKAS DITERIMA ]</b>\n"
+                    f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
                     f"Berhasil mengunduh <code>{jumlah}</code> berkas VCF.\n\n"
-                    f"Silakan pilih tindakan di bawah:"
+                    f"Silakan pilih tindakan di bawah:</blockquote>"
                 )
                 keyboard = InlineKeyboardMarkup([
                     [
@@ -219,8 +219,8 @@ async def handle_rename_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
                     message_id=status_msg_id,
                     text=(
                         _get_breadcrumbs(sess["data"], 1) +
-                        f"⚠️ <b>[ FORMAT SALAH ]</b>\n"
-                        f"<code>{sent_name}</code> bukan berkas VCF (<code>.vcf</code>)."
+                        f"<blockquote>⚠️ <b>[ FORMAT SALAH ]</b>\n"
+                        f"<code>{sent_name}</code> bukan berkas VCF (<code>.vcf</code>).</blockquote>"
                     ),
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
@@ -349,7 +349,7 @@ async def handle_rename_done(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     status_msg_id = data.get("status_msg_id")
     
-    text = _get_breadcrumbs(data, 2) + "<b>[ LANGKAH 2: INPUT NAMA KONTAK BARU ]</b>\nKetik nama kontak baru Anda (Contoh: <code>FEE</code>):"
+    text = _get_breadcrumbs(data, 2) + "<blockquote><b>[ LANGKAH 2: INPUT NAMA KONTAK BARU ]</b>\nKetik nama kontak baru Anda (Contoh: <code>FEE</code>):</blockquote>"
     
     # Edit the message in-place
     if update.callback_query:
@@ -399,7 +399,7 @@ async def handle_rename_contact_name(update: Update, context: ContextTypes.DEFAU
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=_get_breadcrumbs(data, 3) + "<b>[ LANGKAH 3: INPUT NAMA FILE BARU ]</b>\nKetik nama file baru Anda (Contoh: <code>CONTOH</code>):",
+                text=_get_breadcrumbs(data, 3) + "<blockquote><b>[ LANGKAH 3: INPUT NAMA FILE BARU ]</b>\nKetik nama file baru Anda (Contoh: <code>CONTOH</code>):</blockquote>",
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -429,7 +429,7 @@ async def handle_rename_file_name(update: Update, context: ContextTypes.DEFAULT_
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=_get_breadcrumbs(data, 4) + "<b>[ LANGKAH 4: INPUT NOMOR URUT AWAL ]</b>\nKetik nomor urut file awal (Contoh: <code>1</code>):",
+                text=_get_breadcrumbs(data, 4) + "<blockquote><b>[ LANGKAH 4: INPUT NOMOR URUT AWAL ]</b>\nKetik nomor urut file awal (Contoh: <code>1</code>):</blockquote>",
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -456,7 +456,7 @@ async def handle_rename_start_num(update: Update, context: ContextTypes.DEFAULT_
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=_get_breadcrumbs(sess["data"], 4) + "⚠️ <b>Harap masukkan angka valid (minimal 1).</b>\n\nNomor urut awal? Contoh: <b>1</b>",
+                text=_get_breadcrumbs(sess["data"], 4) + "<blockquote>⚠️ <b>Harap masukkan angka valid (minimal 1).</b>\n\nNomor urut awal? Contoh: <b>1</b></blockquote>",
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -479,7 +479,7 @@ async def handle_rename_start_num(update: Update, context: ContextTypes.DEFAULT_
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text=_get_breadcrumbs(data, 4) + "<b>[ LANGKAH 5: PILIH FORMAT PENOMORAN FILE ]</b>\nPilih format penomoran nama file:",
+            text=_get_breadcrumbs(data, 4) + "<blockquote><b>[ LANGKAH 5: PILIH FORMAT PENOMORAN FILE ]</b>\nPilih format penomoran nama file:</blockquote>",
             parse_mode="HTML",
             reply_markup=style_keyboard
         )
@@ -507,7 +507,7 @@ async def handle_rename_numstyle_callback(update: Update, context: ContextTypes.
     ])
     
     await query.edit_message_text(
-        text=_get_breadcrumbs(data, 4) + "<b>[ LANGKAH 6: PILIH FORMAT PENGIRIMAN ]</b>\nPilih format pengiriman file VCF:",
+        text=_get_breadcrumbs(data, 4) + "<blockquote><b>[ LANGKAH 6: PILIH FORMAT PENGIRIMAN ]</b>\nPilih format pengiriman file VCF:</blockquote>",
         parse_mode="HTML",
         reply_markup=deliv_keyboard
     )
@@ -553,7 +553,7 @@ async def handle_rename_process(update: Update, context: ContextTypes.DEFAULT_TY
 
     loop = asyncio.get_running_loop()
 
-    process_text = "<b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memproses rename file VCF..."
+    process_text = "<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memproses rename file VCF...</blockquote>"
     try:
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
@@ -599,7 +599,7 @@ async def handle_rename_process(update: Update, context: ContextTypes.DEFAULT_TY
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="⚠️ <b>Gagal. Data tidak ditemukan.</b>",
+                    text="<blockquote>⚠️ <b>Gagal. Data tidak ditemukan.</b></blockquote>",
                     parse_mode="HTML"
                 )
             _clear_buffers(user_id)
@@ -612,7 +612,7 @@ async def handle_rename_process(update: Update, context: ContextTypes.DEFAULT_TY
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="<b>[ SYSTEM: COMPRESSING ]</b>\nMengompresi file ke format ZIP...",
+                    text="<blockquote><b>[ SYSTEM: COMPRESSING ]</b>\nMengompresi file ke format ZIP...</blockquote>",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -629,7 +629,7 @@ async def handle_rename_process(update: Update, context: ContextTypes.DEFAULT_TY
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="<b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file ZIP...",
+                    text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file ZIP...</blockquote>",
                     parse_mode="HTML"
                 )
             except Exception:
@@ -692,7 +692,7 @@ async def handle_rename_process(update: Update, context: ContextTypes.DEFAULT_TY
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="<b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file VCF hasil...",
+                    text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file VCF hasil...</blockquote>",
                     parse_mode="HTML"
                 )
 
@@ -772,7 +772,7 @@ async def handle_rename_process(update: Update, context: ContextTypes.DEFAULT_TY
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="⚠️ <b>Terjadi kesalahan saat memproses.</b>",
+                    text="<blockquote>⚠️ <b>Terjadi kesalahan saat memproses.</b></blockquote>",
                     parse_mode="HTML"
                 )
             except Exception:

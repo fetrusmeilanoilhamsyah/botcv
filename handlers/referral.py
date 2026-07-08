@@ -8,8 +8,7 @@ from database.db_async import adb
 
 def _get_referral_text(pts: dict, count: int, link: str) -> str:
     header_text = "<b>[ REFERRAL PROGRAM CV ]</b>\n"
-    header_text += "────────────────────────────\n"
-    header_text += (
+    header_text +=     header_text += (
         "Undang teman & dapatkan VIP Gratis instan!\n"
         "• 1 Teman = <b>1 Poin</b> (Maksimal 50 Poin per akun).\n\n"
     )

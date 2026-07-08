@@ -71,18 +71,18 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     breadcrumbs = " ➔ ".join(parts)
     return (
         "<b>[ VCF SPLIT CONSOLE ]</b>\n"
-                f"{breadcrumbs}\n"
+                f"<blockquote>{breadcrumbs}</blockquote>\n"
         "\n"
     )
 
 def _waiting_text(data: dict) -> str:
     return (
         _get_breadcrumbs(data, 1) +
-        f"<b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+        f"<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
         f"Silakan kirim satu atau beberapa file <code>.vcf</code> sekarang.\n\n"
         f"<b>Batas Sesi:</b>\n"
         f"\u2022 Maksimum upload: <code>{MAX_FILES} file</code>\n"
-        f"\u2022 Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file"
+        f"\u2022 Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
     )
 
 _user_timers: dict = {}
@@ -129,9 +129,9 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 
                 text = (
                     _get_breadcrumbs(data, 1) +
-                    f"<b>[ STATUS: BERKAS DITERIMA ]</b>\n"
+                    f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
                     f"Berhasil mengunduh <code>{jumlah}</code> berkas VCF ({jumlah_kontak:,} kontak).\n\n"
-                    f"Silakan pilih tindakan di bawah:"
+                    f"Silakan pilih tindakan di bawah:</blockquote>"
                 )
                 keyboard = InlineKeyboardMarkup([
                     [
@@ -211,8 +211,8 @@ async def handle_pecahvcf_file(update: Update, context: ContextTypes.DEFAULT_TYP
                     message_id=status_msg_id,
                     text=(
                         _get_breadcrumbs(sess["data"], 1) +
-                        f"⚠️ <b>[ FORMAT SALAH ]</b>\n"
-                        f"<code>{doc.file_name}</code> bukan berkas VCF (<code>.vcf</code>)."
+                        f"<blockquote>⚠️ <b>[ FORMAT SALAH ]</b>\n"
+                        f"<code>{doc.file_name}</code> bukan berkas VCF (<code>.vcf</code>).</blockquote>"
                     ),
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
@@ -314,7 +314,7 @@ async def handle_pecahvcf_done(update: Update, context: ContextTypes.DEFAULT_TYP
     if update.callback_query:
         try:
             await update.callback_query.message.edit_text(
-                text=_get_breadcrumbs(data, 2) + f"<b>[ LANGKAH 2: JUMLAH KONTAK PER FILE ]</b>\nTerdeteksi: <code>{data.get('total_contacts', 0)}</code> kontak.\n\nKetik jumlah kontak per file (contoh: <code>100</code>):",
+                text=_get_breadcrumbs(data, 2) + f"<blockquote><b>[ LANGKAH 2: JUMLAH KONTAK PER FILE ]</b>\nTerdeteksi: <code>{data.get('total_contacts', 0)}</code> kontak.\n\nKetik jumlah kontak per file (contoh: <code>100</code>):</blockquote>",
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -326,7 +326,7 @@ async def handle_pecahvcf_done(update: Update, context: ContextTypes.DEFAULT_TYP
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=_get_breadcrumbs(data, 2) + f"<b>[ LANGKAH 2: JUMLAH KONTAK PER FILE ]</b>\nTerdeteksi: <code>{data.get('total_contacts', 0)}</code> kontak.\n\nKetik jumlah kontak per file (contoh: <code>100</code>):",
+                text=_get_breadcrumbs(data, 2) + f"<blockquote><b>[ LANGKAH 2: JUMLAH KONTAK PER FILE ]</b>\nTerdeteksi: <code>{data.get('total_contacts', 0)}</code> kontak.\n\nKetik jumlah kontak per file (contoh: <code>100</code>):</blockquote>",
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -355,7 +355,7 @@ async def handle_pecahvcf_per_file(update: Update, context: ContextTypes.DEFAULT
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=_get_breadcrumbs(sess["data"], 2) + "⚠️ <b>Harap masukkan angka saja.</b>\n\nBerapa kontak per file? Contoh: <b>100</b>",
+                text=_get_breadcrumbs(sess["data"], 2) + "<blockquote>⚠️ <b>Harap masukkan angka saja.</b>\n\nBerapa kontak per file? Contoh: <b>100</b></blockquote>",
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -367,7 +367,7 @@ async def handle_pecahvcf_per_file(update: Update, context: ContextTypes.DEFAULT
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=_get_breadcrumbs(sess["data"], 2) + f"⚠️ <b>Harap masukkan angka antara 1 sampai {MAX_CONTACTS_PER_FILE:,}.</b>\n\nBerapa kontak per file? Contoh: <b>100</b>",
+                text=_get_breadcrumbs(sess["data"], 2) + f"<blockquote>⚠️ <b>Harap masukkan angka antara 1 sampai {MAX_CONTACTS_PER_FILE:,}.</b>\n\nBerapa kontak per file? Contoh: <b>100</b></blockquote>",
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -389,7 +389,7 @@ async def handle_pecahvcf_per_file(update: Update, context: ContextTypes.DEFAULT
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text=_get_breadcrumbs(data, 3) + "<b>[ LANGKAH 3: FORMAT PENGIRIMAN ]</b>\nPilih format pengiriman file VCF:",
+            text=_get_breadcrumbs(data, 3) + "<blockquote><b>[ LANGKAH 3: FORMAT PENGIRIMAN ]</b>\nPilih format pengiriman file VCF:</blockquote>",
             parse_mode="HTML",
             reply_markup=deliv_keyboard
         )
@@ -434,7 +434,7 @@ async def handle_pecahvcf_process(update: Update, context: ContextTypes.DEFAULT_
     per_file = data["per_file"]
     status_msg_id = data.get("status_msg_id")
 
-    process_text = "<b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memecah berkas VCF..."
+    process_text = "<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang memecah berkas VCF...</blockquote>"
     try:
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
@@ -485,7 +485,7 @@ async def handle_pecahvcf_process(update: Update, context: ContextTypes.DEFAULT_
                     await context.bot.edit_message_text(
                         chat_id=update.effective_chat.id,
                         message_id=status_msg_id,
-                        text="⚠️ <b>Gagal. Tidak ada kontak yang ditemukan.</b>",
+                        text="<blockquote>⚠️ <b>Gagal. Tidak ada kontak yang ditemukan.</b></blockquote>",
                         parse_mode="HTML"
                     )
                 except Exception:
@@ -500,7 +500,7 @@ async def handle_pecahvcf_process(update: Update, context: ContextTypes.DEFAULT_
                     await context.bot.edit_message_text(
                         chat_id=update.effective_chat.id,
                         message_id=status_msg_id,
-                        text="<b>[ SYSTEM: COMPRESSING ]</b>\nMengompresi file ke format ZIP...",
+                        text="<blockquote><b>[ SYSTEM: COMPRESSING ]</b>\nMengompresi file ke format ZIP...</blockquote>",
                         parse_mode="HTML"
                     )
                 except Exception:
@@ -520,7 +520,7 @@ async def handle_pecahvcf_process(update: Update, context: ContextTypes.DEFAULT_
                     await context.bot.edit_message_text(
                         chat_id=update.effective_chat.id,
                         message_id=status_msg_id,
-                        text="<b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file ZIP...",
+                        text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file ZIP...</blockquote>",
                         parse_mode="HTML"
                     )
                 except Exception:
@@ -583,7 +583,7 @@ async def handle_pecahvcf_process(update: Update, context: ContextTypes.DEFAULT_
                     await context.bot.edit_message_text(
                         chat_id=update.effective_chat.id,
                         message_id=status_msg_id,
-                        text="<b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file VCF satu per satu...",
+                        text="<blockquote><b>[ SYSTEM: SENDING FILES ]</b>\nSedang mengirim file VCF satu per satu...</blockquote>",
                         parse_mode="HTML"
                     )
                 except Exception:
@@ -675,7 +675,7 @@ async def handle_pecahvcf_process(update: Update, context: ContextTypes.DEFAULT_
                 await context.bot.edit_message_text(
                     chat_id=update.effective_chat.id,
                     message_id=status_msg_id,
-                    text="⚠️ <b>Terjadi kesalahan. Coba kirim ulang.</b>",
+                    text="<blockquote>⚠️ <b>Terjadi kesalahan. Coba kirim ulang.</b></blockquote>",
                     parse_mode="HTML"
                 )
             except Exception:

@@ -83,7 +83,7 @@ async def cmd_stat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     now_jakarta = datetime.now(_JAKARTA)
 
-    # ── User stats ──────────────────────────────────────────────────────────────
+    # ── User stats ──────
     users        = db.get_all_users_detail()
     total        = len(users)
     members_list = [u for u in users if u["is_member"]]
@@ -92,17 +92,17 @@ async def cmd_stat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     vip_timed    = [u for u in members_list if u.get("expired_at")]
     vip_perm     = [u for u in members_list if not u.get("expired_at")]
 
-    # ── Payment stats ───────────────────────────────────────────────────────────
+    # ── Payment stats ───
     pay = db.get_payment_stats()
 
-    # ── Top 3 user aktif (exclude admin) ────────────────────────────────────────
+    # ── Top 3 user aktif (exclude admin) ────────────
     all_top = db.get_top_users(50)
     top3 = [u for u in all_top if not is_admin(u.get("id", 0))][:3]
 
-    # ── Server health ───────────────────────────────────────────────────────────
+    # ── Server health ───
     health = _server_health()
 
-    # ── VIP list (maks 10, urutkan expired terdekat) ────────────────────────────
+    # ── VIP list (maks 10, urutkan expired terdekat) 
     try:
         vip_sorted = sorted(
             vip_timed,
@@ -131,14 +131,14 @@ async def cmd_stat(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     vip_block = "\n".join(vip_rows) if vip_rows else "  Tidak ada."
 
-    # ── Top 3 block ──────────────────────────────────────────────────────────────
+    # ── Top 3 block ──────
     top3_lines = []
     for idx, u in enumerate(top3, 1):
         name = u["full_name"] or u.get("username") or "-"
         top3_lines.append(f"  {idx}. {name} — {u['usage_count']}x")
     top3_block = "\n".join(top3_lines) if top3_lines else "  Belum ada data."
 
-    # ── Rakitan pesan ────────────────────────────────────────────────────────────
+    # ── Rakitan pesan ────
     SEP = "─" * 28
     msg = (
         f"<b>STATISTIK BOT</b>\n"

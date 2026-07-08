@@ -40,12 +40,11 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
             status_line = "• Status: VIP 365 Hari\n"
 
     header_text = "<b>[ VIP MEMBER CV ]</b>\n"
-    header_text += "────────────────────────────\n"
-    if status_line:
+    header_text +=     if status_line:
         header_text += f"<blockquote><b>Status VIP Anda:</b>\n{status_line}</blockquote>\n"
     else:
         header_text += "<blockquote>• Status: User Biasa (Non-VIP)</blockquote>\n"
-    header_text += "────────────────────────────\n\n"
+    header_text += "\n"
 
     lines = []
     for p in PAKET:

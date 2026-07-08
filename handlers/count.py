@@ -50,18 +50,18 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     breadcrumbs = " ➔ ".join(parts)
     return (
         "<b>[ CONTACT COUNT CONSOLE ]</b>\n"
-                f"{breadcrumbs}\n"
+                f"<blockquote>{breadcrumbs}</blockquote>\n"
         "\n"
     )
 
 def _waiting_text(data: dict) -> str:
     return (
         _get_breadcrumbs(data, 1) +
-        f"<b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+        f"<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
         f"Silakan kirim satu atau beberapa file <code>.txt</code> atau <code>.vcf</code> sekarang.\n\n"
         f"<b>Batas Sesi:</b>\n"
         f"• Maksimum upload: <code>{MAX_FILES} file</code>\n"
-        f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file"
+        f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
     )
 
 def _count_contacts_sync(filepath: str, ext: str) -> int:
@@ -100,9 +100,9 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                 
                 text = (
                     _get_breadcrumbs(data, 1) +
-                    f"<b>[ STATUS: BERKAS DITERIMA ]</b>\n"
+                    f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
                     f"Berhasil mengunduh <code>{jumlah}</code> berkas.\n\n"
-                    f"Silakan pilih tindakan di bawah:"
+                    f"Silakan pilih tindakan di bawah:</blockquote>"
                 )
                 keyboard = InlineKeyboardMarkup([
                     [
@@ -196,9 +196,9 @@ async def handle_count_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     message_id=status_msg_id,
                     text=(
                         _get_breadcrumbs(sess["data"], 1) +
-                        f"⚠️ <b>[ FORMAT SALAH ]</b>\n"
+                        f"<blockquote>⚠️ <b>[ FORMAT SALAH ]</b>\n"
                         f"<code>{sent_name}</code> bukan berkas <code>.txt</code> atau <code>.vcf</code>.\n\n"
-                        f"Kirim ulang berkas dengan format <code>.txt</code> atau <code>.vcf</code>."
+                        f"Kirim ulang berkas dengan format <code>.txt</code> atau <code>.vcf</code>.</blockquote>"
                     ),
                     parse_mode="HTML",
                     reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
@@ -323,7 +323,7 @@ async def handle_count_done(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.set_session(update.effective_user.id, S2, data)
     
     status_msg_id = data.get("status_msg_id")
-    process_text = "<b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang menghitung kontak..."
+    process_text = "<blockquote><b>[ SYSTEM: PROCESSING DATA ]</b>\nSedang menghitung kontak...</blockquote>"
     
     if update.callback_query:
         await update.callback_query.message.edit_text(
@@ -425,7 +425,7 @@ async def handle_count_process(update: Update, context: ContextTypes.DEFAULT_TYP
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text="⚠️ <b>Terjadi kesalahan saat memproses.</b>",
+                text="<blockquote>⚠️ <b>Terjadi kesalahan saat memproses.</b></blockquote>",
                 parse_mode="HTML"
             )
         except Exception:
