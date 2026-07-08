@@ -187,7 +187,8 @@ async def cmd_vcftotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     from handlers.start import transition_to_handler
     _cancel_timer(user_id)
     _clear_buffers(user_id)
-    db.set_session(user_id, STATE, {"count": 0, "total_size": 0, "total_contacts": 0})
+    init_data = {"count": 0, "total_size": 0, "total_contacts": 0}
+    db.set_session(user_id, STATE, init_data)
     msg = await transition_to_handler(
         context.bot,
         user_id,
@@ -197,9 +198,9 @@ async def cmd_vcftotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         update=update
     )
     if msg:
-        sess = db.get_session(user_id)
-        sess["data"]["status_msg_id"] = msg.message_id
-        db.set_session(user_id, STATE, sess["data"])
+        # FIX Bug#3: pakai init_data langsung, tidak ambil ulang dari db setelah await
+        init_data["status_msg_id"] = msg.message_id
+        db.set_session(user_id, STATE, init_data)
 
 
 async def handle_vcftotxt_file(update: Update, context: ContextTypes.DEFAULT_TYPE):

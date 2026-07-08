@@ -187,9 +187,9 @@ async def cmd_vcfsimple(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
     if msg:
-        sess = db.get_session(user_id)
-        sess["data"]["status_msg_id"] = msg.message_id
-        db.set_session(user_id, VS_WAIT_FILE, sess["data"])
+        # FIX Bug#3: pakai init_data langsung, tidak ambil ulang dari db setelah await
+        init_data["status_msg_id"] = msg.message_id
+        db.set_session(user_id, VS_WAIT_FILE, init_data)
 
 async def handle_vs_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Menerima kiriman file TXT dari user"""

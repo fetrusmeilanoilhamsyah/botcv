@@ -202,7 +202,8 @@ async def cmd_txttovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     _cancel_timer(user_id)
     _clear_buffers(user_id)
     
-    db.set_session(user_id, S0, {"count": 0, "total_size": 0, "total_contacts": 0})
+    init_data = {"count": 0, "total_size": 0, "total_contacts": 0}
+    db.set_session(user_id, S0, init_data)
     
     msg = await transition_to_handler(
         context.bot,
@@ -220,9 +221,9 @@ async def cmd_txttovcf(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     
     if msg:
-        sess = db.get_session(user_id)
-        sess["data"]["status_msg_id"] = msg.message_id
-        db.set_session(user_id, S0, sess["data"])
+        # FIX Bug#3: pakai init_data langsung, tidak ambil ulang dari db setelah await
+        init_data["status_msg_id"] = msg.message_id
+        db.set_session(user_id, S0, init_data)
 
 
 async def handle_ttv_contact_name(update: Update, context: ContextTypes.DEFAULT_TYPE):
