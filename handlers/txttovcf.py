@@ -520,6 +520,41 @@ async def handle_ttv_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.delete()
         except Exception:
             pass
+        # Edit status message di atas dengan peringatan format salah
+        try:
+            status_msg_id = sess["data"].get("status_msg_id")
+            if status_msg_id:
+                sent_name = doc.file_name if doc and doc.file_name else "file tersebut"
+                await context.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=status_msg_id,
+                    text=(
+                        _get_breadcrumbs(sess["data"], 1) +
+                        f"<blockquote>⚠️ <b>[ FORMAT SALAH ]</b>\n"
+                        f"<code>{sent_name}</code> bukan berkas <code>.txt</code>.\n\n"
+                        f"Kirim ulang berkas dengan format <code>.txt</code>.</blockquote>"
+                    ),
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+                )
+                await asyncio.sleep(3)
+                # Kembalikan ke tampilan waiting for upload semula
+                await context.bot.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=status_msg_id,
+                    text=(
+                        _get_breadcrumbs(sess["data"], 1) +
+                        f"<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+                        f"Silakan kirim satu atau beberapa file <code>.txt</code> sekarang.\n\n"
+                        f"<b>Batas Sesi:</b>\n"
+                        f"\u2022 Maksimum upload: <code>{MAX_FILES} file</code>\n"
+                        f"\u2022 Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
+                    ),
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]])
+                )
+        except Exception:
+            pass
         return
         
     msg_id = update.message.message_id
