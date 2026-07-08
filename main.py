@@ -883,12 +883,12 @@ def main():
     app = (
         ApplicationBuilder()
         .token(BOT_TOKEN)
-        .base_url(f"http://localhost:{LOCAL_BOT_API_PORT}/bot")
-        .base_file_url(f"http://localhost:{LOCAL_BOT_API_PORT}/file/bot")
+        .base_url(f"http://127.0.0.1:{LOCAL_BOT_API_PORT}/bot")
+        .base_file_url(f"http://127.0.0.1:{LOCAL_BOT_API_PORT}/file/bot")
         .local_mode(True)
         .defaults(Defaults(parse_mode=ParseMode.HTML))
-        .concurrent_updates(64)       # turun dari 256 → 64 (hemat RAM di VPS 2GB)
-        .connection_pool_size(64)     # turun dari 256 → 64 (hemat RAM)
+        .concurrent_updates(128)      # 128 update paralel
+        .connection_pool_size(128)    # 128 koneksi ke Local Bot API
         .pool_timeout(60)
         .read_timeout(30)
         .write_timeout(120)
