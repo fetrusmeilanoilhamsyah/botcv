@@ -255,8 +255,10 @@ async def handle_ttv_contact_name(update: Update, context: ContextTypes.DEFAULT_
         message_id=status_msg_id,
         text=(
             _get_breadcrumbs(data, 2) +
-            f"<blockquote><b>[ LANGKAH 2: NAMA KONTAK ]</b>\n"
-            f"Ketik nama kontak dasar (contoh: <code>FEE</code>):</blockquote>"
+            f"<blockquote><b>[ LANGKAH 2: FORMAT PENAMAAN ]</b>\n"
+            f"Pilih format penamaan untuk kontak <code>{data['contact_name']}</code>:\n\n"
+            f"• <b>STANDAR</b>: <code>{data['contact_name']}1</code>, <code>{data['contact_name']}2</code>, dst.\n"
+            f"• <b>DENGAN TANGGAL</b>: <code>{data['contact_name']} DD/MM 1</code>, dst.</blockquote>"
         ),
         parse_mode="HTML",
         reply_markup=keyboard
