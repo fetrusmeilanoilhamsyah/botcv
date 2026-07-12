@@ -58,13 +58,44 @@ async def handle_broadcast_msg(update: Update, context: ContextTypes.DEFAULT_TYP
     message = update.message.text.strip()
     db.clear_session(user_id)
 
+    # Hapus pesan input teks broadcast dari admin secara instan
+    try:
+        await update.message.delete()
+    except Exception:
+        pass
+
+    from handlers.start import _welcome_messages, register_welcome_messages
+    welcome_ids = _welcome_messages.get(user_id, [])
+    welcome_msg_id = welcome_ids[0] if welcome_ids else None
+
     async def _run_broadcast():
         all_ids = await adb.get_all_user_ids()
         success = 0
         fail    = 0
         total   = len(all_ids)
 
-        status_msg = await update.message.reply_text(f"Mengirim ke {total} user...")
+        nonlocal welcome_msg_id
+        if welcome_msg_id:
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=welcome_msg_id,
+                    text=f"<blockquote><b>[ STATUS: BROADCAST TEKS ]</b>\nMengirim ke {total} user...</blockquote>",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
+        else:
+            try:
+                status_msg = await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=f"<blockquote><b>[ STATUS: BROADCAST TEKS ]</b>\nMengirim ke {total} user...</blockquote>",
+                    parse_mode="HTML"
+                )
+                welcome_msg_id = status_msg.message_id
+                register_welcome_messages(user_id, [welcome_msg_id])
+            except Exception:
+                pass
 
         try:
             for i, uid in enumerate(all_ids):
@@ -84,33 +115,58 @@ async def handle_broadcast_msg(update: Update, context: ContextTypes.DEFAULT_TYP
                 # yield ke event loop setiap pesan agar bot tidak freeze
                 await asyncio.sleep(0.05)
 
-                # Progress update tiap 100 user
+                # Progress update tiap 100 user (edit in-place)
                 if (i + 1) % 100 == 0:
                     try:
-                        await update.message.reply_text(
-                            f"Progress: {i+1}/{total} (berhasil: <b>{success}</b>, gagal: <b>{fail}</b>)",
+                        await context.bot.edit_message_text(
+                            chat_id=update.effective_chat.id,
+                            message_id=welcome_msg_id,
+                            text=(
+                                f"<blockquote><b>[ STATUS: BROADCAST TEKS ]</b>\n"
+                                f"Progress: <code>{i+1}/{total}</code>\n"
+                                f"• Berhasil : <code>{success}</code>\n"
+                                f"• Gagal : <code>{fail}</code></blockquote>"
+                            ),
                             parse_mode="HTML"
                         )
                     except Exception:
                         pass
 
             await adb.log_broadcast(user_id, message, success, fail)
-            await update.message.reply_text(
-                f"<b>Broadcast selesai.</b>\n"
-                f"Berhasil: <b>{success}</b>\n"
-                f"Gagal: <b>{fail}</b>",
-                parse_mode="HTML"
+            
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("KEMBALI KE PANEL", callback_data="admin_panel_menu", style="danger")]
+            ])
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=welcome_msg_id,
+                text=(
+                    f"<b>[ BROADCAST TEKS SELESAI ]</b>\n"
+                    f"<blockquote>• Berhasil : {success}\n"
+                    f"• Gagal : {fail}</blockquote>"
+                ),
+                parse_mode="HTML",
+                reply_markup=keyboard
             )
         except asyncio.CancelledError:
             sent_so_far = success + fail
             not_sent = total - sent_so_far
             await adb.log_broadcast(user_id, f"[BATAL] {message}", success, fail)
-            await update.message.reply_text(
-                f"🛑 <b>Broadcast dibatalkan oleh admin.</b>\n"
-                f"Berhasil: <b>{success}</b>\n"
-                f"Gagal: <b>{fail}</b>\n"
-                f"Belum terkirim: <b>{not_sent}</b>",
-                parse_mode="HTML"
+            
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("KEMBALI KE PANEL", callback_data="admin_panel_menu", style="danger")]
+            ])
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=welcome_msg_id,
+                text=(
+                    f"<b>[ BROADCAST TEKS DIBATALKAN ]</b>\n"
+                    f"<blockquote>• Berhasil : {success}\n"
+                    f"• Gagal : {fail}\n"
+                    f"• Belum terkirim : {not_sent}</blockquote>"
+                ),
+                parse_mode="HTML",
+                reply_markup=keyboard
             )
             raise
         finally:

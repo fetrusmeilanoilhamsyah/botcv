@@ -105,22 +105,63 @@ async def run_media_group_broadcast(update: Update, context: ContextTypes.DEFAUL
     if not items:
         return
 
+    # Hapus pesan media dari admin secara instan agar obrolan bersih
+    try:
+        await update.message.delete()
+    except Exception:
+        pass
+
+    from handlers.start import _welcome_messages, register_welcome_messages
+    welcome_ids = _welcome_messages.get(user_id, [])
+    welcome_msg_id = welcome_ids[0] if welcome_ids else None
+
     # Filter media list untuk send_media_group (hanya mendukung photo & video)
-    # Jika ada tipe animation, kirim sebagai single saja (jika cuma 1 item)
     has_animation = any(x["type"] == "animation" for x in items)
     if has_animation and len(items) > 1:
-        # Telegram send_media_group tidak mendukung GIF/animation bersama foto/video,
-        # jadi kita filter hanya foto & video jika ada lebih dari 1 item.
         items = [x for x in items if x["type"] in ("photo", "video")]
 
     if not items:
-        await update.message.reply_text("Gagal. Album hanya boleh berisi foto atau video.")
+        if welcome_msg_id:
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=welcome_msg_id,
+                    text="<blockquote>⚠️ <b>Gagal. Album hanya boleh berisi foto atau video.</b></blockquote>",
+                    parse_mode="HTML",
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("KEMBALI KE PANEL", callback_data="admin_panel_menu", style="danger")]])
+                )
+            except Exception:
+                pass
+        else:
+            await update.message.reply_text("Gagal. Album hanya boleh berisi foto atau video.")
         return
 
     async def _run_media_broadcast():
         users = await adb.get_all_users_detail()
         total = len(users)
-        await update.message.reply_text(f"Memulai broadcast media ke {total} user...")
+        
+        nonlocal welcome_msg_id
+        if welcome_msg_id:
+            try:
+                await context.bot.edit_message_text(
+                    chat_id=update.effective_chat.id,
+                    message_id=welcome_msg_id,
+                    text=f"<blockquote><b>[ STATUS: BROADCAST MEDIA ]</b>\nMengirim media ke {total} user...</blockquote>",
+                    parse_mode="HTML"
+                )
+            except Exception:
+                pass
+        else:
+            try:
+                status_msg = await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=f"<blockquote><b>[ STATUS: BROADCAST MEDIA ]</b>\nMengirim media ke {total} user...</blockquote>",
+                    parse_mode="HTML"
+                )
+                welcome_msg_id = status_msg.message_id
+                register_welcome_messages(user_id, [welcome_msg_id])
+            except Exception:
+                pass
 
         from telegram.error import RetryAfter
 
@@ -145,7 +186,7 @@ async def run_media_group_broadcast(update: Update, context: ContextTypes.DEFAUL
         success = 0
         fail = 0
         try:
-            for u in users:
+            for i, u in enumerate(users):
                 uid = u["id"]
                 try:
                     await send_one(uid)
@@ -161,23 +202,63 @@ async def run_media_group_broadcast(update: Update, context: ContextTypes.DEFAUL
                     fail += 1
                 
                 await asyncio.sleep(0.05)  # Anti rate-limit
+
+                # Progress update tiap 100 user (edit in-place)
+                if (i + 1) % 100 == 0:
+                    try:
+                        await context.bot.edit_message_text(
+                            chat_id=update.effective_chat.id,
+                            message_id=welcome_msg_id,
+                            text=(
+                                f"<blockquote><b>[ STATUS: BROADCAST MEDIA ]</b>\n"
+                                f"Progress: <code>{i+1}/{total}</code>\n"
+                                f"• Berhasil : <code>{success}</code>\n"
+                                f"• Gagal : <code>{fail}</code></blockquote>"
+                            ),
+                            parse_mode="HTML"
+                        )
+                    except Exception:
+                        pass
                 
             media_desc = f"{len(items)} media" if len(items) > 1 else items[0]["type"]
             caption_sample = items[0]["caption"][:100] if items[0]["caption"] else ""
             await adb.log_broadcast(user_id, f"[MEDIA:{media_desc}] {caption_sample}", success, fail)
-            await update.message.reply_text(f"<b>Broadcast selesai.</b>\nBerhasil: <b>{success}</b>\nGagal: <b>{fail}</b>", parse_mode="HTML")
+            
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("KEMBALI KE PANEL", callback_data="admin_panel_menu", style="danger")]
+            ])
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=welcome_msg_id,
+                text=(
+                    f"<b>[ BROADCAST MEDIA SELESAI ]</b>\n"
+                    f"<blockquote>• Berhasil : {success}\n"
+                    f"• Gagal : {fail}</blockquote>"
+                ),
+                parse_mode="HTML",
+                reply_markup=keyboard
+            )
         except asyncio.CancelledError:
             sent_so_far = success + fail
             not_sent = total - sent_so_far
             media_desc = f"{len(items)} media" if len(items) > 1 else items[0]["type"]
             caption_sample = items[0]["caption"][:100] if items[0]["caption"] else ""
             await adb.log_broadcast(user_id, f"[BATAL][MEDIA:{media_desc}] {caption_sample}", success, fail)
-            await update.message.reply_text(
-                f"🛑 <b>Broadcast media dibatalkan oleh admin.</b>\n"
-                f"Berhasil: <b>{success}</b>\n"
-                f"Gagal: <b>{fail}</b>\n"
-                f"Belum terkirim: <b>{not_sent}</b>",
-                parse_mode="HTML"
+            
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("KEMBALI KE PANEL", callback_data="admin_panel_menu", style="danger")]
+            ])
+            await context.bot.edit_message_text(
+                chat_id=update.effective_chat.id,
+                message_id=welcome_msg_id,
+                text=(
+                    f"<b>[ BROADCAST MEDIA DIBATALKAN ]</b>\n"
+                    f"<blockquote>• Berhasil : {success}\n"
+                    f"• Gagal : {fail}\n"
+                    f"• Belum terkirim : {not_sent}</blockquote>"
+                ),
+                parse_mode="HTML",
+                reply_markup=keyboard
             )
             raise
         finally:

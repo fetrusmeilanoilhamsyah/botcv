@@ -53,15 +53,15 @@ async def cmd_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer()
         await query.edit_message_text(text, parse_mode="HTML", reply_markup=keyboard)
     else:
-        chat_id = update.effective_chat.id
-        msg = await context.bot.send_message(
-            chat_id=chat_id,
-            text=text,
-            parse_mode="HTML",
-            reply_markup=keyboard
+        from handlers.start import transition_to_handler
+        await transition_to_handler(
+            context.bot,
+            user_id,
+            update.effective_chat.id,
+            text,
+            reply_markup=keyboard,
+            update=update
         )
-        from handlers.start import register_welcome_messages
-        register_welcome_messages(user_id, [msg.message_id])
 
 
 async def handle_admin_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
