@@ -142,31 +142,33 @@ async def cmd_stat(update: Update, context: ContextTypes.DEFAULT_TYPE):
     top3_block = "\n".join(top3_lines) if top3_lines else "  Belum ada data."
 
     # ── Rakitan pesan ────
-    SEP = "─" * 28
     msg = (
-        f"<b>STATISTIK BOT</b>\n"
-        f"{now_jakarta.strftime('%d/%m/%Y %H:%M')} WIB  |  Uptime: {_uptime_str()}\n"
-        f"{SEP}\n"
-        f"<b>USER</b>\n"
-        f"  Total        : {total}\n"
-        f"  Non-member   : {total_non}\n"
-        f"  VIP berjangka: {len(vip_timed)}\n"
-        f"  VIP permanen : {len(vip_perm)}\n"
-        f"{SEP}\n"
-        f"<b>PEMBAYARAN (QRIS)</b>\n"
-        f"  Transaksi    : {pay['total']}x\n"
-        f"  Sukses       : {pay['completed']}x\n"
-        f"  Pending      : {pay['pending']}x\n"
-        f"  Omset        : <b>{_fmt_rp(pay['income'])}</b>\n"
-        f"{SEP}\n"
-        f"<b>KESEHATAN SERVER</b>\n"
-        f"{health}\n"
-        f"{SEP}\n"
-        f"<b>TOP 3 PENGGUNA (non-admin)</b>\n"
-        f"{top3_block}\n"
-        f"{SEP}\n"
-        f"<b>VIP AKTIF (maks 10, terdekat expired)</b>\n"
-        f"{vip_block}"
+        f"<b>[ STATISTIK BOT ]</b>\n"
+        f"<blockquote><b>[ WAKTU: {now_jakarta.strftime('%d/%m/%Y %H:%M')} WIB ]</b>\n"
+        f"• Uptime : {_uptime_str()}\n\n"
+        f"<b>[ DATA PENGGUNA ]</b>\n"
+        f"• Total : {total} USER\n"
+        f"• Non-member : {total_non}\n"
+        f"• VIP Berjangka : {len(vip_timed)}\n"
+        f"• VIP Permanen : {len(vip_perm)}\n\n"
+        f"<b>[ PEMBAYARAN QRIS ]</b>\n"
+        f"• Total Transaksi : {pay['total']}x\n"
+        f"• Transaksi Sukses : {pay['completed']}x\n"
+        f"• Transaksi Pending : {pay['pending']}x\n"
+        f"• Total Omset : {_fmt_rp(pay['income'])}\n\n"
+        f"<b>[ KESEHATAN SERVER ]</b>\n"
+        f"{health}\n\n"
+        f"<b>[ TOP 3 PENGGUNA ]</b>\n"
+        f"{top3_block}\n\n"
+        f"<b>[ VIP AKTIF (MAKS 10) ]</b>\n"
+        f"{vip_block}</blockquote>"
     )
 
-    await update.message.reply_text(msg, parse_mode="HTML")
+    if update.callback_query:
+        query = update.callback_query
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("KEMBALI", callback_data="admin_panel_menu", style="danger")]
+        ])
+        await query.edit_message_text(msg, parse_mode="HTML", reply_markup=keyboard)
+    else:
+        await update.message.reply_text(msg, parse_mode="HTML")

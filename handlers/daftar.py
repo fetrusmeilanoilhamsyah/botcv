@@ -65,15 +65,24 @@ async def cmd_daftar(update: Update, context: ContextTypes.DEFAULT_TYPE):
     file_bytes = io.BytesIO(file_content.encode('utf-8'))
     file_bytes.name = f"daftar_pengguna_{now_dt.strftime('%Y%m%d_%H%M%S')}.txt"
 
-    # Kirim dokumen (.txt) ke admin
-    await update.message.reply_document(
+    chat_id = update.effective_chat.id if update.effective_chat else update.effective_user.id
+    if update.callback_query:
+        query = update.callback_query
+        try:
+            await query.answer("Mengirim berkas daftar pengguna...")
+        except Exception:
+            pass
+
+    # Kirim dokumen (.txt) ke admin secara aman
+    await context.bot.send_document(
+        chat_id=chat_id,
         document=file_bytes,
         filename=file_bytes.name,
         caption=(
-            f"<b>DAFTAR PENGGUNA BOT</b>\n"
-            f"• Total : {total}\n"
+            f"<b>[ DAFTAR PENGGUNA BOT ]</b>\n"
+            f"<blockquote>• Total : {total} USER\n"
             f"• VIP   : {total_member}\n"
-            f"• Reg   : {total_non}"
+            f"• Reg   : {total_non}</blockquote>"
         ),
         parse_mode="HTML"
     )

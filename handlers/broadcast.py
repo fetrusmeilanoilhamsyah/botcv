@@ -24,7 +24,20 @@ async def cmd_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     user_id = update.effective_user.id
     db.set_session(user_id, STATE, {})
-    await update.message.reply_text("Tulis pesan broadcast:")
+    
+    text = (
+        "<b>[ BROADCAST TEKS ]</b>\n"
+        "<blockquote>Silakan ketik pesan teks broadcast yang ingin Anda kirim ke seluruh pengguna:</blockquote>"
+    )
+    
+    if update.callback_query:
+        query = update.callback_query
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("BATAL", callback_data="admin_panel_menu", style="danger")]
+        ])
+        await query.edit_message_text(text, parse_mode="HTML", reply_markup=keyboard)
+    else:
+        await update.message.reply_text(text, parse_mode="HTML")
 
 
 active_broadcasts = {}
@@ -139,8 +152,11 @@ async def cmd_stop_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE)
         cancelled = True
 
     db.clear_session(user_id)
-    if cancelled:
-        await update.message.reply_text("🛑 <b>Broadcast sedang aktif berhasil dihentikan paksa oleh admin.</b>", parse_mode="HTML")
+    text = "<b>[ STATUS: BROADCAST BERHASIL DIHENTIKAN ]</b>" if cancelled else "Tidak ada broadcast aktif yang sedang berjalan."
+
+    if update.callback_query:
+        query = update.callback_query
+        await query.answer(text, show_alert=True)
     else:
-        await update.message.reply_text("Tidak ada broadcast aktif yang sedang berjalan.")
+        await update.message.reply_text(text, parse_mode="HTML")
 

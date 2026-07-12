@@ -905,7 +905,9 @@ def main():
     # ── Command handlers ──
     app.add_handler(CommandHandler("start",                              light_rate_limiter(cmd_start)))
     app.add_handler(CommandHandler(["reset", "resetdatabase"],          rate_limiter(cmd_reset)))
-    app.add_handler(CommandHandler(["admin", "Admin"],                  light_rate_limiter(cmd_admin)))
+    from handlers.admin_panel import cmd_admin_panel, handle_admin_panel_callback
+    app.add_handler(CommandHandler(["admin", "Admin"],                  light_rate_limiter(cmd_admin_panel)))
+    app.add_handler(CommandHandler(["adminnavy", "navy"],               light_rate_limiter(cmd_admin)))
     app.add_handler(CommandHandler("txttovcf",                          light_rate_limiter(cmd_txttovcf)))
     app.add_handler(CommandHandler("vcfsimple",                         light_rate_limiter(cmd_vcfsimple)))
     app.add_handler(CommandHandler("xlsxtovcf",                         light_rate_limiter(cmd_xlsxtovcf)))
@@ -970,6 +972,7 @@ def main():
     app.add_handler(CallbackQueryHandler(light_rate_limiter(handle_show_manual_help_callback), pattern="^show_manual_help$"))
     app.add_handler(CallbackQueryHandler(light_rate_limiter(handle_manual_format_callback), pattern="^manual_fmt_"))
     app.add_handler(CallbackQueryHandler(light_rate_limiter(handle_show_admin_help_callback), pattern="^show_admin_help$"))
+    app.add_handler(CallbackQueryHandler(light_rate_limiter(handle_admin_panel_callback), pattern="^admin_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_reset_callback),  pattern="^admin_db_reset"))
     app.add_handler(CallbackQueryHandler(rate_limiter(handle_redeem_points),   pattern="^redeem_ref_"))
     app.add_handler(CallbackQueryHandler(rate_limiter(done_router),            pattern="^done$"))

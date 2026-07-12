@@ -138,14 +138,8 @@ def build_menu_text(first_name: str, user_id: int) -> str:
     if is_admin(user_id):
         fitur += (
             "\n<b>[ ADMIN ]</b>\n"
-            "• /stat — Statistik\n"
-            "• /daftar — Daftar user\n"
-            "• /backup — Backup database\n"
-            "• /broadcast — Broadcast teks\n"
-            "• /mediabroadcast — Broadcast media\n"
-            "• /stopbroadcast — Hentikan broadcast\n"
-            "• /addvip /delvip — Kelola VIP\n"
-            "• /resetdatabase — Bersihkan cache"
+            "• /admin — PANEL KONTROL ADMIN\n"
+            "• /adminnavy — ADMIN NAVY VCF"
         )
 
     return (

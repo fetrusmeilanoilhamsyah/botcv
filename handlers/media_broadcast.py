@@ -15,8 +15,22 @@ STATE = "WAIT_BROADCAST_MEDIA"
 async def cmd_media_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_admin(update, context):
         return
-    db.set_session(update.effective_user.id, STATE, {})
-    await update.message.reply_text("Kirim Foto atau Video (bisa berupa album/media group) yang akan di-broadcast:")
+    user_id = update.effective_user.id
+    db.set_session(user_id, STATE, {})
+    
+    text = (
+        "<b>[ BROADCAST MEDIA ]</b>\n"
+        "<blockquote>Silakan kirim foto atau video (bisa berupa album/media group) yang ingin Anda broadcast:</blockquote>"
+    )
+    
+    if update.callback_query:
+        query = update.callback_query
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("BATAL", callback_data="admin_panel_menu", style="danger")]
+        ])
+        await query.edit_message_text(text, parse_mode="HTML", reply_markup=keyboard)
+    else:
+        await update.message.reply_text(text, parse_mode="HTML")
 
 active_broadcasts = {}
 media_group_buffers = {}

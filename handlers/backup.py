@@ -14,9 +14,18 @@ async def cmd_backup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not await require_admin(update, context):
         return
 
+    chat_id = update.effective_chat.id if update.effective_chat else update.effective_user.id
+    if update.callback_query:
+        query = update.callback_query
+        try:
+            await query.answer("Mempersiapkan backup database...")
+        except Exception:
+            pass
+
     # Kirim status awal
-    status_msg = await update.effective_message.reply_text(
-        "Sedang mempersiapkan backup database..."
+    status_msg = await context.bot.send_message(
+        chat_id=chat_id,
+        text="Sedang mempersiapkan backup database..."
     )
 
     try:
@@ -32,13 +41,18 @@ async def cmd_backup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         import asyncio
         await asyncio.to_thread(shutil.copy2, DB_PATH, backup_path)
         
-        # Kirim dokumen database ke ID chat admin
+        # Kirim dokumen database ke ID chat admin secara aman
         with open(backup_path, "rb") as f:
             await context.bot.send_document(
-                chat_id=update.effective_chat.id,
+                chat_id=chat_id,
                 document=f,
                 filename=backup_filename,
-                caption=f"Backup database berhasil dibuat.\nTanggal: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+                caption=(
+                    f"<b>[ BACKUP DATABASE ]</b>\n"
+                    f"<blockquote>Berhasil membuat backup database.\n"
+                    f"Waktu: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')} WIB</blockquote>"
+                ),
+                parse_mode="HTML"
             )
             
         # Hapus file temporary backup secara async
