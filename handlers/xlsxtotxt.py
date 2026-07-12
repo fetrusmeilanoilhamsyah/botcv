@@ -203,7 +203,7 @@ async def cmd_xlsxtotxt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     import shutil
     _cancel_debounce(user_id)
     xlsx_dir = os.path.join(get_user_dir(user_id), "xlsxtotxt")
-    shutil.rmtree(xlsx_dir, ignore_errors=True)
+    await asyncio.to_thread(shutil.rmtree, xlsx_dir, ignore_errors=True)
     os.makedirs(xlsx_dir, exist_ok=True)
 
     master_txt = os.path.join(xlsx_dir, "extracted_numbers.txt")
@@ -437,7 +437,7 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
         register_welcome_messages(user_id, [final_id])
         db.clear_session(user_id)
         import shutil
-        shutil.rmtree(os.path.join(get_user_dir(user_id), "xlsxtotxt"), ignore_errors=True)
+        asyncio.create_task(asyncio.to_thread(shutil.rmtree, os.path.join(get_user_dir(user_id), "xlsxtotxt"), ignore_errors=True))
         return
 
     xlsx_dir = os.path.join(get_user_dir(user_id), "xlsxtotxt")
@@ -504,7 +504,7 @@ async def handle_xlsxtotxt_done(update: Update, context: ContextTypes.DEFAULT_TY
     finally:
         db.clear_session(user_id)
         import shutil
-        shutil.rmtree(xlsx_dir, ignore_errors=True)
+        asyncio.create_task(asyncio.to_thread(shutil.rmtree, xlsx_dir, ignore_errors=True))
 
 
 async def handle_show_xlsxtotxt_help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -517,7 +517,7 @@ async def handle_show_xlsxtotxt_help_callback(update: Update, context: ContextTy
     import shutil
     _cancel_debounce(user_id)
     xlsx_dir = os.path.join(get_user_dir(user_id), "xlsxtotxt")
-    shutil.rmtree(xlsx_dir, ignore_errors=True)
+    await asyncio.to_thread(shutil.rmtree, xlsx_dir, ignore_errors=True)
     os.makedirs(xlsx_dir, exist_ok=True)
 
     master_txt = os.path.join(xlsx_dir, "extracted_numbers.txt")

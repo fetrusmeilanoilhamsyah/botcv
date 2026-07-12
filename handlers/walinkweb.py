@@ -712,7 +712,7 @@ async def handle_walinkweb_file(update: Update, context: ContextTypes.DEFAULT_TY
             pass
     except Exception as e:
         logger.error("Failed to download file in walinkweb: %s", e)
-        shutil.rmtree(work_dir, ignore_errors=True)
+        asyncio.create_task(asyncio.to_thread(shutil.rmtree, work_dir, ignore_errors=True))
         try:
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
@@ -962,7 +962,7 @@ async def handle_walinkweb_msg(update: Update, context: ContextTypes.DEFAULT_TYP
             pass
     finally:
         _processing.discard(user_id)
-        shutil.rmtree(work_dir, ignore_errors=True)
+        asyncio.create_task(asyncio.to_thread(shutil.rmtree, work_dir, ignore_errors=True))
 
 
 async def handle_show_walinkweb_help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):

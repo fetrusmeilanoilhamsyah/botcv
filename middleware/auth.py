@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 # RAM Cache for membership checks to prevent API rate-limiting/spamming
 _membership_cache = {}
-MEMBERSHIP_CACHE_TTL = 300  # 5 menit — mengurangi beban API Telegram secara drastis
+MEMBERSHIP_CACHE_TTL = 3600  # 1 jam — mengurangi beban API Telegram secara drastis
 
 
 def is_admin(user_id: int) -> bool:

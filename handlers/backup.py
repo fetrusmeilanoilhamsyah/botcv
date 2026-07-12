@@ -28,8 +28,9 @@ async def cmd_backup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         temp_dir = os.path.dirname(DB_PATH)
         backup_path = os.path.join(temp_dir, backup_filename)
         
-        # Lakukan penyalinan file untuk menghindari file locking
-        shutil.copy2(DB_PATH, backup_path)
+        # Lakukan penyalinan file untuk menghindari file locking secara async
+        import asyncio
+        await asyncio.to_thread(shutil.copy2, DB_PATH, backup_path)
         
         # Kirim dokumen database ke ID chat admin
         with open(backup_path, "rb") as f:
@@ -40,9 +41,10 @@ async def cmd_backup(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 caption=f"Backup database berhasil dibuat.\nTanggal: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
             )
             
-        # Hapus file temporary backup
+        # Hapus file temporary backup secara async
         if os.path.exists(backup_path):
-            os.remove(backup_path)
+            import asyncio
+            await asyncio.to_thread(os.remove, backup_path)
             
         # Hapus status pesan awal
         await status_msg.delete()

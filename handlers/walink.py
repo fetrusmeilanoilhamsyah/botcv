@@ -340,7 +340,7 @@ async def handle_walink_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
             pass
     finally:
         _processing.discard(user_id)
-        shutil.rmtree(work_dir, ignore_errors=True)
+        asyncio.create_task(asyncio.to_thread(shutil.rmtree, work_dir, ignore_errors=True))
 
 
 async def handle_show_walink_help_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
