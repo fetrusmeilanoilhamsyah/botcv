@@ -95,11 +95,21 @@ async def handle_admin_panel_callback(update: Update, context: ContextTypes.DEFA
 
     elif data == "admin_reset_confirm":
         await query.answer()
-        # Redirect ke konfirmasi reset yang sudah ada di handlers/reset.py
-        from handlers.reset import handle_reset_callback
-        # Mock query data agar sesuai dengan penanganan reset.py
-        query.data = "admin_db_reset_confirm"
-        await handle_reset_callback(update, context)
+        keyboard = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("YA, HAPUS SEMUA", callback_data="admin_db_reset_final", style="danger"),
+                InlineKeyboardButton("BATAL", callback_data="admin_db_reset_cancel", style="primary")
+            ]
+        ])
+        await query.edit_message_text(
+            text=(
+                "<b>[ KONFIRMASI RESET ]</b>\n"
+                "<blockquote>Tindakan ini akan menghapus riwayat broadcast, semua sesi aktif, dan cache file sementara secara permanen.\n\n"
+                "Data pengguna dan status keanggotaan VIP tetap aman dan TIDAK akan dihapus. Apakah Anda yakin?</blockquote>"
+            ),
+            parse_mode="HTML",
+            reply_markup=keyboard
+        )
 
     elif data == "admin_bc_text":
         from handlers.broadcast import cmd_broadcast
