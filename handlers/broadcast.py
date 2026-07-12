@@ -9,7 +9,7 @@ Dengan 1000 user dan 0.05s sleep per user → broadcast ~50 detik total,
 event loop tidak blokir karena await asyncio.sleep() melepas kontrol.
 """
 import asyncio
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from telegram.error import RetryAfter
 from database import db

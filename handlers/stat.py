@@ -4,7 +4,7 @@ stat.py — Dashboard owner: statistik bot realtime, bersih tanpa emoji berlebih
 import os
 import time
 from datetime import datetime, timezone, timedelta
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from database import db
 from middleware.auth import require_admin, is_admin
