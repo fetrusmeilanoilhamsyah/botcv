@@ -349,6 +349,7 @@ def get_user(user_id: int):
 def is_member(user_id: int) -> bool:
     """Check if user is an active member.
     FIX: Gunakan RAM Cache (VIP_CACHE_TTL) dengan Lock untuk performa ekstrem & aman konkurensi.
+    Hanya lakukan update menulis ke DB jika terdeteksi transisi expired.
     """
     import time
     from config import VIP_CACHE_TTL
@@ -360,36 +361,46 @@ def is_member(user_id: int) -> bool:
         if cached and (now - cached["cached_at"] < VIP_CACHE_TTL):
             return cached["is_member"]
 
+    status = False
     with get_connection() as conn:
-        # Single atomic query: update expired rows sekaligus
-        now_iso = datetime.now().isoformat()
-        # Revoke VIP yang sudah expired dalam satu query
-        conn.execute(
-            """UPDATE users
-               SET is_member = 0, expired_at = NULL
-               WHERE id = ? AND is_member = 1
-                 AND expired_at IS NOT NULL
-                 AND expired_at < ?""",
-            (user_id, now_iso)
-        )
-        conn.commit()
-        # Sekarang baca status terkini
+        # Cek data terkini terlebih dahulu secara read-only (SELECT)
         row = conn.execute(
-            "SELECT is_member FROM users WHERE id = ?",
+            "SELECT is_member, expired_at FROM users WHERE id = ?",
             (user_id,)
         ).fetchone()
         
-        status = False
         if row is not None:
-            status = bool(row["is_member"])
+            is_member_val = bool(row["is_member"])
+            expired_at = row["expired_at"]
             
-        with _vip_cache_lock:
-            # Simpan ke cache RAM
-            _vip_cache[user_id] = {
-                "is_member": status,
-                "cached_at": now
-            }
-        return status
+            if is_member_val:
+                if expired_at:
+                    try:
+                        expired_dt = datetime.fromisoformat(expired_at)
+                        if datetime.now() > expired_dt:
+                            # Terdeteksi transisi expired: Lakukan update DB secara langsung (hanya 1x saat transisi ini)
+                            conn.execute(
+                                "UPDATE users SET is_member = 0, expired_at = NULL WHERE id = ?",
+                                (user_id,)
+                            )
+                            conn.commit()
+                            status = False
+                        else:
+                            status = True
+                    except Exception:
+                        status = True
+                else:
+                    status = True
+            else:
+                status = False
+
+    with _vip_cache_lock:
+        # Simpan ke cache RAM
+        _vip_cache[user_id] = {
+            "is_member": status,
+            "cached_at": now
+        }
+    return status
 
 
 def remove_member(user_id: int):

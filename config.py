@@ -56,7 +56,7 @@ LOCAL_BOT_API_PORT = int(os.getenv("LOCAL_BOT_API_PORT", 8082))
 GLOBAL_MAX_CONCURRENT      = 32   # Maks 32 coroutine update berjalan bersamaan (sejajar dengan DB pool 32)
 GLOBAL_MAX_CONCURRENT_FILE = 32   # Maks 32 proses download/upload file bersamaan (mencegah OOM/exhaustion)
 USER_CLICK_COOLDOWN        = 0.2  # Jeda minimum antar klik (debounce anti-spam untuk kestabilan UI)
-VIP_CACHE_TTL              = 30   # Durasi simpan cache status VIP di RAM (detik)
+VIP_CACHE_TTL              = 300  # Durasi simpan cache status VIP di RAM (detik)
 
 # ─── Bot Sending & Timeout Constants ──────────────────────────────────────────
 SEND_PROGRESS_INTERVAL = 10   # Update progress tiap N file
