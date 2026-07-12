@@ -115,7 +115,7 @@ def build_menu_text(first_name: str, user_id: int) -> str:
         "• /txttovcf — TXT KE VCF\n"
         "• /vcfsimple — VCF SIMPLE\n"
         "• /vcftotxt — VCF KE TXT\n"
-        "• /admin — ADMIN NAVY VCF\n"
+        "• /adminnavy — ADMIN NAVY VCF\n"
         "• /merge — GABUNG FILE\n"
         "• /count — HITUNG KONTAK\n"
         "• /xlsxtovcf — EXCEL KE VCF\n"
@@ -138,8 +138,7 @@ def build_menu_text(first_name: str, user_id: int) -> str:
     if is_admin(user_id):
         fitur += (
             "\n<b>[ ADMIN ]</b>\n"
-            "• /admin — PANEL KONTROL ADMIN\n"
-            "• /adminnavy — ADMIN NAVY VCF"
+            "• /admin — PANEL KONTROL ADMIN"
         )
 
     return (
