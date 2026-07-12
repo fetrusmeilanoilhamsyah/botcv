@@ -100,17 +100,22 @@ async def handle_broadcast_msg(update: Update, context: ContextTypes.DEFAULT_TYP
         try:
             for i, uid in enumerate(all_ids):
                 try:
-                    await context.bot.send_message(chat_id=uid, text=message)
+                    await context.bot.send_message(chat_id=uid, text=message, parse_mode="HTML")
                     success += 1
                 except RetryAfter as e:
                     await asyncio.sleep(e.retry_after + 1)
+                    try:
+                        await context.bot.send_message(chat_id=uid, text=message, parse_mode="HTML")
+                        success += 1
+                    except Exception:
+                        fail += 1
+                except Exception:
+                    # Fallback ke plain text jika parsing HTML gagal
                     try:
                         await context.bot.send_message(chat_id=uid, text=message)
                         success += 1
                     except Exception:
                         fail += 1
-                except Exception:
-                    fail += 1
 
                 # yield ke event loop setiap pesan agar bot tidak freeze
                 await asyncio.sleep(0.05)

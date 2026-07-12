@@ -174,22 +174,23 @@ async def run_media_group_broadcast(update: Update, context: ContextTypes.DEFAUL
 
         from telegram.error import RetryAfter
 
-        async def send_one(uid):
+        async def send_one(uid, use_html=True):
+            pm = "HTML" if use_html else None
             if len(items) == 1:
                 item = items[0]
                 if item["type"] == "photo":
-                    await context.bot.send_photo(chat_id=uid, photo=item["file_id"], caption=item["caption"])
+                    await context.bot.send_photo(chat_id=uid, photo=item["file_id"], caption=item["caption"], parse_mode=pm)
                 elif item["type"] == "video":
-                    await context.bot.send_video(chat_id=uid, video=item["file_id"], caption=item["caption"])
+                    await context.bot.send_video(chat_id=uid, video=item["file_id"], caption=item["caption"], parse_mode=pm)
                 elif item["type"] == "animation":
-                    await context.bot.send_animation(chat_id=uid, animation=item["file_id"], caption=item["caption"])
+                    await context.bot.send_animation(chat_id=uid, animation=item["file_id"], caption=item["caption"], parse_mode=pm)
             else:
                 media_list = []
                 for item in items:
                     if item["type"] == "photo":
-                        media_list.append(InputMediaPhoto(media=item["file_id"], caption=item["caption"]))
+                        media_list.append(InputMediaPhoto(media=item["file_id"], caption=item["caption"], parse_mode=pm))
                     elif item["type"] == "video":
-                        media_list.append(InputMediaVideo(media=item["file_id"], caption=item["caption"]))
+                        media_list.append(InputMediaVideo(media=item["file_id"], caption=item["caption"], parse_mode=pm))
                 await context.bot.send_media_group(chat_id=uid, media=media_list)
 
         success = 0
@@ -198,17 +199,22 @@ async def run_media_group_broadcast(update: Update, context: ContextTypes.DEFAUL
             for i, u in enumerate(users):
                 uid = u["id"]
                 try:
-                    await send_one(uid)
+                    await send_one(uid, use_html=True)
                     success += 1
                 except RetryAfter as e:
                     await asyncio.sleep(e.retry_after + 1)
                     try:
-                        await send_one(uid)
+                        await send_one(uid, use_html=True)
                         success += 1
                     except Exception:
                         fail += 1
                 except Exception:
-                    fail += 1
+                    # Fallback ke plain text jika parsing HTML gagal
+                    try:
+                        await send_one(uid, use_html=False)
+                        success += 1
+                    except Exception:
+                        fail += 1
                 
                 await asyncio.sleep(0.05)  # Anti rate-limit
 
