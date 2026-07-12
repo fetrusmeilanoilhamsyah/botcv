@@ -41,20 +41,31 @@ def _get_breadcrumbs(data: dict, step: int) -> str:
     
     parts = []
     if step == 1:
-        parts.append(f"<b>» BERKAS: {count} FILE «</b>" if count else "<b>» BERKAS «</b>")
+        parts.append(f"<b>[UPLOAD BERKAS: {count} FILE]</b>" if count else "<b>[UPLOAD BERKAS]</b>")
     else:
-        parts.append(f"Berkas: {count} file" if count else "Berkas ○")
+        parts.append(f"Berkas: <code>{count}</code>" if count else "Berkas: ➖")
         
     if step == 2:
-        parts.append("<b>» KIRIM «</b>")
+        parts.append("<b>[CLEANUP]</b>")
     else:
-        parts.append("Kirim ○")
+        parts.append("Cleanup: ➖")
         
     breadcrumbs = " ➔ ".join(parts)
     return (
         "<b>[ NUMBER CLEANUP CV ]</b>\n"
-                f"{breadcrumbs}\n"
+        f"<blockquote>{breadcrumbs}</blockquote>\n"
         "\n"
+    )
+
+def _waiting_text(data: dict) -> str:
+    from config import MAX_FILES_PER_SESSION as MAX_FILES, MAX_UPLOAD_SIZE_MB as MAX_SIZE_MB
+    return (
+        _get_breadcrumbs(data, 1) +
+        f"<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+        f"Silakan kirim satu atau beberapa file <code>.txt</code> atau <code>.vcf</code> sekarang.\n\n"
+        f"<b>Batas Sesi:</b>\n"
+        f"• Maksimum upload: <code>{MAX_FILES} file</code>\n"
+        f"• Maksimum ukuran: <code>{MAX_SIZE_MB} MB</code> per file</blockquote>"
     )
 
 
@@ -96,7 +107,12 @@ async def _debounce_notify(user_id: int, context, chat_id: int):
                     data = sess["data"]
                     jumlah = data["count"]
 
-                    text = _get_breadcrumbs(data, 1) + f"<b>{jumlah}</b> file diterima. Silakan pilih tindakan:"
+                    text = (
+                        _get_breadcrumbs(data, 1) +
+                        f"<blockquote><b>[ STATUS: BERKAS DITERIMA ]</b>\n"
+                        f"Berhasil mengunduh <code>{jumlah}</code> berkas.\n\n"
+                        f"Silakan pilih tindakan di bawah:</blockquote>"
+                    )
                     keyboard = InlineKeyboardMarkup([
                         [
                             InlineKeyboardButton("PROSES SEKARANG", callback_data="done", style="success"),
@@ -178,7 +194,7 @@ async def cmd_cleanup(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.bot,
         user_id,
         update.effective_chat.id,
-        _get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> atau <b>.VCF</b> sekarang.",
+        _waiting_text({"count": 0}),
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
         update=update
     )
@@ -285,7 +301,7 @@ async def handle_show_cleanup_help_callback(update: Update, context: ContextType
         context.bot,
         user_id,
         query.message.chat_id,
-        _get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.TXT</b> atau <b>.VCF</b> sekarang.",
+        _waiting_text({"count": 0}),
         reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("BATAL & KEMBALI", callback_data="back_to_start", style="danger")]]),
     )
     if msg:
