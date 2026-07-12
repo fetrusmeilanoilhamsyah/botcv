@@ -150,7 +150,16 @@ async def run_media_group_broadcast(update: Update, context: ContextTypes.DEFAUL
                     parse_mode="HTML"
                 )
             except Exception:
-                pass
+                try:
+                    status_msg = await context.bot.send_message(
+                        chat_id=update.effective_chat.id,
+                        text=f"<blockquote><b>[ STATUS: BROADCAST MEDIA ]</b>\nMengirim media ke {total} user...</blockquote>",
+                        parse_mode="HTML"
+                    )
+                    welcome_msg_id = status_msg.message_id
+                    register_welcome_messages(user_id, [welcome_msg_id])
+                except Exception:
+                    welcome_msg_id = None
         else:
             try:
                 status_msg = await context.bot.send_message(
