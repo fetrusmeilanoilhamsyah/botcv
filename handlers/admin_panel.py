@@ -5,7 +5,6 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from middleware.auth import require_admin
 from database import db
-import asyncio
 
 async def cmd_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Menampilkan Panel Kontrol Admin."""
