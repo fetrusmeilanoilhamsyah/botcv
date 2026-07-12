@@ -45,7 +45,7 @@ async def transition_to_handler(bot, user_id: int, chat_id: int, text: str, repl
         if update and update.message:
             async def _del_cmd():
                 try:
-                    await asyncio.sleep(0.3)  # Jeda 0.3s agar Telegram HP tidak kedip/jumping
+                    await asyncio.sleep(0.8)  # Jeda 0.8s agar Telegram HP tidak kedip/jumping
                     await update.message.delete()
                 except Exception:
                     pass
