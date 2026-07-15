@@ -116,21 +116,24 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {{
-            --bg-color: #09090b;
-            --card-bg: #09090b;
-            --border-color: #27272a;
-            --text-color: #a1a1aa;
-            --text-title: #f4f4f5;
-            --text-muted: #52525b;
-            --primary: #10b981;
-            --accent: #3b82f6;
+            --bg-color: #f5f5f7;
+            --card-bg: #ffffff;
+            --border-color: #d2d2d7;
+            --text-color: #1d1d1f;
+            --text-title: #1d1d1f;
+            --text-muted: #86868b;
+            --primary: #008069;
+            --accent: #0071e3;
+            --btn-bg: #f5f5f7;
+            --btn-hover: #e8e8ed;
         }}
 
         * {{
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", "Inter", sans-serif;
+            color: var(--text-color);
         }}
 
         body {{
@@ -166,7 +169,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }}
 
         .header-left h2 {{
-            font-size: 1.25rem;
+            font-size: 1.35rem;
             font-weight: 600;
             color: var(--text-title);
             letter-spacing: -0.02em;
@@ -176,9 +179,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             font-size: 0.75rem;
             font-weight: 500;
             padding: 0.2rem 0.5rem;
-            background: #18181b;
+            background: #f5f5f7;
             border: 1px solid var(--border-color);
-            border-radius: 4px;
+            border-radius: 6px;
             color: var(--text-color);
         }}
 
@@ -192,9 +195,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             align-items: center;
             background: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 0.75rem 1.25rem;
+            border-radius: 12px;
+            padding: 0.85rem 1.5rem;
             gap: 1.5rem;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
         }}
 
         .summary-item {{
@@ -245,16 +249,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .search-input {{
             width: 100%;
             padding: 0.55rem 1rem 0.55rem 2.25rem;
-            background: var(--bg-color);
+            background: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 6px;
+            border-radius: 8px;
             color: var(--text-title);
             font-size: 0.875rem;
             outline: none;
         }}
 
         .search-input:focus {{
-            border-color: #52525b;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.15);
         }}
 
         .search-icon {{
@@ -268,9 +273,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
         .filter-btn {{
             padding: 0.55rem 0.85rem;
-            background: #18181b;
+            background: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 6px;
+            border-radius: 8px;
             color: var(--text-color);
             font-size: 0.875rem;
             font-weight: 500;
@@ -281,13 +286,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }}
 
         .filter-btn:hover {{
-            background: #27272a;
+            background: var(--btn-bg);
             color: var(--text-title);
-            border-color: #52525b;
+            border-color: #86868b;
         }}
 
         .filter-btn.active {{
-            background: rgba(59, 130, 246, 0.1);
+            background: rgba(0, 113, 227, 0.08);
             border-color: var(--accent);
             color: var(--accent);
         }}
@@ -296,18 +301,19 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             display: flex;
             flex-direction: column;
             border: 1px solid var(--border-color);
-            border-radius: 8px;
+            border-radius: 12px;
             background: var(--card-bg);
             overflow: hidden;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04);
         }}
 
         .contact-row {{
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0.75rem 1.25rem;
-            border-bottom: 1px solid var(--border-color);
-            background: #09090b;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #f0f0f2;
+            background: var(--card-bg);
         }}
 
         .contact-row:last-child {{
@@ -315,8 +321,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }}
 
         .contact-row.clicked {{
-            opacity: 0.5;
-            background: rgba(255, 255, 255, 0.01);
+            opacity: 0.65;
+            background: #fafafa;
         }}
 
         .contact-info {{
@@ -326,7 +332,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }}
 
         .contact-name {{
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             font-weight: 500;
             color: var(--text-title);
             min-width: 180px;
@@ -347,27 +353,27 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .status-badge {{
             font-size: 0.7rem;
             font-weight: 600;
-            padding: 0.15rem 0.45rem;
+            padding: 0.2rem 0.5rem;
             border-radius: 4px;
-            background: #18181b;
-            color: var(--text-color);
+            background: #f5f5f7;
+            color: var(--text-muted);
             border: 1px solid var(--border-color);
             letter-spacing: 0.02em;
             font-family: monospace;
         }}
 
         .contact-row.clicked .status-badge {{
-            background: rgba(16, 185, 129, 0.08);
+            background: rgba(0, 128, 105, 0.08);
             color: var(--primary);
-            border-color: rgba(16, 185, 129, 0.15);
+            border-color: rgba(0, 128, 105, 0.15);
         }}
 
         .wa-btn {{
-            background: #18181b;
+            background: var(--btn-bg);
             color: var(--text-title);
             border: 1px solid var(--border-color);
-            padding: 0.4rem 0.75rem;
-            border-radius: 6px;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
             font-size: 0.8rem;
             font-weight: 500;
             text-decoration: none;
@@ -378,18 +384,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }}
 
         .wa-btn:hover {{
-            background: #27272a;
-            border-color: #52525b;
+            background: var(--btn-hover);
         }}
 
         .contact-row.clicked .wa-btn {{
-            background: rgba(16, 185, 129, 0.15);
+            background: rgba(0, 128, 105, 0.08);
             color: var(--primary);
-            border-color: rgba(16, 185, 129, 0.3);
+            border-color: rgba(0, 128, 105, 0.2);
         }}
 
         .contact-row.clicked .wa-btn:hover {{
-            background: rgba(16, 185, 129, 0.25);
+            background: rgba(0, 128, 105, 0.15);
         }}
 
         .empty-state {{
