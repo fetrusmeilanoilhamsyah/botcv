@@ -116,14 +116,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
     <style>
         :root {{
-            --bg-color: #0d1117;
-            --card-bg: rgba(22, 27, 34, 0.75);
-            --border-color: rgba(240, 246, 252, 0.1);
+            --bg-color: #0b0f17;
+            --card-bg: rgba(20, 26, 38, 0.7);
+            --border-color: rgba(255, 255, 255, 0.08);
             --primary-gradient: linear-gradient(135deg, #10b981, #059669);
-            --accent-gradient: linear-gradient(135deg, #3b82f6, #1d4ed8);
-            --text-color: #c9d1d9;
-            --text-title: #f0f6fc;
-            --text-muted: #8b949e;
+            --accent-gradient: linear-gradient(135deg, #2563eb, #1d4ed8);
+            --text-color: #abb2bf;
+            --text-title: #ffffff;
+            --text-muted: #64748b;
         }}
 
         * {{
@@ -136,8 +136,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
         body {{
             background-color: var(--bg-color);
-            background-image: radial-gradient(circle at 10% 20%, rgba(16, 185, 129, 0.05) 0%, transparent 40%),
-                              radial-gradient(circle at 90% 80%, rgba(59, 130, 246, 0.05) 0%, transparent 40%);
+            background-image: radial-gradient(circle at 10% 20%, rgba(16, 185, 129, 0.03) 0%, transparent 40%),
+                              radial-gradient(circle at 90% 80%, rgba(37, 99, 235, 0.03) 0%, transparent 40%);
             color: var(--text-color);
             min-height: 100vh;
             display: flex;
@@ -156,18 +156,18 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
         header {{
             text-align: center;
-            padding: 1.75rem;
+            padding: 2rem;
             background: var(--card-bg);
             border: 1px solid var(--border-color);
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(16px);
             border-radius: 24px;
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
         }}
 
         h1 {{
             font-size: 2.2rem;
             font-weight: 700;
-            background: linear-gradient(135deg, #10b981, #3b82f6);
+            background: linear-gradient(135deg, #10b981, #2563eb);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             margin-bottom: 0.5rem;
@@ -188,10 +188,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .stat-card {{
             background: var(--card-bg);
             border: 1px solid var(--border-color);
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(16px);
             padding: 1.25rem 1rem;
             border-radius: 20px;
-            box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.15);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
         }}
 
         .stat-val {{
@@ -221,14 +221,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
         .search-input {{
             width: 100%;
-            padding: 0.85rem 1rem 0.85rem 2.75rem;
+            padding: 0.85rem 1rem 0.85rem 2.85rem;
             background: var(--card-bg);
             border: 1px solid var(--border-color);
             border-radius: 16px;
             color: var(--text-title);
             font-size: 1rem;
             outline: none;
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(16px);
         }}
 
         .search-input:focus {{
@@ -238,12 +238,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
         .search-icon {{
             position: absolute;
-            left: 1rem;
+            left: 1.1rem;
             top: 50%;
             transform: translateY(-50%);
             color: var(--text-muted);
             pointer-events: none;
-            font-size: 1.1rem;
         }}
 
         .filter-btn {{
@@ -255,22 +254,27 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             font-size: 0.95rem;
             font-weight: 600;
             cursor: pointer;
-            backdrop-filter: blur(12px);
+            backdrop-filter: blur(16px);
             display: flex;
             align-items: center;
             gap: 0.5rem;
             white-space: nowrap;
         }}
 
+        .filter-btn svg {{
+            flex-shrink: 0;
+            stroke-width: 2px;
+        }}
+
         .filter-btn:hover {{
-            border-color: #3b82f6;
-            background: rgba(59, 130, 246, 0.1);
+            border-color: #2563eb;
+            background: rgba(37, 99, 235, 0.08);
         }}
 
         .filter-btn.active {{
             background: var(--accent-gradient);
             border-color: transparent;
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
         }}
 
         .contact-list {{
@@ -289,11 +293,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             background: transparent;
         }}
         .contact-list::-webkit-scrollbar-thumb {{
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.08);
             border-radius: 3px;
         }}
         .contact-list::-webkit-scrollbar-thumb:hover {{
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(255, 255, 255, 0.15);
         }}
 
         .contact-card {{
@@ -304,14 +308,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             display: flex;
             align-items: center;
             justify-content: space-between;
-            box-shadow: 0 4px 15px 0 rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
             backdrop-filter: blur(8px);
         }}
 
         .contact-card.clicked {{
-            opacity: 0.6;
-            border-color: rgba(16, 185, 129, 0.3);
-            background: rgba(16, 185, 129, 0.02);
+            opacity: 0.55;
+            border-color: rgba(16, 185, 129, 0.2);
+            background: rgba(16, 185, 129, 0.01);
         }}
 
         .contact-info {{
@@ -343,16 +347,16 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             font-weight: 700;
             padding: 0.25rem 0.65rem;
             border-radius: 20px;
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.04);
             color: var(--text-muted);
             border: 1px solid var(--border-color);
             letter-spacing: 0.05em;
         }}
 
         .contact-card.clicked .status-badge {{
-            background: rgba(16, 185, 129, 0.12);
+            background: rgba(16, 185, 129, 0.1);
             color: #10b981;
-            border-color: rgba(16, 185, 129, 0.2);
+            border-color: rgba(16, 185, 129, 0.15);
         }}
 
         .wa-btn {{
@@ -367,13 +371,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             cursor: pointer;
             display: inline-flex;
             align-items: center;
-            gap: 0.4rem;
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
+            gap: 0.5rem;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+        }}
+
+        .wa-btn svg {{
+            flex-shrink: 0;
         }}
 
         .wa-btn:hover {{
             transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.35);
+            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
         }}
 
         .wa-btn:active {{
@@ -382,7 +390,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
         .contact-card.clicked .wa-btn {{
             background: var(--accent-gradient);
-            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
         }}
 
         .empty-state {{
@@ -450,11 +458,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
         <div class="controls">
             <div class="search-wrapper">
-                <span class="search-icon">🔍</span>
+                <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
                 <input type="text" class="search-input" id="search-box" placeholder="Cari nama kontak atau nomor HP...">
             </div>
             <button class="filter-btn" id="filter-btn">
-                <span>👁️</span> Tampilkan Belum Hubungi
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                </svg>
+                <span>Tampilkan Belum Hubungi</span>
             </button>
         </div>
 
@@ -533,7 +547,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     <div class="action-area">
                         <span class="status-badge">${{isClicked ? 'SUDAH' : 'BELUM'}}</span>
                         <a href="${{c.url}}" target="_blank" class="wa-btn" onclick="trackClick('${{c.tel}}')">
-                            💬 ${{isClicked ? 'Hubungi Lagi' : 'Hubungi'}}
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                            </svg>
+                            <span>${{isClicked ? 'Hubungi Lagi' : 'Hubungi'}}</span>
                         </a>
                     </div>
                 `;
@@ -555,10 +572,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             showOnlyUnclicked = !showOnlyUnclicked;
             if (showOnlyUnclicked) {{
                 filterBtn.classList.add('active');
-                filterBtn.innerHTML = '<span>👁️</span> Tampilkan Semua';
+                filterBtn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                    <span>Tampilkan Semua</span>
+                `;
             }} else {{
                 filterBtn.classList.remove('active');
-                filterBtn.innerHTML = '<span>👁️</span> Tampilkan Belum Hubungi';
+                filterBtn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+                    </svg>
+                    <span>Tampilkan Belum Hubungi</span>
+                `;
             }}
             render();
         }});
