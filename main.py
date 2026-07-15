@@ -242,11 +242,46 @@ async def check_maintenance_and_block(update: Update, context) -> bool:
                 )
             except Exception:
                 pass
-        else:
             try:
-                await context.bot.send_message(chat_id=update.effective_chat.id, text=msg_text, parse_mode="HTML")
+                await update.callback_query.edit_message_text(
+                    text=msg_text,
+                    parse_mode="HTML"
+                )
             except Exception:
                 pass
+        elif update.message:
+            try:
+                await update.message.delete()
+            except Exception:
+                pass
+            
+            from handlers.start import _welcome_messages, register_welcome_messages
+            msg_ids = _welcome_messages.get(user_id, [])
+            edited = False
+            if msg_ids:
+                for mid in msg_ids:
+                    try:
+                        await context.bot.edit_message_text(
+                            chat_id=update.effective_chat.id,
+                            message_id=mid,
+                            text=msg_text,
+                            parse_mode="HTML"
+                        )
+                        edited = True
+                        break
+                    except Exception:
+                        pass
+            
+            if not edited:
+                try:
+                    new_msg = await context.bot.send_message(
+                        chat_id=update.effective_chat.id,
+                        text=msg_text,
+                        parse_mode="HTML"
+                    )
+                    register_welcome_messages(user_id, [new_msg.message_id])
+                except Exception:
+                    pass
         return True
     return False
 
