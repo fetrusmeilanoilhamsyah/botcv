@@ -113,104 +113,127 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CS WA Links Dashboard — {filename}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {{
-            --bg-color: #0b0f17;
-            --card-bg: rgba(20, 26, 38, 0.7);
-            --border-color: rgba(255, 255, 255, 0.08);
-            --primary-gradient: linear-gradient(135deg, #10b981, #059669);
-            --accent-gradient: linear-gradient(135deg, #2563eb, #1d4ed8);
-            --text-color: #abb2bf;
-            --text-title: #ffffff;
-            --text-muted: #64748b;
+            --bg-color: #09090b;
+            --card-bg: #09090b;
+            --border-color: #27272a;
+            --text-color: #a1a1aa;
+            --text-title: #f4f4f5;
+            --text-muted: #52525b;
+            --primary: #10b981;
+            --accent: #3b82f6;
         }}
 
         * {{
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Outfit', sans-serif;
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
         }}
 
         body {{
             background-color: var(--bg-color);
-            background-image: radial-gradient(circle at 10% 20%, rgba(16, 185, 129, 0.03) 0%, transparent 40%),
-                              radial-gradient(circle at 90% 80%, rgba(37, 99, 235, 0.03) 0%, transparent 40%);
             color: var(--text-color);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding: 2rem 1rem;
+            padding: 3rem 1.5rem;
         }}
 
         .container {{
             width: 100%;
-            max-width: 900px;
+            max-width: 850px;
             display: flex;
             flex-direction: column;
             gap: 1.5rem;
         }}
 
-        header {{
-            text-align: center;
-            padding: 2rem;
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            backdrop-filter: blur(16px);
-            border-radius: 24px;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+        .dashboard-header {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 1.25rem;
+            border-bottom: 1px solid var(--border-color);
         }}
 
-        h1 {{
-            font-size: 2.2rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #10b981, #2563eb);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 0.5rem;
+        .header-left {{
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
         }}
 
-        .subtitle {{
-            font-size: 0.95rem;
-            color: var(--text-muted);
-        }}
-
-        .stats-bar {{
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 1rem;
-            text-align: center;
-        }}
-
-        .stat-card {{
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            backdrop-filter: blur(16px);
-            padding: 1.25rem 1rem;
-            border-radius: 20px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-        }}
-
-        .stat-val {{
-            font-size: 2rem;
-            font-weight: 700;
+        .header-left h2 {{
+            font-size: 1.25rem;
+            font-weight: 600;
             color: var(--text-title);
+            letter-spacing: -0.02em;
         }}
 
-        .stat-label {{
-            font-size: 0.8rem;
+        .file-badge {{
+            font-size: 0.75rem;
+            font-weight: 500;
+            padding: 0.2rem 0.5rem;
+            background: #18181b;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            color: var(--text-color);
+        }}
+
+        .header-right {{
+            font-size: 0.85rem;
             color: var(--text-muted);
+        }}
+
+        .summary-bar {{
+            display: flex;
+            align-items: center;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem 1.25rem;
+            gap: 1.5rem;
+        }}
+
+        .summary-item {{
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }}
+
+        .sum-label {{
+            color: var(--text-muted);
+            font-weight: 500;
             text-transform: uppercase;
+            font-size: 0.75rem;
             letter-spacing: 0.05em;
-            margin-top: 0.25rem;
+        }}
+
+        .sum-val {{
+            color: var(--text-title);
+            font-weight: 600;
+        }}
+
+        .sum-val.clicked {{
+            color: var(--primary);
+        }}
+
+        .sum-val.left {{
+            color: var(--accent);
+        }}
+
+        .summary-divider {{
+            height: 14px;
+            width: 1px;
+            background: var(--border-color);
         }}
 
         .controls {{
             display: flex;
-            gap: 1rem;
+            gap: 0.75rem;
             width: 100%;
         }}
 
@@ -221,24 +244,22 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
         .search-input {{
             width: 100%;
-            padding: 0.85rem 1rem 0.85rem 2.85rem;
-            background: var(--card-bg);
+            padding: 0.55rem 1rem 0.55rem 2.25rem;
+            background: var(--bg-color);
             border: 1px solid var(--border-color);
-            border-radius: 16px;
+            border-radius: 6px;
             color: var(--text-title);
-            font-size: 1rem;
+            font-size: 0.875rem;
             outline: none;
-            backdrop-filter: blur(16px);
         }}
 
         .search-input:focus {{
-            border-color: #10b981;
-            box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+            border-color: #52525b;
         }}
 
         .search-icon {{
             position: absolute;
-            left: 1.1rem;
+            left: 0.75rem;
             top: 50%;
             transform: translateY(-50%);
             color: var(--text-muted);
@@ -246,94 +267,75 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }}
 
         .filter-btn {{
-            padding: 0.85rem 1.5rem;
-            background: var(--card-bg);
+            padding: 0.55rem 0.85rem;
+            background: #18181b;
             border: 1px solid var(--border-color);
-            border-radius: 16px;
-            color: var(--text-title);
-            font-size: 0.95rem;
-            font-weight: 600;
+            border-radius: 6px;
+            color: var(--text-color);
+            font-size: 0.875rem;
+            font-weight: 500;
             cursor: pointer;
-            backdrop-filter: blur(16px);
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-            white-space: nowrap;
-        }}
-
-        .filter-btn svg {{
-            flex-shrink: 0;
-            stroke-width: 2px;
+            gap: 0.35rem;
         }}
 
         .filter-btn:hover {{
-            border-color: #2563eb;
-            background: rgba(37, 99, 235, 0.08);
+            background: #27272a;
+            color: var(--text-title);
+            border-color: #52525b;
         }}
 
         .filter-btn.active {{
-            background: var(--accent-gradient);
-            border-color: transparent;
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+            background: rgba(59, 130, 246, 0.1);
+            border-color: var(--accent);
+            color: var(--accent);
         }}
 
         .contact-list {{
             display: flex;
             flex-direction: column;
-            gap: 0.75rem;
-            max-height: 550px;
-            overflow-y: auto;
-            padding-right: 0.25rem;
-        }}
-
-        .contact-list::-webkit-scrollbar {{
-            width: 6px;
-        }}
-        .contact-list::-webkit-scrollbar-track {{
-            background: transparent;
-        }}
-        .contact-list::-webkit-scrollbar-thumb {{
-            background: rgba(255, 255, 255, 0.08);
-            border-radius: 3px;
-        }}
-        .contact-list::-webkit-scrollbar-thumb:hover {{
-            background: rgba(255, 255, 255, 0.15);
-        }}
-
-        .contact-card {{
-            background: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 18px;
-            padding: 1.1rem 1.25rem;
+            border-radius: 8px;
+            background: var(--card-bg);
+            overflow: hidden;
+        }}
+
+        .contact-row {{
             display: flex;
             align-items: center;
             justify-content: space-between;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-            backdrop-filter: blur(8px);
+            padding: 0.75rem 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            background: #09090b;
         }}
 
-        .contact-card.clicked {{
-            opacity: 0.55;
-            border-color: rgba(16, 185, 129, 0.2);
-            background: rgba(16, 185, 129, 0.01);
+        .contact-row:last-child {{
+            border-bottom: none;
+        }}
+
+        .contact-row.clicked {{
+            opacity: 0.5;
+            background: rgba(255, 255, 255, 0.01);
         }}
 
         .contact-info {{
             display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
+            align-items: center;
+            gap: 1.5rem;
         }}
 
         .contact-name {{
-            font-size: 1.1rem;
-            font-weight: 600;
+            font-size: 0.9rem;
+            font-weight: 500;
             color: var(--text-title);
+            min-width: 180px;
         }}
 
         .contact-phone {{
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             color: var(--text-muted);
-            letter-spacing: 0.02em;
+            font-family: monospace;
         }}
 
         .action-area {{
@@ -343,89 +345,81 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }}
 
         .status-badge {{
-            font-size: 0.75rem;
-            font-weight: 700;
-            padding: 0.25rem 0.65rem;
-            border-radius: 20px;
-            background: rgba(255, 255, 255, 0.04);
-            color: var(--text-muted);
+            font-size: 0.7rem;
+            font-weight: 600;
+            padding: 0.15rem 0.45rem;
+            border-radius: 4px;
+            background: #18181b;
+            color: var(--text-color);
             border: 1px solid var(--border-color);
-            letter-spacing: 0.05em;
+            letter-spacing: 0.02em;
+            font-family: monospace;
         }}
 
-        .contact-card.clicked .status-badge {{
-            background: rgba(16, 185, 129, 0.1);
-            color: #10b981;
+        .contact-row.clicked .status-badge {{
+            background: rgba(16, 185, 129, 0.08);
+            color: var(--primary);
             border-color: rgba(16, 185, 129, 0.15);
         }}
 
         .wa-btn {{
-            background: var(--primary-gradient);
-            color: #ffffff;
-            border: none;
-            padding: 0.65rem 1.2rem;
-            border-radius: 12px;
-            font-size: 0.9rem;
-            font-weight: 600;
+            background: #18181b;
+            color: var(--text-title);
+            border: 1px solid var(--border-color);
+            padding: 0.4rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 500;
             text-decoration: none;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
-            gap: 0.5rem;
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
-        }}
-
-        .wa-btn svg {{
-            flex-shrink: 0;
+            gap: 0.35rem;
         }}
 
         .wa-btn:hover {{
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
+            background: #27272a;
+            border-color: #52525b;
         }}
 
-        .wa-btn:active {{
-            transform: translateY(0);
+        .contact-row.clicked .wa-btn {{
+            background: rgba(16, 185, 129, 0.15);
+            color: var(--primary);
+            border-color: rgba(16, 185, 129, 0.3);
         }}
 
-        .contact-card.clicked .wa-btn {{
-            background: var(--accent-gradient);
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+        .contact-row.clicked .wa-btn:hover {{
+            background: rgba(16, 185, 129, 0.25);
         }}
 
         .empty-state {{
             text-align: center;
             padding: 4rem 2rem;
             color: var(--text-muted);
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 24px;
+            border-top: 1px solid var(--border-color);
         }}
 
         footer {{
             margin-top: auto;
-            padding-top: 3rem;
-            font-size: 0.85rem;
+            padding-top: 4rem;
+            font-size: 0.8rem;
             color: var(--text-muted);
             text-align: center;
         }}
 
         @media (max-width: 600px) {{
-            .stats-bar {{
-                grid-template-columns: 1fr;
-                gap: 0.75rem;
+            body {{
+                padding: 1.5rem 1rem;
             }}
-            .controls {{
-                flex-direction: column;
-                gap: 0.75rem;
-            }}
-            .filter-btn {{
-                justify-content: center;
-            }}
-            .contact-card {{
+            .dashboard-header {{
                 flex-direction: column;
                 align-items: flex-start;
-                gap: 1rem;
+                gap: 0.5rem;
+            }}
+            .contact-row {{
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
             }}
             .action-area {{
                 width: 100%;
@@ -436,36 +430,41 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>CS WA Links Dashboard</h1>
-            <p class="subtitle" id="date-label">Mempermudah follow-up tim Customer Service & Admin</p>
+        <header class="dashboard-header">
+            <div class="header-left">
+                <h2>WhatsApp Follow-up</h2>
+                <div class="file-badge">{filename}</div>
+            </div>
+            <div class="header-right" id="date-label"></div>
         </header>
 
-        <div class="stats-bar">
-            <div class="stat-card">
-                <div class="stat-val" id="total-cnt">0</div>
-                <div class="stat-label">Total Nomor</div>
+        <div class="summary-bar">
+            <div class="summary-item">
+                <span class="sum-label">Total</span>
+                <span class="sum-val" id="total-cnt">0</span>
             </div>
-            <div class="stat-card">
-                <div class="stat-val" id="clicked-cnt" style="color: #10b981;">0</div>
-                <div class="stat-label">Sudah Hubungi</div>
+            <div class="summary-divider"></div>
+            <div class="summary-item">
+                <span class="sum-label">Sudah</span>
+                <span class="sum-val clicked" id="clicked-cnt">0</span>
             </div>
-            <div class="stat-card">
-                <div class="stat-val" id="left-cnt" style="color: #3b82f6;">0</div>
-                <div class="stat-label">Belum Hubungi</div>
+            <div class="summary-divider"></div>
+            <div class="summary-item">
+                <span class="sum-label">Belum</span>
+                <span class="sum-val left" id="left-cnt">0</span>
             </div>
         </div>
 
         <div class="controls">
             <div class="search-wrapper">
-                <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <circle cx="11" cy="11" r="8"></circle>
                     <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                 </svg>
                 <input type="text" class="search-input" id="search-box" placeholder="Cari nama kontak atau nomor HP...">
             </div>
             <button class="filter-btn" id="filter-btn">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
                 </svg>
                 <span>Tampilkan Belum Hubungi</span>
@@ -527,8 +526,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             if (filtered.length === 0) {{
                 list.innerHTML = `
                     <div class="empty-state">
-                        <p style="font-size: 1.1rem; font-weight: 600; color: var(--text-title);">Data tidak ditemukan</p>
-                        <p style="font-size: 0.9rem; margin-top: 0.25rem;">Coba ubah filter pencarian Anda.</p>
+                        <p style="font-size: 0.9rem; font-weight: 500; color: var(--text-title);">Data tidak ditemukan</p>
+                        <p style="font-size: 0.8rem; margin-top: 0.25rem; color: var(--text-muted);">Coba ubah filter pencarian Anda.</p>
                     </div>
                 `;
                 return;
@@ -537,7 +536,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             filtered.forEach(c => {{
                 const isClicked = !!clickedMap[c.tel];
                 const card = document.createElement('div');
-                card.className = 'contact-card' + (isClicked ? ' clicked' : '');
+                card.className = 'contact-row' + (isClicked ? ' clicked' : '');
                 
                 card.innerHTML = `
                     <div class="contact-info">
@@ -547,7 +546,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     <div class="action-area">
                         <span class="status-badge">${{isClicked ? 'SUDAH' : 'BELUM'}}</span>
                         <a href="${{c.url}}" target="_blank" class="wa-btn" onclick="trackClick('${{c.tel}}')">
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
                             </svg>
                             <span>${{isClicked ? 'Hubungi Lagi' : 'Hubungi'}}</span>
@@ -573,7 +572,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             if (showOnlyUnclicked) {{
                 filterBtn.classList.add('active');
                 filterBtn.innerHTML = `
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                         <circle cx="12" cy="12" r="3"></circle>
                     </svg>
@@ -582,7 +581,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             }} else {{
                 filterBtn.classList.remove('active');
                 filterBtn.innerHTML = `
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                         <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
                     </svg>
                     <span>Tampilkan Belum Hubungi</span>
@@ -592,7 +591,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }});
 
         const now = new Date();
-        document.getElementById('date-label').innerText = 'Dashboard Follow-up — Dibuat pada ' + now.toLocaleDateString('id-ID', {{
+        document.getElementById('date-label').innerText = now.toLocaleDateString('id-ID', {{
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
         }});
 
