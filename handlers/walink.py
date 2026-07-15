@@ -146,7 +146,11 @@ async def cmd_walink(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db.set_session(user_id, S0, {"count": 0, "total_size": 0})
     from handlers.start import transition_to_handler
     
-    text = _get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.xlsx</b>, <b>.csv</b>, <b>.txt</b>, atau <b>.vcf</b> sekarang."
+    text = (
+        _get_breadcrumbs({"count": 0}, 1) +
+        "<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+        "Silakan kirim berkas <b>.xlsx</b>, <b>.csv</b>, <b>.txt</b>, atau <b>.vcf</b> yang ingin diproses.</blockquote>"
+    )
     
     msg = await transition_to_handler(
         context.bot,
@@ -230,7 +234,11 @@ async def handle_walink_file(update: Update, context: ContextTypes.DEFAULT_TYPE)
             await context.bot.edit_message_text(
                 chat_id=update.effective_chat.id,
                 message_id=status_msg_id,
-                text=_get_breadcrumbs(data, 2) + "Tulis pesan WhatsApp kustom untuk tautan follow-up?\nKetik isi pesannya sekarang, atau ketik <b>-</b> (tanda minus) untuk mengosongkan tanpa pesan.",
+                text=(
+                    _get_breadcrumbs(data, 2) +
+                    "<blockquote><b>[ STATUS: WAITING FOR INPUT ]</b>\n"
+                    "Silakan ketik pesan kustom untuk tautan WhatsApp follow-up sekarang, atau kirim tanda <b>-</b> (minus) jika ingin mengosongkan tanpa pesan.</blockquote>"
+                ),
                 parse_mode="HTML",
                 reply_markup=keyboard
             )
@@ -283,7 +291,11 @@ async def handle_walink_msg(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.edit_message_text(
             chat_id=update.effective_chat.id,
             message_id=status_msg_id,
-            text=_get_breadcrumbs(data, 3) + "<b>Memproses berkas dan membuat Excel...</b>",
+            text=(
+                _get_breadcrumbs(data, 3) +
+                "<blockquote><b>[ STATUS: PROCESSING ]</b>\n"
+                "Sedang memproses dan menyusun tautan WhatsApp...</blockquote>"
+            ),
             parse_mode="HTML"
         )
     except Exception:
@@ -446,7 +458,11 @@ async def handle_show_walink_help_callback(update: Update, context: ContextTypes
     user_id = query.from_user.id
     db.set_session(user_id, S0, {"count": 0, "total_size": 0})
 
-    text = _get_breadcrumbs({"count": 0}, 1) + "<b>[ ➔ ] Menunggu berkas...</b>\nKirim file <b>.xlsx</b>, <b>.csv</b>, <b>.txt</b>, atau <b>.vcf</b> sekarang."
+    text = (
+        _get_breadcrumbs({"count": 0}, 1) +
+        "<blockquote><b>[ STATUS: WAITING FOR UPLOAD ]</b>\n"
+        "Silakan kirim berkas <b>.xlsx</b>, <b>.csv</b>, <b>.txt</b>, atau <b>.vcf</b> yang ingin diproses.</blockquote>"
+    )
 
     try:
         await query.message.edit_text(
