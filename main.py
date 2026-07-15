@@ -103,8 +103,9 @@ from handlers.duplikat import (
     handle_duplikat_done,
 )
 from handlers.walink import (
-    cmd_walink, handle_walink_file, handle_show_walink_help_callback,
-    STATE as WALINK_STATE,
+    cmd_walink, handle_walink_file, handle_walink_msg,
+    handle_show_walink_help_callback,
+    S0 as WALINK_S0, S1 as WALINK_S1,
 )
 from handlers.walinkweb import (
     cmd_walinkweb, handle_walinkweb_file, handle_walinkweb_msg,
@@ -385,6 +386,7 @@ async def text_router(update: Update, context):
         S_WAIT_CONTACTNAME: handle_manual_contact_name,
         S_WAIT_FILENAME:  handle_manual_file_name,
         WALINKWEB_S1:     handle_walinkweb_msg,
+        WALINK_S1:        handle_walink_msg,
         BROADCAST_STATE:  handle_broadcast_msg,
         NEWMEMBER_STATE:  handle_newmember_id,
         DELMEMBER_STATE:  handle_delmember_id,
@@ -422,7 +424,7 @@ async def file_router(update: Update, context):
         COUNT_STATE:    (handle_count_file,       "file VCF atau TXT berupa DOKUMEN"),
         XLSX2TXT_STATE: (handle_xlsxtotxt_file,   "file XLSX/CSV berupa DOKUMEN"),
         DUPLICAT_STATE: (handle_duplikat_file,    "file VCF atau TXT berupa DOKUMEN"),
-        WALINK_STATE:   (handle_walink_file,      "file VCF atau TXT berupa DOKUMEN"),
+        WALINK_S0:      (handle_walink_file,      "file XLSX, CSV, TXT, atau VCF berupa DOKUMEN"),
         WALINKWEB_S0:   (handle_walinkweb_file,   "file XLSX, CSV, TXT, atau VCF berupa DOKUMEN"),
         CLEANUP_STATE:  (handle_cleanup_file,     "file VCF atau TXT berupa DOKUMEN"),
         ADDNUM_S0:      (handle_addnum_file,      "file VCF berupa DOKUMEN"),
