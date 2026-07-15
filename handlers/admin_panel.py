@@ -20,10 +20,15 @@ async def cmd_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
 
+    from database.db import is_maintenance_mode
+    mt_status = "AKTIF (LOCK)" if is_maintenance_mode() else "NON-AKTIF (OPEN)"
     text = (
         "<b>[ PANEL KONTROL ADMINISTRATOR ]</b>\n"
-        "<blockquote>Silakan pilih tindakan administrasi di bawah ini:</blockquote>"
+        f"<blockquote>Silakan pilih tindakan administrasi di bawah ini:\n\n"
+        f"• Status Maintenance : <code>{mt_status}</code></blockquote>"
     )
+    
+    mt_btn_text = "OPEN SISTEM (MATIKAN MT)" if is_maintenance_mode() else "LOCK SISTEM (AKTIFKAN MT)"
     
     keyboard = InlineKeyboardMarkup([
         [
@@ -41,6 +46,9 @@ async def cmd_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [
             InlineKeyboardButton("STOP BROADCAST", callback_data="admin_bc_stop", style="danger"),
             InlineKeyboardButton("KELOLA VIP", callback_data="admin_vip_manage", style="primary")
+        ],
+        [
+            InlineKeyboardButton(mt_btn_text, callback_data="admin_toggle_mt", style="danger" if not is_maintenance_mode() else "primary")
         ],
         [
             InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")
@@ -138,3 +146,12 @@ async def handle_admin_panel_callback(update: Update, context: ContextTypes.DEFA
             [InlineKeyboardButton("KEMBALI", callback_data="admin_panel_menu", style="danger")]
         ])
         await query.edit_message_text(text, parse_mode="HTML", reply_markup=keyboard)
+
+    elif data == "admin_toggle_mt":
+        from database.db import is_maintenance_mode, set_maintenance_mode
+        current = is_maintenance_mode()
+        set_maintenance_mode(not current)
+        new_status = not current
+        status_str = "diaktifkan (Sistem di-LOCK)" if new_status else "dimatikan (Sistem di-OPEN)"
+        await query.answer(f"Mode Maintenance berhasil {status_str}!", show_alert=True)
+        await cmd_admin_panel(update, context)

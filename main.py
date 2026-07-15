@@ -220,10 +220,44 @@ def get_job_lock(name: str) -> asyncio.Lock:
 _start_time = time.time()
 
 
+async def check_maintenance_and_block(update: Update, context) -> bool:
+    """Return True if blocked (under maintenance and user is not admin)"""
+    if not update or not update.effective_user:
+        return False
+    user_id = update.effective_user.id
+    
+    from database.db import is_maintenance_mode
+    from config import ADMIN_IDS
+    if is_maintenance_mode() and user_id not in ADMIN_IDS:
+        msg_text = (
+            "<b>[ PEMELIHARAAN SISTEM ]</b>\n\n"
+            "<blockquote>Sistem saat ini sedang dalam pemeliharaan berkala untuk meningkatkan performa dan stabilitas.\n\n"
+            "Mohon maaf atas ketidaknyamanannya, silakan coba beberapa saat lagi.</blockquote>"
+        )
+        if update.callback_query:
+            try:
+                await update.callback_query.answer(
+                    text="Sistem sedang pemeliharaan berkala. Mohon tunggu.", 
+                    show_alert=True
+                )
+            except Exception:
+                pass
+        else:
+            try:
+                await context.bot.send_message(chat_id=update.effective_chat.id, text=msg_text, parse_mode="HTML")
+            except Exception:
+                pass
+        return True
+    return False
+
+
 def rate_limiter(func):
     async def wrapper(update: Update, context):
         if not update or not update.effective_user:
             return await func(update, context)
+
+        if await check_maintenance_and_block(update, context):
+            return
 
         user_id = update.effective_user.id
         _user_last_active[user_id] = time.time()
@@ -263,6 +297,9 @@ def file_rate_limiter(func):
         if not update or not update.effective_user:
             return await func(update, context)
 
+        if await check_maintenance_and_block(update, context):
+            return
+
         user_id = update.effective_user.id
         _user_last_active[user_id] = time.time()
 
@@ -284,6 +321,9 @@ def light_rate_limiter(func):
     async def wrapper(update: Update, context):
         if not update or not update.effective_user:
             return await func(update, context)
+
+        if await check_maintenance_and_block(update, context):
+            return
 
         user_id = update.effective_user.id
         _user_last_active[user_id] = time.time()

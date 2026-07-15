@@ -877,6 +877,32 @@ def get_payment_stats():
         return {"total": 0, "completed": 0, "pending": 0, "income": 0}
 
 
+MAINTENANCE_FILE = "maintenance_mode.json"
+
+def is_maintenance_mode() -> bool:
+    """Check if the system is currently under maintenance lock"""
+    import os
+    import json
+    if os.path.exists(MAINTENANCE_FILE):
+        try:
+            with open(MAINTENANCE_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return data.get("maintenance", False)
+        except Exception:
+            pass
+    return False
+
+
+def set_maintenance_mode(status: bool):
+    """Enable or disable maintenance lock mode"""
+    import json
+    try:
+        with open(MAINTENANCE_FILE, 'w', encoding='utf-8') as f:
+            json.dump({"maintenance": status}, f)
+    except Exception as e:
+        logger.error(f"[DB] Failed to write maintenance mode status: {e}")
+
+
 # Only initialize automatically when run directly as main script
 if __name__ == "__main__":
     init_db()
