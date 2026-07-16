@@ -363,15 +363,16 @@ def light_rate_limiter(func):
         user_id = update.effective_user.id
         _user_last_active[user_id] = time.time()
 
-        is_cmd = bool(update.message and update.message.text and update.message.text.startswith("/"))
-        
-        # HANYA check join channel & cooldown untuk command teks baru, bukan callback query (tombol inline)
-        # Ini mengembalikan performa navigasi tombol menjadi instan (sat-set)
-        if is_cmd:
+        # --- FORCE JOIN CHANNEL CHECK ---
+        if update.callback_query and update.callback_query.data == "check_channel_join":
+            pass
+        else:
             from middleware.auth import require_channel_join
             if not await require_channel_join(update, context):
                 return
 
+        is_cmd = bool(update.message and update.message.text and update.message.text.startswith("/"))
+        if is_cmd:
             now = time.time()
             last_click = _user_last_click.get(user_id, 0)
             if now - last_click < USER_CLICK_COOLDOWN:
