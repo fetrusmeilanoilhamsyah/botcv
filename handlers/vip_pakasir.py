@@ -147,13 +147,13 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 InlineKeyboardButton("1 BULAN — 20K", callback_data="buy_vip_30", style="primary"),
                 InlineKeyboardButton("365 HARI — 100K", callback_data="buy_vip_365", style="primary")
             ],
-            [InlineKeyboardButton("TUKAR KODE PROMO", callback_data="vip_redeem_code")],
+            [InlineKeyboardButton("TUKAR KODE PROMO", callback_data="vip_redeem_code", style="primary")],
             [InlineKeyboardButton("RIWAYAT PEMBAYARAN", callback_data="vip_history", style="success")],
             [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
         ]
     else:
         rows = [
-            [InlineKeyboardButton("TUKAR KODE PROMO", callback_data="vip_redeem_code")],
+            [InlineKeyboardButton("TUKAR KODE PROMO", callback_data="vip_redeem_code", style="primary")],
             [InlineKeyboardButton("HUBUNGI ADMIN", url=f"https://t.me/{ADMIN_CONTACT.lstrip('@')}")],
             [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
         ]

@@ -1037,6 +1037,7 @@ def redeem_promo_code(user_id: int, code: str) -> str:
                 (new_expiry_str, user_id)
             )
             
+            conn.commit()
             clear_user_ram(user_id)
             return f"success:{days}:{new_expiry_str}"
             

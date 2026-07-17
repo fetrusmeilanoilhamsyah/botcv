@@ -51,7 +51,7 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.append(f"• {p['label']:<10} : <code>{p['harga']}</code>")
 
     keyboard = [
-        [InlineKeyboardButton("TUKAR KODE PROMO", callback_data="vip_redeem_code")],
+        [InlineKeyboardButton("TUKAR KODE PROMO", callback_data="vip_redeem_code", style="primary")],
         [InlineKeyboardButton("HUBUNGI ADMIN", url=f"https://t.me/{ADMIN_CONTACT.lstrip('@')}")],
         [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
     ]
