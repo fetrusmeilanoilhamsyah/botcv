@@ -51,6 +51,7 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         lines.append(f"• {p['label']:<10} : <code>{p['harga']}</code>")
 
     keyboard = [
+        [InlineKeyboardButton("TUKAR KODE PROMO", callback_data="vip_redeem_code")],
         [InlineKeyboardButton("HUBUNGI ADMIN", url=f"https://t.me/{ADMIN_CONTACT.lstrip('@')}")],
         [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
     ]
@@ -60,7 +61,8 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"<b>[ DAFTAR HARGA PAKET ]</b>\n"
         f"<blockquote>" + "\n".join(lines) + "</blockquote>\n"
         f"<b>Metode Pembayaran:</b> Manual\n\n"
-        f"Silakan hubungi {ADMIN_CONTACT} untuk proses aktivasi paket Anda."
+        f"Silakan hubungi {ADMIN_CONTACT} untuk proses aktivasi paket Anda.\n"
+        f"Atau jika Anda memiliki kode promo, ketuk tombol <b>TUKAR KODE PROMO</b> di bawah."
     )
 
     await transition_to_handler(

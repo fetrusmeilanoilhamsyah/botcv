@@ -44,6 +44,10 @@ from handlers.daftar import cmd_daftar
 from handlers.stat import cmd_stat
 from handlers.akun import cmd_akun
 from handlers.addvip import cmd_addvip, cmd_delvip
+from handlers.redeem import (
+    REDEEM_STATE, handle_redeem_callback, handle_redeem_text,
+    cmd_addpromo, cmd_delpromo, cmd_listpromo
+)
 from handlers.broadcast import cmd_broadcast, handle_broadcast_msg, cmd_stop_broadcast, STATE as BROADCAST_STATE
 from handlers.media_broadcast import cmd_media_broadcast, handle_broadcast_media, STATE as MEDIA_BROADCAST_STATE
 from handlers.new_member import cmd_newmember, handle_newmember_id, STATE as NEWMEMBER_STATE
@@ -469,6 +473,7 @@ async def text_router(update: Update, context):
         MEDIA_BROADCAST_STATE: handle_broadcast_media,
         ADDNUM_S1:        handle_addnum_numbers_text,
         ADDNUM_S2:        handle_addnum_label_text,
+        REDEEM_STATE:     handle_redeem_text,
     }
     handler = route.get(state)
     if handler:
@@ -1016,8 +1021,13 @@ def main():
     app.add_handler(CommandHandler("akun",                              light_rate_limiter(cmd_akun)))
     app.add_handler(CommandHandler("addnum",                            light_rate_limiter(cmd_addnum)))
     app.add_handler(CommandHandler("done",                              rate_limiter(done_router)))
+    app.add_handler(CommandHandler("redeem",                            light_rate_limiter(handle_redeem_text)))
+    app.add_handler(CommandHandler("addpromo",                          rate_limiter(cmd_addpromo)))
+    app.add_handler(CommandHandler("delpromo",                          rate_limiter(cmd_delpromo)))
+    app.add_handler(CommandHandler("listpromo",                         rate_limiter(cmd_listpromo)))
 
     # ── Callback handlers ──
+    app.add_handler(CallbackQueryHandler(light_rate_limiter(handle_redeem_callback), pattern="^vip_redeem_code$"))
     app.add_handler(CallbackQueryHandler(light_rate_limiter(cb_check_channel_join),  pattern="^check_channel_join$"))
     app.add_handler(CallbackQueryHandler(light_rate_limiter(cb_show_vip_menu),       pattern="^show_vip_menu$"))
     app.add_handler(CallbackQueryHandler(light_rate_limiter(cb_show_referral_menu),  pattern="^show_referral_menu$"))

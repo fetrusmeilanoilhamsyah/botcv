@@ -163,6 +163,29 @@ def init_db():
             )
         """)
 
+        # ── PROMO CODES SYSTEM TABLES ──────────────────────────────────
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS promo_codes (
+                code         TEXT PRIMARY KEY,
+                package_days INTEGER NOT NULL,
+                max_uses     INTEGER NOT NULL,
+                uses_count   INTEGER DEFAULT 0,
+                created_at   TEXT DEFAULT (datetime('now'))
+            )
+        """)
+
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS promo_claims (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL,
+                code       TEXT NOT NULL,
+                claimed_at TEXT DEFAULT (datetime('now')),
+                UNIQUE(user_id, code),
+                FOREIGN KEY(user_id) REFERENCES users(id),
+                FOREIGN KEY(code) REFERENCES promo_codes(code)
+            )
+        """)
+
         # Schema version tracking
         conn.execute("""
             CREATE TABLE IF NOT EXISTS schema_version (
@@ -901,6 +924,127 @@ def set_maintenance_mode(status: bool):
             json.dump({"maintenance": status}, f)
     except Exception as e:
         logger.error(f"[DB] Failed to write maintenance mode status: {e}")
+
+
+def add_promo_code(code: str, days: int, max_uses: int) -> bool:
+    """Create a new promo code (upper case)"""
+    try:
+        with get_connection() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO promo_codes (code, package_days, max_uses, uses_count) VALUES (?, ?, ?, 0)",
+                (code.upper().strip(), days, max_uses)
+            )
+            conn.commit()
+            return True
+    except Exception as e:
+        logger.error(f"[DB] add_promo_code exception: {e}")
+        return False
+
+
+def delete_promo_code(code: str) -> bool:
+    """Delete a promo code"""
+    try:
+        with get_connection() as conn:
+            conn.execute("DELETE FROM promo_codes WHERE code = ?", (code.upper().strip(),))
+            conn.commit()
+            return True
+    except Exception as e:
+        logger.error(f"[DB] delete_promo_code exception: {e}")
+        return False
+
+
+def get_active_promos() -> list:
+    """Get all active promo codes and their claim count"""
+    try:
+        with get_connection() as conn:
+            rows = conn.execute(
+                "SELECT code, package_days, max_uses, uses_count FROM promo_codes ORDER BY created_at DESC"
+            ).fetchall()
+            return [dict(r) for r in rows]
+    except Exception as e:
+        logger.error(f"[DB] get_active_promos exception: {e}")
+        return []
+
+
+def redeem_promo_code(user_id: int, code: str) -> str:
+    """
+    Safely redeems a promo code for a user inside a transaction.
+    Returns a status string: 'success:X:expiry_str', 'already_claimed', 'limit_reached', 'invalid', or 'error'.
+    """
+    code_upper = code.upper().strip()
+    try:
+        with get_connection() as conn:
+            # 1. Fetch the promo code details
+            promo = conn.execute(
+                "SELECT package_days, max_uses, uses_count FROM promo_codes WHERE code = ?",
+                (code_upper,)
+            ).fetchone()
+            if not promo:
+                return "invalid"
+
+            days = promo["package_days"]
+            max_uses = promo["max_uses"]
+            uses_count = promo["uses_count"]
+
+            # 2. Check if usage limit is reached
+            if max_uses > 0 and uses_count >= max_uses:
+                return "limit_reached"
+
+            # 3. Check if user already claimed this specific promo
+            already = conn.execute(
+                "SELECT 1 FROM promo_claims WHERE user_id = ? AND code = ?",
+                (user_id, code_upper)
+            ).fetchone()
+            if already:
+                return "already_claimed"
+
+            # 4. Atomic transaction update
+            user = conn.execute(
+                "SELECT is_member, expired_at FROM users WHERE id = ?",
+                (user_id,)
+            ).fetchone()
+            
+            if not user:
+                return "invalid_user"
+
+            from datetime import datetime, timedelta
+            now = datetime.now()
+            
+            current_expiry = None
+            if user["expired_at"]:
+                try:
+                    current_expiry = datetime.strptime(user["expired_at"], "%Y-%m-%d %H:%M:%S")
+                except ValueError:
+                    pass
+
+            if current_expiry and current_expiry > now:
+                new_expiry = current_expiry + timedelta(days=days)
+            else:
+                new_expiry = now + timedelta(days=days)
+
+            new_expiry_str = new_expiry.strftime("%Y-%m-%d %H:%M:%S")
+
+            conn.execute(
+                "UPDATE promo_codes SET uses_count = uses_count + 1 WHERE code = ?",
+                (code_upper,)
+            )
+            conn.execute(
+                "INSERT INTO promo_claims (user_id, code) VALUES (?, ?)",
+                (user_id, code_upper)
+            )
+            conn.execute(
+                "UPDATE users SET is_member = 1, expired_at = ? WHERE id = ?",
+                (new_expiry_str, user_id)
+            )
+            
+            clear_user_ram(user_id)
+            return f"success:{days}:{new_expiry_str}"
+            
+    except sqlite3.IntegrityError:
+        return "already_claimed"
+    except Exception as e:
+        logger.error(f"[DB] redeem_promo_code exception for user {user_id}: {e}")
+        return "error"
 
 
 # Only initialize automatically when run directly as main script

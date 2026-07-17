@@ -122,12 +122,14 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
         mode = "SANDBOX" if PAKASIR_SANDBOX else "QRIS Otomatis"
         info = (
             f"<b>Metode Pembayaran:</b> {mode}\n\n"
-            f"Silakan pilih paket pada tombol di bawah untuk membayar otomatis via QRIS."
+            f"Silakan pilih paket pada tombol di bawah untuk membayar otomatis via QRIS.\n"
+            f"Atau jika Anda memiliki kode promo, ketuk tombol <b>TUKAR KODE PROMO</b> di bawah."
         )
     else:
         info = (
             f"<b>Metode Pembayaran:</b> Manual\n\n"
-            f"Silakan hubungi {ADMIN_CONTACT} untuk proses aktivasi paket Anda."
+            f"Silakan hubungi {ADMIN_CONTACT} untuk proses aktivasi paket Anda.\n"
+            f"Atau jika Anda memiliki kode promo, ketuk tombol <b>TUKAR KODE PROMO</b> di bawah."
         )
 
     # Keyboard
@@ -145,11 +147,13 @@ async def cmd_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 InlineKeyboardButton("1 BULAN — 20K", callback_data="buy_vip_30", style="primary"),
                 InlineKeyboardButton("365 HARI — 100K", callback_data="buy_vip_365", style="primary")
             ],
+            [InlineKeyboardButton("TUKAR KODE PROMO", callback_data="vip_redeem_code")],
             [InlineKeyboardButton("RIWAYAT PEMBAYARAN", callback_data="vip_history", style="success")],
             [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
         ]
     else:
         rows = [
+            [InlineKeyboardButton("TUKAR KODE PROMO", callback_data="vip_redeem_code")],
             [InlineKeyboardButton("HUBUNGI ADMIN", url=f"https://t.me/{ADMIN_CONTACT.lstrip('@')}")],
             [InlineKeyboardButton("KEMBALI KE MENU", callback_data="back_to_start", style="danger")]
         ]

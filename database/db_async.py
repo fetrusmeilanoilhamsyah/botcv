@@ -172,6 +172,19 @@ class AsyncDB:
     async def log_broadcast(self, admin_id: int, message: str, success: int, fail: int):
         return await _run(db.log_broadcast, admin_id, message, success, fail)
 
+    # ── Promo / Redeem codes ──────────────────────────────────────────────────
+    async def add_promo_code(self, code: str, days: int, max_uses: int):
+        return await _run(db.add_promo_code, code, days, max_uses)
+
+    async def delete_promo_code(self, code: str):
+        return await _run(db.delete_promo_code, code)
+
+    async def get_active_promos(self):
+        return await _run(db.get_active_promos)
+
+    async def redeem_promo_code(self, user_id: int, code: str):
+        return await _run(db.redeem_promo_code, user_id, code)
+
 
 # Singleton — import ini di mana saja
 adb = AsyncDB()
