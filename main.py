@@ -588,6 +588,8 @@ async def cb_check_channel_join(update: Update, context):
 
     is_member = await check_channel_membership(context.bot, user_id)
     if is_member:
+        # Register user in DB if new (auto-grants 7-day VIP)
+        await adb.upsert_user(user_id, query.from_user.username or "", query.from_user.full_name or "")
         # Langsung jawab tanpa popup lalu redirect ke menu utama
         await query.answer()
         from handlers.start import handle_back_to_start

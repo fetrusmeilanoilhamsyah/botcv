@@ -255,8 +255,14 @@ _session_cache_lock = threading.Lock()
 # ─── USERS ────────────────────────────────────────────────────────────────────
 
 def upsert_user(user_id: int, username: str, full_name: str):
-    """Insert or update user information"""
+    """Insert or update user information. Grants 7 days VIP automatically to brand new users."""
     with get_connection() as conn:
+        row = conn.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+        is_new = row is None
+
+        now_dt = datetime.now()
+        now_str = now_dt.isoformat()
+
         conn.execute("""
             INSERT INTO users (id, username, full_name, last_active)
             VALUES (?, ?, ?, ?)
@@ -264,7 +270,16 @@ def upsert_user(user_id: int, username: str, full_name: str):
                 username    = excluded.username,
                 full_name   = excluded.full_name,
                 last_active = excluded.last_active
-        """, (user_id, username, full_name, datetime.now().isoformat()))
+        """, (user_id, username, full_name, now_str))
+
+        if is_new:
+            exp_str = (now_dt + timedelta(days=7)).strftime("%Y-%m-%d %H:%M:%S")
+            conn.execute(
+                "UPDATE users SET is_member = 1, expired_at = ? WHERE id = ?",
+                (exp_str, user_id)
+            )
+            logger.info("[DB] Auto-granted 7 days free VIP to brand new user %s", user_id)
+
         conn.commit()
 
 def increment_usage(user_id: int):
