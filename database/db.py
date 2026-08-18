@@ -610,10 +610,12 @@ def clear_session(user_id: int):
 
 
 def clear_user_ram(user_id: int):
-    """Clear user RAM data (session and buffers)"""
+    """Clear user RAM data (session, buffers, and VIP cache)"""
     with _session_cache_lock:
         _session_cache.pop(user_id, None)
         _all_buffers.pop(user_id, None)
+    with _vip_cache_lock:
+        _vip_cache.pop(user_id, None)
 
 
 # ─── BROADCAST LOG ────────────────────────────────────────────────────────────
