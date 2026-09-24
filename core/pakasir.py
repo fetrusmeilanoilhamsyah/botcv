@@ -1,14 +1,14 @@
 """
-core/pakasir.py - Pakasir Payment Gateway Client
+core/pakasir.py - Pakasir Payment Gateway Client (API v2)
 
-FIX SECURITY: validate_webhook sekarang verifikasi HMAC-SHA256 signature
-dari header X-Pakasir-Signature (jika Pakasir mendukung), PLUS validasi
-order_id + amount seperti sebelumnya.
+Migrasi dari v1 ke v2:
+- Endpoint baru: /api/v2/...
+- Auth pindah dari body ke header X-Api-Key
+- txn_id sebagai kunci utama untuk status check & cancel
+- validate_webhook: X-Pakasir-Signature (HMAC) → X-Secret (plain compare)
 
-Jika Pakasir belum support HMAC header, set PAKASIR_WEBHOOK_SECRET kosong
-di .env — validasi akan fallback ke order_id+amount saja sambil log warning.
+Deadline v1 deprecated: 20 Oktober 2026.
 """
-import hashlib
 import hmac
 import httpx
 import logging
@@ -30,61 +30,78 @@ class PakasirClient:
         self.api_key      = api_key
         self.sandbox      = sandbox
 
-    def _base_payload(self) -> Dict[str, Any]:
-        return {"project": self.project_slug, "api_key": self.api_key}
+    def _headers(self) -> Dict[str, str]:
+        """Auth header untuk semua request v2."""
+        return {
+            "X-Api-Key":    self.api_key,
+            "Content-Type": "application/json",
+        }
 
     async def create_transaction(
         self, order_id: str, amount: int, method: str = "qris"
     ) -> Optional[Dict[str, Any]]:
-        url     = f"{BASE_URL}/transactioncreate/{method}"
-        payload = {**self._base_payload(), "order_id": order_id, "amount": amount}
+        """
+        API v2: POST /api/v2/create-transaction/{slug}/{order_id}
+        Body: {"method": "qris", "amount": 20000}
+        Response langsung (tidak wrapped dalam "payment"):
+            {txn_id, qr_string, amount, fee, total_payment, status, expired_at, ...}
+        """
+        url     = f"{BASE_URL}/v2/create-transaction/{self.project_slug}/{order_id}"
+        payload = {"method": method, "amount": amount}
         try:
             async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-                resp = await client.post(url, json=payload)
+                resp = await client.post(url, json=payload, headers=self._headers())
             if resp.status_code == 200:
                 data = resp.json()
-                logger.info("[Pakasir] Transaction created: %s", order_id)
-                return data.get("payment")
-            logger.error("[Pakasir] Create failed %s: %s", resp.status_code, resp.text[:200])
+                logger.info("[Pakasir] Transaction created: %s | txn_id=%s", order_id, data.get("txn_id"))
+                return data  # v2 tidak wrapped, langsung return
+            logger.error("[Pakasir] Create failed %s: %s", resp.status_code, resp.text[:300])
         except Exception as exc:
             logger.error("[Pakasir] create_transaction error: %s", exc)
         return None
 
     async def get_transaction_status(
-        self, order_id: str, amount: int
+        self, txn_id: str
     ) -> Optional[Dict[str, Any]]:
-        url    = f"{BASE_URL}/transactiondetail"
-        params = {**self._base_payload(), "order_id": order_id, "amount": amount}
+        """
+        API v2: GET /api/v2/transaction-status/{slug}/{txn_id}
+        Response: {txn_id, order_id, amount, status, completed_at, is_sandbox}
+        """
+        url = f"{BASE_URL}/v2/transaction-status/{self.project_slug}/{txn_id}"
         try:
             async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-                resp = await client.get(url, params=params)
+                resp = await client.get(url, headers=self._headers())
             if resp.status_code == 200:
-                return resp.json().get("transaction")
-            logger.error("[Pakasir] Status check failed %s: %s", resp.status_code, resp.text[:200])
+                return resp.json()  # v2 tidak wrapped
+            logger.error("[Pakasir] Status check failed %s: %s", resp.status_code, resp.text[:300])
         except Exception as exc:
             logger.error("[Pakasir] get_transaction_status error: %s", exc)
         return None
 
-    async def cancel_transaction(self, order_id: str, amount: int) -> bool:
-        url     = f"{BASE_URL}/transactioncancel"
-        payload = {**self._base_payload(), "order_id": order_id, "amount": amount}
+    async def cancel_transaction(self, txn_id: str) -> bool:
+        """
+        API v2: POST /api/v2/cancel-transaction/{slug}/{txn_id}
+        Tidak perlu body. Response: {"message": "Berhasil batalkan transaksi"}
+        """
+        url = f"{BASE_URL}/v2/cancel-transaction/{self.project_slug}/{txn_id}"
         try:
             async with httpx.AsyncClient(timeout=TIMEOUT) as client:
-                resp = await client.post(url, json=payload)
+                resp = await client.post(url, headers=self._headers())
             if resp.status_code == 200:
-                logger.info("[Pakasir] Cancelled: %s", order_id)
+                logger.info("[Pakasir] Cancelled txn_id: %s", txn_id)
                 return True
-            logger.error("[Pakasir] Cancel failed %s: %s", resp.status_code, resp.text[:200])
+            logger.error("[Pakasir] Cancel failed %s: %s", resp.status_code, resp.text[:300])
         except Exception as exc:
             logger.error("[Pakasir] cancel_transaction error: %s", exc)
         return False
 
     async def simulate_payment(self, order_id: str, amount: int) -> bool:
+        """Hanya untuk sandbox mode."""
         if not self.sandbox:
             logger.warning("[Pakasir] simulate_payment only in sandbox mode")
             return False
         url     = f"{BASE_URL}/paymentsimulation"
-        payload = {**self._base_payload(), "order_id": order_id, "amount": amount}
+        payload = {"project": self.project_slug, "api_key": self.api_key, "order_id": order_id, "amount": amount}
         try:
             async with httpx.AsyncClient(timeout=TIMEOUT) as client:
                 resp = await client.post(url, json=payload)
@@ -98,69 +115,55 @@ class PakasirClient:
         payload: Dict[str, Any],
         expected_order_id: str,
         expected_amount: int,
-        signature_header: Optional[str] = None,
-        raw_body: Optional[bytes] = None,
+        secret_header: Optional[str] = None,
+        raw_body: Optional[bytes] = None,  # kept for backwards compat, not used in v2
     ) -> bool:
         """
-        Validasi webhook dari Pakasir.
+        Validasi webhook dari Pakasir v2.
 
-        Layer 1 (HMAC) — dijalankan jika PAKASIR_WEBHOOK_SECRET di-set DAN
-        Pakasir mengirim header X-Pakasir-Signature:
-            expected = HMAC-SHA256(secret, raw_body).hexdigest()
-            harus cocok dengan signature_header
+        v2 menggunakan header X-Secret (plain string, bukan HMAC).
+        Set PAKASIR_WEBHOOK_SECRET di .env — nilai diambil dari dashboard Pakasir
+        di halaman detail proyek bagian bawah.
 
-        Layer 2 (order_id + amount) — selalu dijalankan.
-
-        NOTE: Status check (completed/pending/etc) TIDAK dilakukan di sini.
-        Handler webhook yang bertanggung jawab atas logika per-status.
-        Jika secret belum di-set, Layer 1 dilewati + warning di log.
+        Layer 1: Bandingkan X-Secret header dengan PAKASIR_WEBHOOK_SECRET env.
+        Layer 2: Pastikan order_id dan status ada di payload.
         """
         try:
-            # ── Layer 1: HMAC signature ──────────────────────────────────────
             webhook_secret = os.getenv("PAKASIR_WEBHOOK_SECRET", "").strip()
+
+            # ── Layer 1: X-Secret plain compare ──────────────────────────────
             if webhook_secret:
-                if signature_header and raw_body:
-                    # FIX: gunakan hmac.HMAC() dengan keyword arg digestmod agar eksplisit
-                    expected_sig = hmac.HMAC(
-                        key=webhook_secret.encode(),
-                        msg=raw_body,
-                        digestmod=hashlib.sha256
-                    ).hexdigest()
-                    if not hmac.compare_digest(expected_sig, signature_header.lower()):
-                        logger.error("[Pakasir] HMAC signature mismatch: %s", expected_order_id)
+                if secret_header:
+                    if not hmac.compare_digest(webhook_secret, secret_header.strip()):
+                        logger.error("[Pakasir] X-Secret mismatch untuk order: %s", expected_order_id)
                         return False
-                    logger.debug("[Pakasir] HMAC OK: %s", expected_order_id)
+                    logger.debug("[Pakasir] X-Secret OK: %s", expected_order_id)
                 else:
-                    # Secret ada tapi Pakasir tidak kirim header — tolak
                     logger.error(
-                        "[Pakasir] PAKASIR_WEBHOOK_SECRET diset tapi header "
-                        "X-Pakasir-Signature tidak ada. Tolak request."
+                        "[Pakasir] PAKASIR_WEBHOOK_SECRET diset tapi header X-Secret tidak ada. Tolak."
                     )
                     return False
             else:
                 logger.warning(
                     "[Pakasir] PAKASIR_WEBHOOK_SECRET tidak diset! "
-                    "Webhook hanya divalidasi via order_id+amount. "
+                    "Webhook hanya divalidasi via order_id+status. "
                     "Set secret di .env untuk keamanan penuh."
                 )
 
-            # ── Layer 2: field wajib + order_id + amount ─────────────────────
+            # ── Layer 2: field wajib ──────────────────────────────────────────
             recv_order  = payload.get("order_id")
-            recv_amount = payload.get("amount")
             recv_status = payload.get("status")
 
-            if not all([recv_order, recv_amount, recv_status]):
-                logger.warning("[Pakasir] Webhook: field tidak lengkap (order_id/amount/status)")
+            if not all([recv_order, recv_status]):
+                logger.warning("[Pakasir] Webhook: field order_id/status tidak lengkap")
                 return False
             if recv_order != expected_order_id:
-                logger.warning("[Pakasir] Webhook: order_id mismatch (%s vs %s)", recv_order, expected_order_id)
-                return False
-            if int(recv_amount) != int(expected_amount):
-                logger.warning("[Pakasir] Webhook: amount mismatch (%s vs %s)", recv_amount, expected_amount)
+                logger.warning(
+                    "[Pakasir] Webhook: order_id mismatch (%s vs %s)",
+                    recv_order, expected_order_id
+                )
                 return False
 
-            # Status apapun (completed/expired/cancelled) dianggap valid —
-            # handler yang akan memutuskan tindakan berdasarkan status.
             return True
 
         except Exception as exc:

@@ -77,10 +77,10 @@ async def handle_pakasir_webhook(request: web.Request) -> web.Response:
         except Exception:
             return web.Response(status=400, text="Cannot read body")
 
-        # Ambil HMAC signature dari header
-        signature_header = request.headers.get("X-Pakasir-Signature", "").strip() or None
+        # v2: Ambil plain secret dari header X-Secret (bukan HMAC)
+        secret_header = request.headers.get("X-Secret", "").strip() or None
 
-        # Parse JSON dari raw body (bukan request.json() agar raw body tetap tersedia)
+        # Parse JSON dari raw body
         try:
             payload = json.loads(raw_body)
         except (json.JSONDecodeError, Exception):
@@ -93,7 +93,7 @@ async def handle_pakasir_webhook(request: web.Request) -> web.Response:
 
         logger.info("[Webhook] Received: order=%s status=%s ip=%s", order_id, status, ip)
 
-        if not all([order_id, amount, status]):
+        if not all([order_id, status]):
             return web.Response(status=400, text="Missing required fields")
 
         # FIX: Semua DB call dijalankan via run_in_executor agar tidak blokir aiohttp event loop.
@@ -105,17 +105,16 @@ async def handle_pakasir_webhook(request: web.Request) -> web.Response:
             logger.warning("[Webhook] Order tidak ditemukan: %s", order_id)
             return web.Response(status=200, text="Order not found")
 
-        # FIX SECURITY: Validasi HMAC + order_id + amount
+        # v2: Validasi X-Secret + order_id (amount tidak wajib di payload v2)
         if not PakasirClient.validate_webhook(
             payload,
             expected_order_id=payment["order_id"],
             expected_amount=payment["amount"],
-            signature_header=signature_header,
-            raw_body=raw_body,
+            secret_header=secret_header,
         ):
             logger.error(
-                "[Webhook] Validasi gagal untuk order=%s. SignatureHeader=%s SecretDiset=%s Payload=%s",
-                order_id, signature_header, bool(os.getenv("PAKASIR_WEBHOOK_SECRET", "").strip()), payload
+                "[Webhook] Validasi gagal untuk order=%s. SecretHeader=%s SecretDiset=%s Payload=%s",
+                order_id, secret_header, bool(os.getenv("PAKASIR_WEBHOOK_SECRET", "").strip()), payload
             )
             return web.Response(status=400, text="Validation failed")
 

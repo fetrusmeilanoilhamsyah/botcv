@@ -240,28 +240,29 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     original_amount = package["price"]
     total_payment   = payment.get("total_payment", original_amount)
+    txn_id          = payment.get("txn_id")       # v2: kunci untuk status check & cancel
+    qr_string       = payment.get("qr_string", "") # v2: field berubah dari payment_number
 
     saved = await adb.create_payment(
         user_id=user.id,
         order_id=order_id,
         amount=original_amount,
         package_days=days,
-        payment_number=payment.get("payment_number"),
+        payment_number=qr_string,   # simpan juga di payment_number untuk kompatibilitas
         expired_at=payment.get("expired_at"),
+        txn_id=txn_id,
     )
 
     if not saved:
         logger.error("[VIP] Gagal simpan ke DB: %s", order_id)
-        await client.cancel_transaction(order_id, original_amount)
+        if txn_id:
+            await client.cancel_transaction(txn_id)
         await msg.edit_text("Error menyimpan data. Silakan coba lagi.")
         return
-
-    qr_string = payment.get("payment_number", "")
 
     # Tampilkan waktu expired (5 menit dari sekarang secara lokal WIB)
     try:
         from datetime import timezone, timedelta
-        # Konversi ke Asia/Jakarta (WIB, UTC+7)
         jakarta_tz = timezone(timedelta(hours=7))
         exp_dt_jakarta = datetime.now(jakarta_tz) + timedelta(minutes=5)
         exp_text = exp_dt_jakarta.strftime("%d/%m/%Y %H:%M") + " WIB (5 Menit)"
@@ -296,7 +297,7 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 chat_id=user.id, photo=buf, caption=caption, parse_mode="HTML", reply_markup=kb
             )
             try:
-                await msg.delete()  # hapus loading message setelah foto berhasil terkirim
+                await msg.delete()
             except Exception as e:
                 logger.debug("[VIP] Gagal hapus loading message: %s", e)
             qr_chat_id    = sent.chat_id
@@ -305,7 +306,6 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.warning("[VIP] Gagal render QR image: %s", exc)
 
     if qr_message_id is None:
-        # Fallback: msg loading masih ada, edit jadi teks QRIS
         try:
             sent = await msg.edit_text(
                 f"{caption}\n\nQRIS String:\n<code>{qr_string}</code>",
@@ -313,7 +313,6 @@ async def handle_buy_vip(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=kb,
             )
         except Exception as exc:
-            # msg mungkin sudah hilang karena exception saat send_photo, kirim baru
             logger.warning("[VIP] Fallback edit_text gagal, kirim pesan baru: %s", exc)
             sent = await context.bot.send_message(
                 chat_id=user.id,
@@ -385,9 +384,13 @@ async def handle_check_payment(update: Update, context: ContextTypes.DEFAULT_TYP
             await send_fresh_start_menu(context.bot, user.id, chat_id, user.first_name or "Kawan")
             return
 
-        txn = await _pakasir().get_transaction_status(
-            order_id=order_id, amount=payment["amount"]
-        )
+        txn = None
+        txn_id = payment.get("txn_id")
+        if txn_id:
+            txn = await _pakasir().get_transaction_status(txn_id=txn_id)
+        else:
+            # Fallback untuk transaksi lama (sebelum v2) yang tidak punya txn_id
+            logger.warning("[VIP] check_payment: txn_id tidak ada untuk order %s (transaksi lama)", order_id)
 
         if txn and txn.get("status") == "completed":
             was_updated = await adb.complete_payment_if_pending(order_id, datetime.now().isoformat())
@@ -463,7 +466,23 @@ async def handle_cancel_payment(update: Update, context: ContextTypes.DEFAULT_TY
             await send_fresh_start_menu(context.bot, user.id, chat_id, user.first_name or "Kawan")
             return
 
-        ok = await _pakasir().cancel_transaction(order_id, payment["amount"])
+        txn_id = payment.get("txn_id")
+        if not txn_id:
+            # Transaksi lama (sebelum v2) tidak punya txn_id — cancel tidak bisa dilakukan via API
+            # Langsung update DB saja
+            logger.warning("[VIP] cancel_payment: txn_id tidak ada untuk order %s (transaksi lama)", order_id)
+            await adb.update_payment_status(order_id, "cancelled")
+            await _delete_qr_message(context.bot, payment)
+            try:
+                await query.message.delete()
+            except Exception:
+                pass
+            await query.answer("Pembayaran berhasil dibatalkan.", show_alert=True)
+            from handlers.start import send_fresh_start_menu
+            await send_fresh_start_menu(context.bot, user.id, chat_id, user.first_name or "Kawan")
+            return
+
+        ok = await _pakasir().cancel_transaction(txn_id)
         if ok:
             await adb.update_payment_status(order_id, "cancelled")
             await _delete_qr_message(context.bot, payment)

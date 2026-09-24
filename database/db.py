@@ -232,6 +232,9 @@ def init_db():
             except Exception:
                 pass  # kolom sudah ada
 
+        # Migrasi v2: tambah kolom txn_id (Pakasir API v2 — diperlukan untuk status check & cancel)
+        safe_add_column("payments", "txn_id TEXT DEFAULT NULL")
+
         conn.commit()
         print(f"✅ Database tables and indexes initialized")
 
@@ -731,20 +734,21 @@ def create_payment(
     expired_at: str = None,
     qr_chat_id: int = None,
     qr_message_id: int = None,
+    txn_id: str = None,
 ) -> bool:
-    """Create new payment record"""
+    """Create new payment record. txn_id wajib diisi untuk Pakasir API v2."""
     try:
         with get_connection() as conn:
             conn.execute("""
                 INSERT INTO payments (
                     user_id, order_id, amount, package_days,
                     payment_method, payment_number, expired_at, status,
-                    qr_chat_id, qr_message_id
+                    qr_chat_id, qr_message_id, txn_id
                 )
-                VALUES (?, ?, ?, ?, 'qris', ?, ?, 'pending', ?, ?)
-            """, (user_id, order_id, amount, package_days, payment_number, expired_at, qr_chat_id, qr_message_id))
+                VALUES (?, ?, ?, ?, 'qris', ?, ?, 'pending', ?, ?, ?)
+            """, (user_id, order_id, amount, package_days, payment_number, expired_at, qr_chat_id, qr_message_id, txn_id))
             conn.commit()
-        logger.info(f"[DB] Payment created: {order_id} for user {user_id}")
+        logger.info(f"[DB] Payment created: {order_id} | txn_id={txn_id} for user {user_id}")
         return True
     except sqlite3.IntegrityError as e:
         logger.error(f"[DB] Payment create failed (duplicate?): {e}")

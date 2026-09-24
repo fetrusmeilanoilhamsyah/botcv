@@ -119,6 +119,7 @@ class AsyncDB:
         expired_at: str = None,
         qr_chat_id: int = None,
         qr_message_id: int = None,
+        txn_id: str = None,
     ) -> bool:
         return await _run(
             db.create_payment,
@@ -130,6 +131,7 @@ class AsyncDB:
             expired_at=expired_at,
             qr_chat_id=qr_chat_id,
             qr_message_id=qr_message_id,
+            txn_id=txn_id,
         )
 
     async def get_payment(self, order_id: str):
