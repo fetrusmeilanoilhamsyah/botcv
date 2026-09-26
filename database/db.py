@@ -1019,7 +1019,8 @@ def redeem_promo_code(user_id: int, code: str) -> str:
             current_expiry = None
             if user["expired_at"]:
                 try:
-                    current_expiry = datetime.strptime(user["expired_at"], "%Y-%m-%d %H:%M:%S")
+                    # Support both space and T separator, and fractional seconds
+                    current_expiry = datetime.fromisoformat(user["expired_at"])
                 except ValueError:
                     pass
 
